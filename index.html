@@ -352,6 +352,74 @@ textarea.form-inp{resize:vertical;min-height:65px;}
 /* Modal de subtarea */
 .sub-modal{max-width:500px;}
 
+
+/* ── ÁRBOL JERÁRQUICO DE TAREAS ── */
+.tree-toolbar{display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:10px 14px;background:var(--c-bg2);border:1px solid var(--c-border);border-radius:var(--radius);flex-wrap:wrap;}
+.tree-toolbar-label{font-size:11px;color:var(--c-text3);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-right:4px;}
+.tree-btn{padding:5px 12px;border-radius:20px;border:1px solid var(--c-border);background:var(--c-bg3);color:var(--c-text2);font-size:11px;font-weight:500;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:5px;}
+.tree-btn:hover{background:var(--c-border2);color:var(--c-text);}
+.tree-btn.active{background:var(--accent-light);border-color:var(--accent);color:var(--c-text);}
+
+/* Tarea en árbol */
+.tree-task{background:var(--c-bg2);border:1px solid var(--c-border);border-radius:var(--radius);margin-bottom:8px;overflow:hidden;transition:box-shadow .15s;}
+.tree-task:hover{box-shadow:0 2px 10px rgba(0,0,0,.06);}
+.tree-task-hdr{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;position:relative;}
+.tree-task-hdr::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:3px 0 0 3px;}
+.tree-task-hdr.p-high::before{background:#e05252;}
+.tree-task-hdr.p-medium::before{background:#e0a752;}
+.tree-task-hdr.p-low::before{background:#52a8e0;}
+.tree-expand{width:20px;height:20px;border-radius:4px;border:none;background:transparent;color:var(--c-text3);cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;}
+.tree-expand:hover{background:var(--c-bg3);}
+.tree-expand .arr{transition:transform .2s;display:inline-block;}
+.tree-expand.open .arr{transform:rotate(90deg);}
+.tree-task-check{width:18px;height:18px;border-radius:50%;border:2px solid var(--c-border2);flex-shrink:0;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;font-size:9px;}
+.tree-task-check:hover{border-color:var(--accent);}
+.tree-task-check.checked{background:var(--accent);border-color:var(--accent);color:#fff;}
+.tree-task-info{flex:1;min-width:0;}
+.tree-task-title{font-size:13px;font-weight:600;color:var(--c-text);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tree-task-title.done{text-decoration:line-through;color:var(--c-text3);}
+.tree-task-meta{display:flex;align-items:center;gap:7px;flex-wrap:wrap;}
+.tree-task-actions{display:flex;gap:4px;opacity:0;transition:opacity .15s;flex-shrink:0;}
+.tree-task-hdr:hover .tree-task-actions{opacity:1;}
+.tree-act{width:24px;height:24px;border-radius:6px;border:none;background:var(--c-bg3);color:var(--c-text2);cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.tree-act:hover{background:var(--c-border2);}
+.tree-act.del:hover{background:rgba(224,82,82,.1);color:#e05252;}
+.tree-sub-count{font-size:10px;background:var(--c-bg3);color:var(--c-text3);padding:1px 7px;border-radius:20px;border:1px solid var(--c-border);}
+
+/* Nivel subtareas */
+.tree-subs{border-top:1px solid var(--c-border);background:var(--c-bg3);}
+.tree-sub-item{display:flex;align-items:flex-start;gap:9px;padding:9px 14px 9px 36px;border-bottom:1px solid var(--c-border);position:relative;transition:background .12s;}
+.tree-sub-item:last-child{border-bottom:none;}
+.tree-sub-item:hover{background:var(--c-bg2);}
+.tree-sub-item::before{content:'';position:absolute;left:20px;top:0;bottom:0;width:2px;background:var(--c-border);}
+.tree-sub-item.p-high::after{content:'';position:absolute;left:19px;top:0;bottom:0;width:2px;background:#e05252;}
+.tree-sub-item.p-medium::after{content:'';position:absolute;left:19px;top:0;bottom:0;width:2px;background:#e0a752;}
+.tree-sub-item.p-low::after{content:'';position:absolute;left:19px;top:0;bottom:0;width:2px;background:#52a8e0;}
+.tree-sub-info{flex:1;min-width:0;}
+.tree-sub-title{font-size:12px;font-weight:500;color:var(--c-text);margin-bottom:2px;cursor:text;}
+.tree-sub-title.done{text-decoration:line-through;color:var(--c-text3);}
+.tree-sub-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.tree-sub-actions{display:flex;gap:3px;opacity:0;transition:opacity .15s;flex-shrink:0;}
+.tree-sub-item:hover .tree-sub-actions{opacity:1;}
+
+/* Nivel sub-subtareas */
+.tree-subsubs{background:var(--c-bg2);}
+.tree-subsub-item{display:flex;align-items:center;gap:8px;padding:7px 14px 7px 56px;border-bottom:1px solid var(--c-border);position:relative;transition:background .12s;}
+.tree-subsub-item:last-child{border-bottom:none;}
+.tree-subsub-item:hover{background:var(--c-bg3);}
+.tree-subsub-item::before{content:'└';position:absolute;left:42px;color:var(--c-text3);font-size:11px;}
+.tree-subsub-title{font-size:11px;color:var(--c-text2);flex:1;cursor:text;}
+.tree-subsub-title.done{text-decoration:line-through;color:var(--c-text3);}
+.tree-subsub-actions{display:flex;gap:3px;opacity:0;transition:opacity .15s;}
+.tree-subsub-item:hover .tree-subsub-actions{opacity:1;}
+
+/* Inline add en árbol */
+.tree-add-row{display:flex;align-items:center;gap:7px;padding:7px 14px 7px 36px;border-top:1px dashed var(--c-border);background:var(--c-bg3);}
+.tree-add-inp{flex:1;border:none;background:transparent;font-size:12px;font-family:'DM Sans',sans-serif;color:var(--c-text);outline:none;padding:3px 0;border-bottom:1px solid transparent;transition:border-color .15s;}
+.tree-add-inp:focus{border-bottom-color:var(--accent);}
+.tree-add-inp::placeholder{color:var(--c-text3);}
+.tree-subsub-add-row{display:flex;align-items:center;gap:7px;padding:6px 14px 6px 56px;border-top:1px dashed var(--c-border);background:var(--c-bg2);}
+
 /* ── DRAG & DROP ── */
 .task-item{transition:all .15s,box-shadow .15s;}
 .task-item[draggable="true"]{cursor:grab;}
@@ -1191,27 +1259,275 @@ function buildTaskCards(list){
   }).join('');
 }
 
+// Estado global de expansión del árbol
+const treeState = {}; // taskId -> {open: bool, subs: {subId -> {open: bool}}}
+
+function getTreeState(taskId, subId) {
+  if(!treeState[taskId]) treeState[taskId] = {open: true, subs: {}};
+  if(subId !== undefined) {
+    if(!treeState[taskId].subs[subId]) treeState[taskId].subs[subId] = {open: true};
+    return treeState[taskId].subs[subId];
+  }
+  return treeState[taskId];
+}
+
+function treeExpandAll() {
+  const list = getFiltered(curView==='midia');
+  list.forEach(t => {
+    treeState[t.id] = {open: true, subs: {}};
+    (t.subtasks||[]).forEach(s => {
+      treeState[t.id].subs[s.id] = {open: true};
+    });
+  });
+  renderView();
+  toast('📂','Todo expandido');
+}
+
+function treeCollapseAll() {
+  const list = getFiltered(curView==='midia');
+  list.forEach(t => {
+    treeState[t.id] = {open: false, subs: {}};
+    (t.subtasks||[]).forEach(s => {
+      treeState[t.id].subs[s.id] = {open: false};
+    });
+  });
+  renderView();
+  toast('📁','Todo colapsado');
+}
+
+function treeCollapseSubsOnly() {
+  const list = getFiltered(curView==='midia');
+  list.forEach(t => {
+    if(!treeState[t.id]) treeState[t.id] = {open: true, subs: {}};
+    treeState[t.id].open = true; // tareas abiertas
+    (t.subtasks||[]).forEach(s => {
+      treeState[t.id].subs[s.id] = {open: false}; // sub-subtareas cerradas
+    });
+  });
+  renderView();
+  toast('📋','Sub-subtareas colapsadas');
+}
+
+function toggleTreeTask(taskId) {
+  const st = getTreeState(taskId);
+  st.open = !st.open;
+  const body = document.getElementById('treebody-'+taskId);
+  const btn  = document.getElementById('treeexp-'+taskId);
+  if(body) body.style.display = st.open ? 'block' : 'none';
+  if(btn)  btn.classList.toggle('open', st.open);
+}
+
+function toggleTreeSub(taskId, subId) {
+  const st = getTreeState(taskId, subId);
+  st.open = !st.open;
+  const body = document.getElementById('treesubbody-'+taskId+'-'+subId);
+  const btn  = document.getElementById('treesubexp-'+taskId+'-'+subId);
+  if(body) body.style.display = st.open ? 'block' : 'none';
+  if(btn)  btn.classList.toggle('open', st.open);
+}
+
 function buildList(todayOnly){
-  const list=getFiltered(todayOnly);
-  const qa=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-    <div class="quick-add-wrap" style="flex:1;margin-bottom:0"><span style="font-size:16px;color:var(--c-text3)">＋</span>
-      <input placeholder="Tarea rápida… presiona Enter para guardar" onkeydown="quickAdd(event,this)"/>
-    </div>
-    <button onclick="exportToExcel()" title="Exportar a Excel"
-      style="padding:8px 13px;border-radius:20px;border:1px solid var(--c-border);background:var(--c-bg2);color:var(--c-text2);cursor:pointer;font-size:12px;font-weight:500;white-space:nowrap;display:flex;align-items:center;gap:5px">
-      📊 Excel
-    </button>
-    <button onclick="document.getElementById('importFileInp').click()" title="Importar CSV"
-      style="padding:8px 13px;border-radius:20px;border:1px solid var(--c-border);background:var(--c-bg2);color:var(--c-text2);cursor:pointer;font-size:12px;font-weight:500;white-space:nowrap;display:flex;align-items:center;gap:5px">
-      📥 Importar
-    </button>
-    <button onclick="downloadTemplate()" title="Descargar plantilla"
-      style="padding:8px 13px;border-radius:20px;border:1px solid var(--c-border);background:var(--c-bg2);color:var(--c-text2);cursor:pointer;font-size:12px;font-weight:500;white-space:nowrap;display:flex;align-items:center;gap:5px">
-      📋 Plantilla
-    </button>
+  const list = getFiltered(todayOnly);
+
+  // Toolbar
+  const toolbar = `<div class="tree-toolbar">
+    <span class="tree-toolbar-label">Vista árbol:</span>
+    <button class="tree-btn" onclick="treeExpandAll()">📂 Expandir todo</button>
+    <button class="tree-btn" onclick="treeCollapseSubsOnly()">📋 Colapsar sub-subtareas</button>
+    <button class="tree-btn" onclick="treeCollapseAll()">📁 Colapsar todo</button>
+    <div style="flex:1"></div>
+    <button onclick="exportToExcel()" class="tree-btn">📊 Excel</button>
+    <button onclick="document.getElementById('importFileInp').click()" class="tree-btn">📥 Importar</button>
+    <button onclick="openTaskModal()" class="btn-primary" style="font-size:12px;padding:6px 14px">＋ Nueva tarea</button>
   </div>`;
-  const cards=list.length?buildTaskCards(list):`<div class="empty"><div class="empty-icon">✨</div><div class="empty-ttl">Sin pendientes</div><div class="empty-sub">Todo bajo control.</div></div>`;
-  return qa+`<div class="task-list">${cards}</div>`;
+
+  // Quick add
+  const qa = `<div class="quick-add-wrap" style="margin-bottom:12px">
+    <span style="font-size:16px;color:var(--c-text3)">＋</span>
+    <input placeholder="Tarea rápida… presiona Enter para guardar" onkeydown="quickAdd(event,this)"/>
+  </div>`;
+  if(!list.length) return toolbar + qa + `<div class="empty"><div class="empty-icon">✨</div><div class="empty-ttl">Sin pendientes</div><div class="empty-sub">Todo bajo control.</div></div>`;
+
+  const treeHTML = list.map(t => buildTreeTask(t)).join('');
+  return toolbar + qa + treeHTML;
+}
+
+// ── CONSTRUIR TAREA EN VISTA ÁRBOL ──
+function buildTreeTask(t) {
+  const st      = getTreeState(t.id);
+  const isOpen  = st.open !== false; // abierto por defecto
+  const hasSubs = (t.subtasks||[]).length > 0;
+  const doneCls = t.done ? 'done' : '';
+  const subDone = (t.subtasks||[]).filter(s=>s.done).length;
+  const subTot  = (t.subtasks||[]).length;
+  const prio    = t.priority||'none';
+  const dc      = t.date===TODAY?'today':(t.date&&t.date<TODAY?'overdue':'');
+  const dl      = t.date===TODAY?'🟢 Hoy':(t.date?'📅 '+t.date:'');
+  const ctxC    = contexts.find(c=>c.id===t.ctx);
+  const ctxBadge= curCtxFilter==='all'&&ctxC?`<span style="font-size:9px;padding:1px 5px;border-radius:10px;background:${ctxC.color}22;color:${ctxC.color}">${ctxC.icon}</span>`:'';
+  const tagHTML = (t.tags||[]).map(tag=>{const c=tagColor(tag);return`<span class="tag-pill" style="background:${c}22;color:${c}">${tag}</span>`;}).join('');
+  const pj      = t.projId?projects.find(p=>p.id===t.projId):null;
+  const pjl     = pj?`<span style="font-size:9px;color:var(--c-text3);background:var(--c-bg3);padding:1px 5px;border-radius:3px">📁${pj.name.slice(0,16)}</span>`:'';
+  const recurBadge = t.recurring&&t.recurring!=='none'?`<span style="font-size:10px;color:var(--c-text3)">🔁</span>`:'';
+  const attBadge   = t.attachments&&t.attachments.length?`<span style="font-size:10px;color:var(--c-text3)">📎${t.attachments.length}</span>`:'';
+
+  // Barra de progreso subtareas
+  const pct    = subTot ? Math.round(subDone/subTot*100) : 0;
+  const progBar= subTot ? `<div style="display:flex;align-items:center;gap:5px">
+    <div style="width:50px;height:3px;background:var(--c-border);border-radius:2px;overflow:hidden">
+      <div style="height:100%;width:${pct}%;background:var(--accent);border-radius:2px"></div>
+    </div>
+    <span style="font-size:10px;color:var(--c-text3)">${subDone}/${subTot}</span>
+  </div>` : '';
+
+  // Subtareas
+  const subsHTML = hasSubs ? buildTreeSubs(t, isOpen) : '';
+  const addSubRow = `<div class="tree-add-row">
+    <span style="color:var(--c-text3);font-size:13px">＋</span>
+    <input class="tree-add-inp" placeholder="Nueva subtarea (Enter para guardar)"
+      onclick="event.stopPropagation()"
+      onkeydown="event.stopPropagation();quickAddSub(event,${t.id},this)"/>
+    <button onclick="event.stopPropagation();openSubModal('sub',${t.id},null,null)"
+      style="font-size:11px;padding:3px 8px;border-radius:12px;border:1px solid var(--c-border);background:var(--c-bg2);color:var(--c-text2);cursor:pointer">+ Detalle</button>
+  </div>`;
+
+  return `<div class="tree-task" id="treeparent-${t.id}"
+    draggable="true"
+    ondragstart="onTaskDragStart(event,${t.id})"
+    ondragover="onTaskDragOver(event,${t.id})"
+    ondragleave="onTaskDragLeave(event)"
+    ondrop="onTaskDrop(event,${t.id})"
+    ondragend="onTaskDragEnd(event)">
+    <div class="tree-task-hdr p-${prio}" onclick="openDetail(${t.id})">
+      <span class="drag-handle" onclick="event.stopPropagation()" title="Arrastra">⠿</span>
+      <button id="treeexp-${t.id}" class="tree-expand ${isOpen&&hasSubs?'open':''}"
+        onclick="event.stopPropagation();toggleTreeTask(${t.id})"
+        style="visibility:${hasSubs?'visible':'hidden'}">
+        <span class="arr">▶</span>
+      </button>
+      <div class="tree-task-check ${t.done?'checked':''}"
+        onclick="event.stopPropagation();toggleDone(${t.id})">${t.done?'✓':''}</div>
+      <div class="tree-task-info">
+        <div class="tree-task-title ${doneCls}">${t.title}</div>
+        <div class="tree-task-meta">${tagHTML}${pjl}${ctxBadge}${dl?`<span class="task-due ${dc}">${dl}</span>`:''}${recurBadge}${attBadge}${progBar}</div>
+      </div>
+      <div class="tree-task-actions" onclick="event.stopPropagation()">
+        <button class="tree-act" onclick="openSubModal('sub',${t.id},null,null)" title="Nueva subtarea">➕</button>
+        <button class="tree-act" onclick="openTaskModal(${t.id})" title="Editar">✏️</button>
+        <button class="tree-act del" onclick="deleteTask(${t.id})" title="Eliminar">🗑️</button>
+      </div>
+    </div>
+    <div id="treebody-${t.id}" style="display:${isOpen&&hasSubs?'block':'none'}">
+      <div class="tree-subs">${subsHTML}</div>
+      ${addSubRow}
+    </div>
+  </div>`;
+}
+
+// ── CONSTRUIR SUBTAREAS EN ÁRBOL ──
+function buildTreeSubs(task, taskOpen) {
+  return (task.subtasks||[]).map(s => {
+    const st       = getTreeState(task.id, s.id);
+    const isOpen   = st.open !== false;
+    const hasSubsub= (s.subsubtasks||[]).length > 0;
+    const prio     = s.priority||'none';
+    const doneCls  = s.done ? 'done' : '';
+    const tagHTML  = (s.tags||[]).map(tag=>{const c=tagColor(tag);return`<span style="font-size:9px;padding:1px 5px;border-radius:10px;background:${c}22;color:${c}">${tag}</span>`;}).join('');
+    const pMark    = {high:'🔴',medium:'🟡',low:'🔵',none:''}[prio]||'';
+    const ssDone   = (s.subsubtasks||[]).filter(ss=>ss.done).length;
+    const ssTot    = (s.subsubtasks||[]).length;
+    const ssProgBar= ssTot?`<span style="font-size:10px;color:var(--c-text3)">📋${ssDone}/${ssTot}</span>`:'';
+
+    // Sub-subtareas
+    const subsubsHTML = hasSubsub ? buildTreeSubsubs(task.id, s, isOpen) : '';
+    const addSubsubRow = `<div class="tree-subsub-add-row">
+      <span style="color:var(--c-text3);font-size:12px">└＋</span>
+      <input class="tree-add-inp" placeholder="Nueva sub-subtarea (Enter)"
+        onclick="event.stopPropagation()"
+        onkeydown="event.stopPropagation();quickAddSubsub(event,${task.id},'${s.id}',this)"/>
+      <button onclick="event.stopPropagation();openSubModal('sub',${task.id},'${s.id}',null,'subsub')"
+        style="font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--c-border);background:var(--c-bg3);color:var(--c-text2);cursor:pointer">+ Detalle</button>
+    </div>`;
+
+    return `<div class="tree-sub-item p-${prio}" id="treesubparent-${task.id}-${s.id}">
+      <button id="treesubexp-${task.id}-${s.id}" class="tree-expand ${isOpen&&hasSubsub?'open':''}"
+        onclick="event.stopPropagation();toggleTreeSub(${task.id},'${s.id}')"
+        style="visibility:${hasSubsub?'visible':'hidden'}">
+        <span class="arr">▶</span>
+      </button>
+      <div class="sub-check-sm ${s.done?'checked':''}"
+        onclick="event.stopPropagation();toggleSubDone(${task.id},'${s.id}')">${s.done?'✓':''}</div>
+      <div class="tree-sub-info">
+        <div class="tree-sub-title ${doneCls}"
+          ondblclick="event.stopPropagation();inlineEditSubtask(${task.id},'${s.id}',this)"
+          title="Doble clic para editar">${s.title||s.text||''}</div>
+        <div class="tree-sub-meta">${tagHTML}${pMark?`<span style="font-size:10px">${pMark}</span>`:''}${s.date?`<span class="sub-date">📅 ${s.date}</span>`:''}${ssProgBar}</div>
+        <div id="treesubbody-${task.id}-${s.id}" style="display:${isOpen&&hasSubsub?'block':'none'}">
+          <div class="tree-subsubs">${subsubsHTML}</div>
+          ${addSubsubRow}
+        </div>
+      </div>
+      <div class="tree-sub-actions">
+        <button class="sub-act-btn" onclick="event.stopPropagation();openSubModal('sub',${task.id},'${s.id}',null,'subsub')" title="Nueva sub-subtarea">＋</button>
+        <button class="sub-act-btn" onclick="event.stopPropagation();openSubModal('sub',${task.id},'${s.id}','${s.id}')" title="Editar subtarea">✏️</button>
+        <button class="sub-act-btn del" onclick="event.stopPropagation();deleteSubtaskById(${task.id},'${s.id}')" title="Eliminar">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── CONSTRUIR SUB-SUBTAREAS EN ÁRBOL ──
+function buildTreeSubsubs(taskId, sub, subOpen) {
+  return (sub.subsubtasks||[]).map(ss => {
+    const doneCls = ss.done ? 'done' : '';
+    const pMark   = {high:'🔴',medium:'🟡',low:'🔵',none:''}[ss.priority||'none']||'';
+    return `<div class="tree-subsub-item" id="treesubsub-${taskId}-${sub.id}-${ss.id}">
+      <div class="subsub-check ${ss.done?'checked':''}"
+        onclick="event.stopPropagation();toggleSubSubDone(${taskId},'${sub.id}','${ss.id}')">${ss.done?'✓':''}</div>
+      <span class="tree-subsub-title ${doneCls}"
+        ondblclick="event.stopPropagation();inlineEditSubsub(${taskId},'${sub.id}','${ss.id}',this)"
+        title="Doble clic para editar">${ss.title||''}</span>
+      ${pMark?`<span style="font-size:10px">${pMark}</span>`:''}
+      ${ss.date?`<span class="subsub-date">📅 ${ss.date}</span>`:''}
+      <div class="tree-subsub-actions">
+        <button class="sub-act-btn" onclick="event.stopPropagation();openSubModal('subsub',${taskId},'${sub.id}','${ss.id}')" title="Editar">✏️</button>
+        <button class="sub-act-btn del" onclick="event.stopPropagation();deleteSubSubtask(${taskId},'${sub.id}','${ss.id}')" title="Eliminar">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── QUICK ADD SUBTAREA INLINE ──
+function quickAddSub(e, taskId, inp) {
+  if(e.key!=='Enter'||!inp.value.trim()) return;
+  const task = tasks.find(t=>Number(t.id)===Number(taskId));
+  if(!task) return;
+  task.subtasks = task.subtasks||[];
+  task.subtasks.push({id:'sub_'+Date.now(),title:inp.value.trim(),notes:'',date:'',time:'',priority:'medium',tags:[],done:false,order:task.subtasks.length,attachments:[],subsubtasks:[]});
+  fbSaveTask(task);
+  if(!treeState[taskId]) treeState[taskId]={open:true,subs:{}};
+  treeState[taskId].open = true;
+  inp.value='';
+  renderView();
+  toast('➕','Subtarea agregada');
+}
+
+// ── QUICK ADD SUB-SUBTAREA INLINE ──
+function quickAddSubsub(e, taskId, subId, inp) {
+  if(e.key!=='Enter'||!inp.value.trim()) return;
+  const task = tasks.find(t=>Number(t.id)===Number(taskId));
+  if(!task) return;
+  const sub = task.subtasks&&task.subtasks.find(s=>String(s.id)===String(subId));
+  if(!sub) return;
+  sub.subsubtasks = sub.subsubtasks||[];
+  sub.subsubtasks.push({id:'ss_'+Date.now(),title:inp.value.trim(),notes:'',date:'',time:'',priority:'medium',tags:[],done:false,order:sub.subsubtasks.length});
+  fbSaveTask(task);
+  if(!treeState[taskId]) treeState[taskId]={open:true,subs:{}};
+  if(!treeState[taskId].subs[subId]) treeState[taskId].subs[subId]={open:true};
+  treeState[taskId].subs[subId].open = true;
+  inp.value='';
+  renderView();
+  toast('➕','Sub-subtarea agregada');
 }
 
 // ══════════════════════════════════════════════════════
