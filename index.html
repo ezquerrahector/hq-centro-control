@@ -447,18 +447,179 @@ textarea.form-inp{resize:vertical;min-height:65px;}
 .sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px;}
 .sec-ttl{font-family:'Syne',sans-serif;font-weight:700;font-size:15px;display:flex;align-items:center;gap:7px;}
 
+/* ══════════════════════════════════════════════
+   RESPONSIVE — TABLET (≤860px)
+══════════════════════════════════════════════ */
 @media(max-width:860px){
-  .sidebar{width:52px;min-width:52px;}
-  .logo-name,.logo-sub,.ctx-btn span:not(.ctx-dot),.nav-item>span:not(.nav-icon),.nav-badge,.sb-projects,.sb-lbl,.ctx-row-actions{display:none;}
-  .ctx-btn,.nav-item{padding:9px;justify-content:center;}
-  .dash-grid{grid-template-columns:1fr;}
-}
-@media(max-width:580px){
-  .topbar{padding:0 12px;}
-  .content{padding:14px;}
-  .search-wrap{display:none;}
+  .sidebar{width:56px;min-width:56px;}
+  .logo-name,.logo-sub,.ctx-btn span:not(.ctx-dot),
+  .nav-item>span:not(.nav-icon),.nav-badge,
+  .sb-projects,.sb-lbl,.ctx-row-actions{display:none;}
+  .ctx-btn,.nav-item{padding:10px;justify-content:center;}
+  .dash-grid{grid-template-columns:1fr 1fr;}
   .form-row{grid-template-columns:1fr;}
-  .detail-panel{width:100%;}
+}
+
+/* ══════════════════════════════════════════════
+   RESPONSIVE — MÓVIL (≤600px)
+   Sidebar se oculta y aparece como bottom nav
+══════════════════════════════════════════════ */
+@media(max-width:600px){
+  /* Ocultar sidebar completamente */
+  .sidebar{display:none;}
+
+  /* App ocupa todo el ancho */
+  .app{flex-direction:column;}
+  .main{width:100%;height:100vh;display:flex;flex-direction:column;}
+
+  /* Topbar móvil compacto */
+  .topbar{height:52px;padding:0 14px;gap:8px;}
+  .topbar-title{font-size:15px;}
+  .search-wrap{display:none;}
+  .btn-icon{width:30px;height:30px;font-size:13px;}
+  .btn-primary{padding:7px 12px;font-size:12px;}
+
+  /* Ocultar tabs de vista en móvil - los tenemos en bottom nav */
+  .view-tabs{display:none;}
+
+  /* Barra de filtro de contextos más compacta */
+  .ctx-filter-bar{padding:6px 12px;gap:6px;overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;}
+  .ctx-filter-chip{font-size:11px;padding:4px 10px;white-space:nowrap;flex-shrink:0;}
+
+  /* Contenido con espacio para bottom nav */
+  .content{padding:14px 12px 80px;overflow-y:auto;flex:1;}
+
+  /* Dashboard - una columna */
+  .dash-grid{grid-template-columns:1fr;gap:10px;margin-bottom:14px;}
+  .stat-card{padding:14px;}
+  .stat-val{font-size:22px;}
+
+  /* Vista árbol - más compacta */
+  .tree-toolbar{padding:8px 10px;gap:6px;flex-wrap:wrap;}
+  .tree-toolbar-label{display:none;}
+  .tree-btn{font-size:10px;padding:4px 9px;}
+  .tree-task-hdr{padding:10px 10px;}
+  .tree-task-title{font-size:13px;}
+  .tree-task-meta{gap:5px;}
+  .tree-sub-item{padding:8px 10px 8px 30px;}
+  .tree-subsub-item{padding:6px 10px 6px 44px;}
+  .tree-add-row{padding:6px 10px 6px 30px;}
+  .tree-subsub-add-row{padding:5px 10px 5px 44px;}
+
+  /* Acciones siempre visibles en móvil (no requieren hover) */
+  .tree-task-actions{opacity:1;}
+  .tree-sub-actions{opacity:1;}
+  .tree-subsub-actions{opacity:1;}
+  .task-actions{opacity:1;}
+  .sub-actions{opacity:1;}
+
+  /* Tags más pequeños */
+  .tag-pill{font-size:9px;padding:1px 5px;}
+
+  /* Panel de detalle full screen */
+  .detail-panel{width:100%;left:0;right:0;}
+  .detail-overlay.open .detail-panel{transform:translateX(0);}
+
+  /* Modal full screen en móvil */
+  .modal{max-width:100%;margin:0;border-radius:0;min-height:100vh;padding:20px 16px;}
+  .overlay{align-items:flex-end;}
+  .overlay .modal{border-radius:16px 16px 0 0;min-height:auto;max-height:95vh;}
+  .sub-modal{max-width:100%;}
+
+  /* Proyectos */
+  .project-block{margin-bottom:10px;}
+  .proj-hdr{padding:11px 12px;gap:7px;}
+  .proj-name{font-size:13px;}
+  .prog-bar{width:50px;}
+  .proj-body{padding:8px 10px 10px;}
+  .proj-task-row{padding:8px 10px;}
+  .proj-task-name{font-size:12px;}
+  .subtask-list{padding-left:18px;}
+
+  /* Kanban scroll horizontal */
+  .kanban-board{gap:10px;}
+  .kanban-col{min-width:240px;}
+  .kanban-card-title{font-size:12px;}
+
+  /* Calendario */
+  .cal-day{min-height:48px;padding:4px;}
+  .day-n{font-size:11px;width:20px;height:20px;}
+  .day-ev{font-size:8px;}
+  .cal-wd{font-size:9px;padding:6px 2px;}
+
+  /* Alarmas */
+  .alarm-item{padding:11px 12px;gap:10px;}
+  .alarm-time{font-size:17px;min-width:58px;}
+
+  /* Formularios */
+  .form-row{grid-template-columns:1fr;}
+  .prio-row{gap:5px;}
+  .prio-btn{font-size:10px;padding:6px 2px;}
+  .tags-wrap{min-height:36px;}
+  .drop-zone{padding:14px;}
+
+  /* Perfumes */
+  .perfume-grid{grid-template-columns:1fr 1fr;gap:10px;}
+  .perfume-img{height:80px;font-size:32px;}
+
+  /* Toolbar de exportar */
+  .tree-toolbar button.btn-primary{display:none;}
+
+  /* Bottom navigation */
+  .mobile-bottom-nav{display:flex;}
+}
+
+/* ══════════════════════════════════════════════
+   BOTTOM NAVIGATION — Solo móvil
+══════════════════════════════════════════════ */
+.mobile-bottom-nav{
+  display:none;
+  position:fixed;
+  bottom:0;left:0;right:0;
+  height:62px;
+  background:var(--sb-bg);
+  border-top:1px solid var(--sb-border);
+  z-index:500;
+  padding:0 4px;
+  align-items:stretch;
+  justify-content:space-around;
+  padding-bottom:env(safe-area-inset-bottom, 0px);
+}
+.mob-nav-btn{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:3px;flex:1;padding:8px 4px;
+  border:none;background:transparent;
+  color:var(--sb-text2);cursor:pointer;
+  font-family:'DM Sans',sans-serif;
+  transition:all .15s;border-radius:8px;
+  position:relative;
+}
+.mob-nav-btn:hover,.mob-nav-btn.active{color:#fff;background:rgba(255,255,255,0.08);}
+.mob-nav-icon{font-size:20px;line-height:1;}
+.mob-nav-label{font-size:9px;font-weight:500;letter-spacing:.3px;text-transform:uppercase;}
+.mob-nav-badge{
+  position:absolute;top:6px;right:calc(50% - 18px);
+  background:var(--accent);color:#fff;
+  font-size:9px;font-weight:700;
+  padding:1px 5px;border-radius:20px;
+  min-width:16px;text-align:center;
+}
+
+/* FAB — botón nueva tarea en móvil */
+.mob-fab{
+  display:none;
+  position:fixed;bottom:74px;right:16px;
+  width:52px;height:52px;border-radius:50%;
+  background:var(--accent);color:#fff;
+  border:none;cursor:pointer;
+  font-size:24px;
+  box-shadow:0 4px 16px rgba(0,0,0,.3);
+  z-index:490;align-items:center;justify-content:center;
+  transition:transform .15s;
+}
+.mob-fab:hover{transform:scale(1.08);}
+@media(max-width:600px){
+  .mob-fab{display:flex;}
 }
 </style>
 <!-- Firebase SDK (compat - acceso global) -->
@@ -2372,8 +2533,11 @@ function doSearch(q){
 function updateBadges(){
   const pending=tasks.filter(t=>!t.done&&(curCtxFilter==='all'||t.ctx===curCtxFilter));
   const today=pending.filter(t=>t.date===TODAY);
-  document.getElementById('bdgMidia').textContent=today.length;
-  document.getElementById('bdgTareas').textContent=pending.length;
+  const bdgM=document.getElementById('bdgMidia');
+  const bdgT=document.getElementById('bdgTareas');
+  if(bdgM) bdgM.textContent=today.length;
+  if(bdgT) bdgT.textContent=pending.length;
+  updateMobileBadge();
 }
 
 
@@ -3474,6 +3638,38 @@ function addSubsubInline(e, taskId, subId, inp) {
   toast('➕','Sub-subtarea agregada');
 }
 
+
+// ══════════════════════════════════════════════════════
+// NAVEGACIÓN MÓVIL
+// ══════════════════════════════════════════════════════
+function mobileNav(view, btn) {
+  // Actualizar botones activos del bottom nav
+  document.querySelectorAll('.mob-nav-btn').forEach(b => b.classList.remove('active'));
+  const activeBtn = btn || document.getElementById('mnv-' + view);
+  if(activeBtn) activeBtn.classList.add('active');
+  // Navegar a la vista
+  gotoView(view, document.querySelector('[data-view="'+view+'"]'));
+}
+
+function toggleMobileMenu() {
+  const overlay = document.getElementById('mobileMenuOverlay');
+  if(!overlay) return;
+  const isOpen = overlay.style.display !== 'none';
+  overlay.style.display = isOpen ? 'none' : 'block';
+  const btn = document.getElementById('mnv-menu');
+  if(btn) btn.classList.toggle('active', !isOpen);
+}
+
+// Actualizar badge del bottom nav
+function updateMobileBadge() {
+  const pending = tasks.filter(t=>!t.done&&(curCtxFilter==='all'||t.ctx===curCtxFilter));
+  const badge = document.getElementById('mobBdg');
+  if(badge) {
+    badge.textContent = pending.length;
+    badge.style.display = pending.length > 0 ? 'block' : 'none';
+  }
+}
+
 // ══════════════════════════════════════════════════════
 // TOAST
 // ══════════════════════════════════════════════════════
@@ -3600,5 +3796,58 @@ setTimeout(() => {
   fbListenAll();
 }, 1000);
 </script>
+
+<!-- ── BOTTOM NAV MÓVIL ── -->
+<nav class="mobile-bottom-nav" id="mobileNav">
+  <button class="mob-nav-btn active" id="mnv-dashboard" onclick="mobileNav('dashboard',this)">
+    <span class="mob-nav-icon">📊</span>
+    <span class="mob-nav-label">Inicio</span>
+  </button>
+  <button class="mob-nav-btn" id="mnv-tareas" onclick="mobileNav('tareas',this)">
+    <span class="mob-nav-icon">✅</span>
+    <span class="mob-nav-label">Tareas</span>
+    <span class="mob-nav-badge" id="mobBdg">0</span>
+  </button>
+  <button class="mob-nav-btn" id="mnv-proyectos" onclick="mobileNav('proyectos',this)">
+    <span class="mob-nav-icon">📁</span>
+    <span class="mob-nav-label">Proyectos</span>
+  </button>
+  <button class="mob-nav-btn" id="mnv-calendario" onclick="mobileNav('calendario',this)">
+    <span class="mob-nav-icon">📅</span>
+    <span class="mob-nav-label">Agenda</span>
+  </button>
+  <button class="mob-nav-btn" id="mnv-menu" onclick="toggleMobileMenu()">
+    <span class="mob-nav-icon">☰</span>
+    <span class="mob-nav-label">Más</span>
+  </button>
+</nav>
+
+<!-- ── MENÚ "MÁS" MÓVIL ── -->
+<div id="mobileMenuOverlay" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.5)" onclick="toggleMobileMenu()">
+  <div style="position:absolute;bottom:62px;left:0;right:0;background:var(--sb-bg);border-top:1px solid var(--sb-border);padding:12px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px" onclick="event.stopPropagation()">
+    <button class="mob-nav-btn" style="flex-direction:column;height:64px;border-radius:10px;border:1px solid var(--sb-border)" onclick="mobileNav('midia',null);toggleMobileMenu()">
+      <span class="mob-nav-icon">☀️</span><span class="mob-nav-label">Mi Día</span>
+    </button>
+    <button class="mob-nav-btn" style="flex-direction:column;height:64px;border-radius:10px;border:1px solid var(--sb-border)" onclick="mobileNav('kanban',null);toggleMobileMenu()">
+      <span class="mob-nav-icon">🗂️</span><span class="mob-nav-label">Kanban</span>
+    </button>
+    <button class="mob-nav-btn" style="flex-direction:column;height:64px;border-radius:10px;border:1px solid var(--sb-border)" onclick="mobileNav('alarmas',null);toggleMobileMenu()">
+      <span class="mob-nav-icon">🔔</span><span class="mob-nav-label">Alarmas</span>
+    </button>
+    <button class="mob-nav-btn" style="flex-direction:column;height:64px;border-radius:10px;border:1px solid var(--sb-border)" onclick="mobileNav('instinto',null);toggleMobileMenu()">
+      <span class="mob-nav-icon">🌸</span><span class="mob-nav-label">Instinto</span>
+    </button>
+    <button class="mob-nav-btn" style="flex-direction:column;height:64px;border-radius:10px;border:1px solid var(--sb-border)" onclick="mobileNav('completadas',null);toggleMobileMenu()">
+      <span class="mob-nav-icon">🏆</span><span class="mob-nav-label">Hechas</span>
+    </button>
+    <button class="mob-nav-btn" style="flex-direction:column;height:64px;border-radius:10px;border:1px solid var(--sb-border)" onclick="exportToExcel();toggleMobileMenu()">
+      <span class="mob-nav-icon">📊</span><span class="mob-nav-label">Excel</span>
+    </button>
+  </div>
+</div>
+
+<!-- ── FAB NUEVA TAREA ── -->
+<button class="mob-fab" onclick="openTaskModal()" title="Nueva tarea">＋</button>
+
 </body>
 </html>
