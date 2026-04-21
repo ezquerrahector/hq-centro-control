@@ -619,6 +619,7 @@ textarea.form-inp{resize:vertical;min-height:65px;}
   -webkit-tap-highlight-color:transparent;
 }
 .mob-fab:active{transform:scale(.94);box-shadow:0 2px 8px rgba(0,0,0,.3);}
+.mob-fab *{pointer-events:none;}
 @media(max-width:600px){
   .mob-fab{display:flex !important;}
 }
@@ -1112,6 +1113,21 @@ document.addEventListener('DOMContentLoaded',()=>{
   });
   // Revisar notificaciones al cargar
   setTimeout(checkPendingNotifs, 3000);
+
+  // FAB móvil — usar addEventListener para garantizar que funcione
+  const fabBtn = document.getElementById('mobFab');
+  if(fabBtn) {
+    fabBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      openTaskModal();
+    });
+    fabBtn.addEventListener('touchend', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      openTaskModal();
+    });
+  }
 });
 
 // ══════════════════════════════════════════════════════
@@ -4230,7 +4246,7 @@ setTimeout(() => {
 </nav>
 
 <!-- ── MENÚ "MÁS" MÓVIL ── -->
-<div id="mobileMenuOverlay" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.5)" onclick="toggleMobileMenu()">
+<div id="mobileMenuOverlay" style="display:none;position:fixed;inset:0;z-index:9980;background:rgba(0,0,0,.5)" onclick="toggleMobileMenu()">
   <div style="position:absolute;bottom:62px;left:0;right:0;background:var(--sb-bg);border-top:1px solid var(--sb-border);padding:12px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px" onclick="event.stopPropagation()">
     <button class="mob-nav-btn" style="flex-direction:column;height:64px;border-radius:10px;border:1px solid var(--sb-border)" onclick="mobileNav('midia',null);toggleMobileMenu()">
       <span class="mob-nav-icon">☀️</span><span class="mob-nav-label">Mi Día</span>
@@ -4254,7 +4270,9 @@ setTimeout(() => {
 </div>
 
 <!-- ── FAB NUEVA TAREA ── -->
-<button class="mob-fab" onclick="openTaskModal()" title="Nueva tarea">＋</button>
+<button class="mob-fab" id="mobFab" title="Nueva tarea" aria-label="Nueva tarea">
+  <span style="display:block;line-height:1;pointer-events:none">＋</span>
+</button>
 
 
 <!-- ── PANTALLA DE CARGA ── -->
