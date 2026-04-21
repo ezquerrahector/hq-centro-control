@@ -41,6 +41,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--c-bg);color:var(--c-text)
 .ctx-btn.active{background:rgba(255,255,255,0.08);color:#fff;}
 .ctx-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
 .ctx-row-actions{display:flex;gap:1px;opacity:0;transition:opacity .15s;flex-shrink:0;padding-right:4px;}
+@media(max-width:600px){.ctx-row-actions{opacity:1 !important;}}
 .ctx-row-actions button{width:22px;height:22px;border:none;background:transparent;color:var(--sb-text2);cursor:pointer;border-radius:4px;font-size:11px;display:flex;align-items:center;justify-content:center;transition:all .15s;}
 .ctx-row-actions button:hover{background:rgba(255,255,255,0.1);color:#fff;}
 .ctx-add-btn{display:flex;align-items:center;gap:7px;padding:6px 10px;border-radius:var(--radius-sm);cursor:pointer;color:var(--sb-text2);font-size:11px;border:none;background:transparent;width:100%;font-family:'DM Sans',sans-serif;transition:all .15s;margin-top:2px;}
@@ -529,8 +530,8 @@ textarea.form-inp{resize:vertical;min-height:65px;}
   .app{flex-direction:column;}
   .main{width:100%;height:100vh;display:flex;flex-direction:column;}
 
-  /* Topbar móvil compacto */
-  .topbar{height:52px;padding:0 14px;gap:8px;}
+  /* Topbar móvil compacto — con safe area para notch/barra URL */
+  .topbar{height:52px;padding:0 14px;gap:8px;padding-top:max(8px, env(safe-area-inset-top));}
   .topbar-title{font-size:15px;}
   .search-wrap{display:none;}
   .btn-icon{width:30px;height:30px;font-size:13px;}
@@ -577,10 +578,26 @@ textarea.form-inp{resize:vertical;min-height:65px;}
   .detail-panel{width:100%;left:0;right:0;}
   .detail-overlay.open .detail-panel{transform:translateX(0);}
 
-  /* Modal full screen en móvil */
-  .modal{max-width:100%;margin:0;border-radius:0;min-height:100vh;padding:20px 16px;}
-  .overlay{align-items:flex-end;}
-  .overlay .modal{border-radius:16px 16px 0 0;min-height:auto;max-height:95vh;}
+  /* Modal en móvil — sube desde abajo, sin tapar URL bar */
+  .overlay{align-items:flex-end;padding:0;}
+  .overlay .modal{
+    border-radius:20px 20px 0 0;
+    max-height:92vh;
+    min-height:auto;
+    width:100%;
+    max-width:100%;
+    margin:0;
+    padding:20px 16px 32px;
+    overflow-y:auto;
+  }
+  .modal-hdr{
+    position:sticky;top:0;
+    background:var(--c-bg2);
+    z-index:10;
+    padding-top:4px;
+    margin:-4px -4px 12px;
+    border-radius:20px 20px 0 0;
+  }
   .sub-modal{max-width:100%;}
 
   /* Proyectos */
@@ -633,10 +650,11 @@ textarea.form-inp{resize:vertical;min-height:65px;}
   display:none;
   position:fixed;
   bottom:0;left:0;right:0;
-  height:62px;
+  height:calc(62px + env(safe-area-inset-bottom));
+  padding-bottom:env(safe-area-inset-bottom);
   background:var(--sb-bg);
   border-top:1px solid var(--sb-border);
-  z-index:500;
+  z-index:9970;
   padding:0 4px;
   align-items:stretch;
   justify-content:space-around;
@@ -679,6 +697,7 @@ textarea.form-inp{resize:vertical;min-height:65px;}
 .mob-fab *{pointer-events:none;}
 @media(max-width:600px){
   .mob-fab{display:flex !important;}
+  .mobile-bottom-nav{display:flex !important;}
 }
 
 /* ── PULL TO REFRESH ── */
@@ -1165,66 +1184,7 @@ const TODAY = '2026-04-19';
 
 
 // Datos de ejemplo para seed inicial (solo se usan si Firebase está vacío)
-const SEED_TASKS = [
-  {id:1, title:'Flujo MTU — Revisar documento de requisitos',
-   notes:'Límites transaccionales pendientes de validación.',
-   date:'2026-04-20',time:'10:00',priority:'high',ctx:'banbajio',
-   tags:['MTU','urgente','banco'],projId:'p1',done:false,recurring:'none',
-   attachments:[],order:0,
-   subtasks:[
-     {id:'s1',title:'Revisar requisitos funcionales',notes:'',date:'2026-04-19',time:'',
-      priority:'high',tags:['MTU'],done:true,order:0,attachments:[],
-      subsubtasks:[
-        {id:'ss1',title:'Leer documento actual',notes:'',date:'2026-04-19',time:'',priority:'medium',tags:[],done:true,order:0},
-        {id:'ss2',title:'Identificar gaps',notes:'',date:'2026-04-19',time:'',priority:'medium',tags:[],done:false,order:1}
-      ]},
-     {id:'s2',title:'Validar con equipo técnico',notes:'',date:'2026-04-20',time:'10:00',
-      priority:'medium',tags:[],done:false,order:1,attachments:[],subsubtasks:[]},
-     {id:'s3',title:'Entregar a arquitectura',notes:'',date:'2026-04-22',time:'',
-      priority:'low',tags:[],done:false,order:2,attachments:[],subsubtasks:[]}
-   ]},
-  {id:2, title:'Foro MBA — Retroalimentación compañero', notes:'Mínimo 200 palabras.',
-   date:'2026-04-19',time:'23:59',priority:'high',ctx:'personal',tags:['MBA','UNITEC','foro'],
-   list:'inbox',projId:'p4',done:false,recurring:'none',attachments:[],subtasks:[]},
-  {id:3, title:'Diseño etiqueta Osmara 50×50mm', notes:'Fuente Cinzel blanco sobre negro.',
-   date:'2026-04-22',time:'',priority:'medium',ctx:'instinto',tags:['diseño','etiqueta','Osmara'],
-   list:'perfumes',projId:'p3',done:false,recurring:'none',
-   attachments:[{name:'diseño_osmara_v1.pdf',size:'1.2 MB',icon:'📄'}],
-   subtasks:[{id:'s4',text:'Diseño base',date:'2026-04-20',done:true},
-             {id:'s5',text:'Imprimir prueba',date:'2026-04-21',done:false},
-             {id:'s6',text:'Validar con Niimbot',date:'2026-04-22',done:false}]},
-  {id:4, title:'Presentación slides 7 y 8 — Estrategia Digital', notes:'Completar campos en amarillo con cifras reales.',
-   date:'2026-04-25',time:'09:00',priority:'high',ctx:'banbajio',tags:['estrategia','consejo','slides'],
-   list:'proyectos',projId:'p2',done:false,recurring:'none',
-   attachments:[{name:'estrategia_2026_2030.pptx',size:'4.8 MB',icon:'📊'}],
-   subtasks:[
-     {id:'s7',title:'Completar slide 7 — métricas',notes:'',date:'2026-04-23',time:'',priority:'high',tags:[],done:false,order:0,attachments:[],subsubtasks:[]},
-     {id:'s8',title:'Completar slide 8 — presupuesto',notes:'',date:'2026-04-24',time:'',priority:'high',tags:[],done:false,order:1,attachments:[],subsubtasks:[]}
-   ]},
-  {id:5, title:'Ejercicio matutino',notes:'',date:'2026-04-19',time:'07:00',priority:'low',
-   ctx:'personal',tags:['salud','rutina'],list:'inbox',projId:'',done:true,recurring:'daily',attachments:[],subtasks:[]},
-  {id:6, title:'Inventario fragancias — actualizar',notes:'Osmara y Baccarat Rouge.',
-   date:'2026-04-21',time:'',priority:'medium',ctx:'instinto',tags:['inventario','fragancias'],
-   list:'perfumes',projId:'p3',done:false,recurring:'weekly',attachments:[],subtasks:[]},
-  {id:7, title:'Revisión Power Automate',notes:'Verificar flujo de resumen en WhatsApp.',
-   date:'2026-04-19',time:'08:00',priority:'medium',ctx:'banbajio',tags:['automatización','Power Automate'],
-   list:'banco',projId:'',done:false,recurring:'daily',attachments:[],subtasks:[]},
-  {id:8, title:'Lectura Finanzas Corporativas',notes:'Capítulos 4 y 5.',
-   date:'2026-04-20',time:'',priority:'low',ctx:'personal',tags:['MBA','lectura','finanzas'],
-   list:'inbox',projId:'p4',done:false,recurring:'none',attachments:[],subtasks:[]},
-  {id:9, title:'Actualizar instintofragancias.com',notes:'Corregir variables duplicadas.',
-   date:'2026-04-23',time:'',priority:'medium',ctx:'instinto',tags:['web','código'],
-   list:'perfumes',projId:'p3',done:false,recurring:'none',attachments:[],subtasks:[]},
-  {id:10,title:'Reunión equipo Banca Digital',notes:'Revisión avances Q2.',
-   date:'2026-04-21',time:'11:00',priority:'medium',ctx:'banbajio',tags:['reunión','Q2'],
-   list:'banco',projId:'',done:false,recurring:'weekly',attachments:[],subtasks:[]},
-  {id:11,title:'Comprar frascos 60ml negro mate',notes:'Nuevo lote para Instinto.',
-   date:'2026-04-26',time:'',priority:'low',ctx:'instinto',tags:['compra','frascos'],
-   list:'perfumes',projId:'p3',done:false,recurring:'none',attachments:[],subtasks:[]},
-  {id:12,title:'Leer acuerdo comunicación BD',notes:'Revisión acuerdo con Comunicación Organizacional.',
-   date:'2026-04-20',time:'',priority:'medium',ctx:'banbajio',tags:['comunicación','acuerdo'],
-   list:'banco',projId:'p2',done:true,recurring:'none',attachments:[],subtasks:[]},
-];
+const SEED_TASKS = [];
 
 const SEED_CONTEXTS = [
   {id:'personal',  name:'Personal',          color:'#7c5cbf', icon:'👤'},
@@ -1232,12 +1192,7 @@ const SEED_CONTEXTS = [
   {id:'instinto',  name:'Instinto Fragancias',color:'#c9732a', icon:'🌸'},
 ];
 
-const SEED_PROJECTS = [
-  {id:'p1',name:'MTU BanBajío',          ctx:'banbajio', date:'2026-05-30',desc:'Flujo de límites transaccionales'},
-  {id:'p2',name:'Estrategia Digital 2026–2030',ctx:'banbajio',date:'2026-05-01',desc:'Presentación al consejo directivo'},
-  {id:'p3',name:'Instinto — Lanzamiento Q2',   ctx:'instinto', date:'2026-06-30',desc:'Etiquetas, sitio web, catálogo'},
-  {id:'p4',name:'MBA UNITEC',            ctx:'personal', date:'2026-12-01',desc:'Maestría en Administración de Negocios'},
-];
+const SEED_PROJECTS = [];
 
 // Arrays activos — vacíos al inicio, se llenan desde Firebase
 let tasks    = [];
@@ -1295,6 +1250,20 @@ document.addEventListener('DOMContentLoaded',()=>{
       openTaskModal();
     });
   }
+
+  // Bottom nav y FAB — mostrar en móvil con JS (más confiable que CSS solo)
+  function applyMobileLayout() {
+    const isMobile = window.innerWidth <= 600;
+    const nav = document.getElementById('mobileNav');
+    const fab = document.getElementById('mobFab');
+    if(nav) nav.style.display = isMobile ? 'flex' : 'none';
+    if(fab) fab.style.display = isMobile ? 'flex' : 'none';
+    // Ajustar padding del contenido para el bottom nav en móvil
+    const contentEl = document.getElementById('content');
+    if(contentEl) contentEl.style.paddingBottom = isMobile ? '80px' : '';
+  }
+  applyMobileLayout();
+  window.addEventListener('resize', applyMobileLayout);
 });
 
 // ══════════════════════════════════════════════════════
@@ -1317,7 +1286,7 @@ function renderSidebar(){
         '<span>' + c.icon + ' ' + c.name + '</span>' +
       '</button>' +
       '<div class="ctx-row-actions">' +
-        '<button title="Editar" onclick="openCtxMgmt()">✏️</button>' +
+        '<button title="Editar" onclick="openCtxMgmt(\'' + qid + '\')" style="font-size:13px">✏️</button>' +
         '<button title="Mover arriba" onclick="moveCtx(\'' + qid + '\',-1)">↑</button>' +
         '<button title="Mover abajo" onclick="moveCtx(\'' + qid + '\',1)">↓</button>' +
       '</div>' +
@@ -1381,9 +1350,16 @@ function filterByCtx(id){
 // ══════════════════════════════════════════════════════
 // CONTEXT MANAGEMENT MODAL
 // ══════════════════════════════════════════════════════
-function openCtxMgmt(){
+function openCtxMgmt(focusId){
   buildCtxEditList();
   document.getElementById('ctxMgmtModal').classList.add('open');
+  if(focusId){
+    // Scroll al contexto específico después de que renderice
+    setTimeout(()=>{
+      const el=document.getElementById('ctxei-'+focusId);
+      if(el){ el.style.background='rgba(255,255,255,0.08)'; el.scrollIntoView({behavior:'smooth',block:'center'}); }
+    }, 150);
+  }
 }
 function closeCtxMgmt(){document.getElementById('ctxMgmtModal').classList.remove('open');}
 
@@ -1516,78 +1492,83 @@ function renderView(){
 // DASHBOARD
 // ══════════════════════════════════════════════════════
 function buildDash(){
-  const pending=tasks.filter(t=>!t.done&&(curCtxFilter==='all'||t.ctx===curCtxFilter));
-  const todayT=pending.filter(t=>t.date===TODAY);
-  const done=tasks.filter(t=>t.done&&(curCtxFilter==='all'||t.ctx===curCtxFilter));
-  const pct=tasks.filter(t=>curCtxFilter==='all'||t.ctx===curCtxFilter).length
-    ?Math.round(done.length/(pending.length+done.length)*100):0;
-  const bbP=tasks.filter(t=>t.ctx==='banbajio'&&!t.done).length;
-  const instP=tasks.filter(t=>t.ctx==='instinto'&&!t.done).length;
+  const pending = tasks.filter(t=>!t.done&&(curCtxFilter==='all'||t.ctx===curCtxFilter));
+  const todayT  = pending.filter(t=>t.date===TODAY);
+  const done    = tasks.filter(t=>t.done&&(curCtxFilter==='all'||t.ctx===curCtxFilter));
+  const pct     = tasks.length ? Math.round(done.length/tasks.length*100) : 0;
+  const bbP     = tasks.filter(t=>!t.done&&t.ctx==='banbajio').length;
+  const instP   = tasks.filter(t=>!t.done&&t.ctx==='instinto').length;
+  const ctxLabel= curCtxFilter==='all'?'Todos':((contexts.find(c=>c.id===curCtxFilter)||{}).name||'');
 
-  const tl=[
-    {t:'07:00',ti:'Ejercicio matutino',s:'Personal'},
-    {t:'08:00',ti:'Revisión Power Automate',s:'BanBajío'},
-    {t:'09:30',ti:'Standup Banca Digital',s:'BanBajío'},
-    {t:'11:00',ti:'Foro MBA — Entrega',s:'Personal'},
-  ];
-  const tlH=tl.map((it,i)=>`
-    <div style="display:flex;gap:13px;padding-bottom:10px">
-      <span style="font-size:10px;color:var(--c-text3);min-width:40px;padding-top:2px;text-align:right">${it.t}</span>
+  // Agenda real: eventos + tareas con hora de hoy
+  const todayEvs = (typeof events!=='undefined'?events:[])
+    .filter(e=>e.date===TODAY)
+    .sort((a,b)=>(a.start||'').localeCompare(b.start||''));
+  const todayTasksH = tasks
+    .filter(t=>!t.done&&t.date===TODAY&&t.time&&(curCtxFilter==='all'||t.ctx===curCtxFilter))
+    .sort((a,b)=>(a.time||'').localeCompare(b.time||''));
+  const agenda = [
+    ...todayEvs.map(e=>({time:e.start,title:e.title,sub:e.start+'-'+e.end,color:e.color||'var(--accent)',type:'event',id:e.id})),
+    ...todayTasksH.map(t=>{const c=contexts.find(x=>x.id===t.ctx);return{time:t.time,title:t.title,sub:c?c.icon+' '+c.name:t.ctx,color:c?c.color:'var(--accent)',type:'task',id:t.id};})
+  ].sort((a,b)=>(a.time||'').localeCompare(b.time||'')).slice(0,6);
+
+  const tlH = agenda.length ? agenda.map((it,i)=>`
+    <div style="display:flex;gap:13px;padding-bottom:10px;cursor:pointer"
+      onclick="${it.type==='event'?`openEventModal('${it.id}','${TODAY}')`:`openDetail(${it.id})`}">
+      <span style="font-size:11px;color:var(--c-text3);min-width:42px;padding-top:2px;text-align:right">${it.time}</span>
       <div style="display:flex;flex-direction:column;align-items:center">
-        <div style="width:9px;height:9px;border-radius:50%;background:var(--accent);flex-shrink:0;margin-top:3px"></div>
-        ${i<tl.length-1?'<div style="width:1px;flex:1;background:var(--c-border);margin-top:3px;min-height:18px"></div>':''}
+        <div style="width:9px;height:9px;border-radius:50%;background:${it.color};flex-shrink:0;margin-top:3px"></div>
+        ${i<agenda.length-1?'<div style="width:1px;flex:1;background:var(--c-border);margin-top:3px;min-height:18px"></div>':''}
       </div>
-      <div style="background:var(--c-bg2);border:1px solid var(--c-border);border-radius:8px;padding:7px 11px;margin-bottom:7px;flex:1">
-        <div style="font-size:12px;font-weight:600">${it.ti}</div>
-        <div style="font-size:10px;color:var(--c-text3)">${it.s}</div>
-      </div>
-    </div>`).join('');
-
-  const todayCards=buildTaskCards(todayT.slice(0,4));
-  const ctxLabel=curCtxFilter==='all'?'Todos':(contexts.find(c=>c.id===curCtxFilter)?.name||curCtxFilter);
-
-  return `
-    <div class="dash-grid">
-      <div class="stat-card" onclick="gotoView('tareas',null)" style="cursor:pointer" title="Ver todas las tareas">
-        <div class="stat-icon">✅</div>
-        <div class="stat-lbl">Pendientes — ${ctxLabel}</div>
-        <div class="stat-val">${pending.length}</div>
-        <div class="stat-sub">${todayT.length} para hoy</div>
-        <div style="margin-top:9px;height:4px;background:var(--c-bg3);border-radius:2px;overflow:hidden">
-          <div style="height:100%;width:${pct}%;background:var(--accent);border-radius:2px;transition:width .4s"></div>
+      <div style="flex:1">
+        <div style="background:var(--c-bg2);border:1px solid var(--c-border);border-left:3px solid ${it.color};border-radius:var(--radius-sm);padding:8px 12px;margin-bottom:6px">
+          <div style="font-size:12px;font-weight:600;color:var(--c-text)">${it.title}</div>
+          <div style="font-size:11px;color:var(--c-text3)">${it.sub}</div>
         </div>
-        <div style="font-size:10px;color:var(--c-text3);margin-top:4px">${pct}% completado</div>
       </div>
-      <div class="stat-card bb" onclick="filterByCtx('banbajio');gotoView('tareas',null)" style="cursor:pointer" title="Ver tareas BanBajío">
-        <div class="stat-icon">🏦</div>
-        <div class="stat-lbl">BanBajío</div>
-        <div class="stat-val">${bbP}</div>
-        <div class="stat-sub">${projects.filter(p=>p.ctx==='banbajio').length} proyectos activos</div>
-      </div>
-      <div class="stat-card inst" onclick="filterByCtx('instinto');gotoView('tareas',null)" style="cursor:pointer" title="Ver tareas Instinto">
-        <div class="stat-icon">🌸</div>
-        <div class="stat-lbl">Instinto Fragancias</div>
-        <div class="stat-val">${instP}</div>
-        <div class="stat-sub">Pendientes activos</div>
-      </div>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
-      <div>
-        <div class="sec-hdr"><div class="sec-ttl">☀️ Hoy (${todayT.length})</div>
-          <button class="btn-primary" style="font-size:11px;padding:5px 11px" onclick="gotoView('midia',null)">Ver todo</button>
-        </div>
-        <div class="task-list">${todayCards||'<div class="empty"><div class="empty-icon">🎉</div><div class="empty-ttl">¡Todo al día!</div></div>'}</div>
-      </div>
-      <div>
-        <div class="sec-hdr"><div class="sec-ttl">📅 Agenda de hoy</div></div>
-        ${tlH}
-      </div>
+    </div>`).join('') :
+    `<div style="text-align:center;padding:16px 0;color:var(--c-text3);font-size:12px">
+      Sin eventos ni tareas con hora hoy
+      <br><button onclick="gotoView('calendario',null)" style="margin-top:8px;font-size:11px;padding:4px 12px;border-radius:20px;border:1px solid var(--c-border);background:var(--c-bg3);color:var(--c-text2);cursor:pointer">📅 Ir al calendario</button>
     </div>`;
+
+  return`
+  <div class="dash-grid">
+    <div class="stat-card" onclick="gotoView('tareas',null)" style="cursor:pointer">
+      <div class="stat-icon">✅</div>
+      <div class="stat-lbl">Pendientes — ${ctxLabel}</div>
+      <div class="stat-val">${pending.length}</div>
+      <div class="stat-sub">${todayT.length} para hoy</div>
+      <div class="stat-prog"><div class="stat-prog-fill" style="width:${pct}%"></div></div>
+    </div>
+    <div class="stat-card bb" onclick="filterByCtx('banbajio');gotoView('tareas',null)" style="cursor:pointer">
+      <div class="stat-icon">🏦</div>
+      <div class="stat-lbl">BanBajío</div>
+      <div class="stat-val">${bbP}</div>
+      <div class="stat-sub">${projects.filter(p=>p.ctx==='banbajio').length} proyectos activos</div>
+    </div>
+    <div class="stat-card inst" onclick="filterByCtx('instinto');gotoView('tareas',null)" style="cursor:pointer">
+      <div class="stat-icon">🌸</div>
+      <div class="stat-lbl">Instinto Fragancias</div>
+      <div class="stat-val">${instP}</div>
+      <div class="stat-sub">Pendientes activos</div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:4px">
+    <div>
+      <div class="sec-hdr"><div class="sec-ttl">📋 Agenda de hoy</div></div>
+      <div style="background:var(--c-bg2);border:1px solid var(--c-border);border-radius:var(--radius);padding:14px">${tlH}</div>
+    </div>
+    <div>
+      <div class="sec-hdr">
+        <div class="sec-ttl">🔥 Alta prioridad</div>
+      </div>
+      ${buildTaskCards(pending.filter(t=>t.priority==='high').slice(0,3)) ||
+        '<div class="empty" style="padding:16px"><div class="empty-sub">Sin tareas urgentes</div></div>'}
+    </div>
+  </div>`;
 }
 
-// ══════════════════════════════════════════════════════
-// TASK CARDS
-// ══════════════════════════════════════════════════════
 function buildTaskCards(list){
   return list.map(t=>{
     const tc=t.tags.map(tag=>{const col=tagColor(tag);return`<span class="tag-pill" style="background:${col}22;color:${col}">${tag}</span>`;}).join('');
@@ -2489,6 +2470,77 @@ function selP(p,btn){
 }
 
 function saveTask(){
+  const titleEl = document.getElementById('mTitle');
+  const title = (titleEl ? titleEl.value : '').trim();
+  if(!title) return toast('⚠️','Escribe el título de la tarea');
+
+  const get = id => { const el=document.getElementById(id); return el ? el.value||'' : ''; };
+  const ctxVal = get('mCtx') || (curCtxFilter!=='all' ? curCtxFilter : 'personal');
+  const prevTask = editingId ? tasks.find(x=>Number(x.id)===Number(editingId)) : null;
+
+  const t = {
+    id:         editingId || Date.now(),
+    title:      title,
+    notes:      get('mNotes'),
+    date:       get('mDate'),
+    time:       get('mTime'),
+    priority:   curPrio || 'medium',
+    ctx:        ctxVal,
+    tags:       [...(mTags||[])],
+    projId:     get('mProj'),
+    done:       false,
+    recurring:  get('remRecurTop') || 'none',
+    attachments:[...(mAttach||[])],
+    subtasks:   prevTask ? (prevTask.subtasks||[]) : [],
+    subsubtasks:[],
+    order:      prevTask ? (prevTask.order||0) : tasks.length,
+    list:       'inbox',
+  };
+
+  if(editingId){
+    const i = tasks.findIndex(x=>Number(x.id)===Number(editingId));
+    if(i>=0){ t._fbId=tasks[i]._fbId; tasks[i]=t; }
+    else tasks.unshift(t);
+  } else {
+    tasks.unshift(t);
+  }
+
+  fbSaveTask(t);
+  closeTaskModal();
+  updateBadges();
+  renderView();
+  toast('✅', editingId ? 'Tarea actualizada' : 'Tarea guardada');
+}
+
+function closeTaskModal(){ const el=document.getElementById('taskModal'); if(el) el.classList.remove('open'); editingId=null; }
+
+function buildProjSelects(){
+  // Datalist para búsqueda de proyecto
+  const dl=document.getElementById('mProjList');
+  if(dl) dl.innerHTML='<option value="">Sin proyecto</option>'+projects.map(p=>`<option value="${p.name}" data-id="${p.id}">${p.name}</option>`).join('');
+  // Select contexto del modal de tarea
+  const mc=document.getElementById('mCtx');
+  if(mc) mc.innerHTML=contexts.map(c=>`<option value="${c.id}">${c.icon} ${c.name}</option>`).join('');
+  // Select contexto del modal de proyecto
+  const np=document.getElementById('newProjCtx');
+  if(np) np.innerHTML=contexts.map(c=>`<option value="${c.id}">${c.icon} ${c.name}</option>`).join('');
+}
+
+function onProjSearch(val) {
+  // Encontrar el proyecto que coincide con el texto escrito
+  const match = projects.find(p => p.name.toLowerCase() === val.toLowerCase());
+  const hiddenInp = document.getElementById('mProj');
+  if(hiddenInp) hiddenInp.value = match ? match.id : '';
+}
+
+function selP(p,btn){
+  curPrio=p;
+  document.querySelectorAll('.prio-btn').forEach(b=>b.classList.remove('sel'));
+  if(btn)btn.classList.add('sel');
+  else{const b=document.querySelector(`.prio-btn.${p}`);if(b)b.classList.add('sel');}
+}
+
+function saveTask(){
   const title=(document.getElementById('mTitle').value||'').trim();
   if(!title)return toast('⚠️','Escribe el título de la tarea');
   
@@ -2523,8 +2575,15 @@ function saveTask(){
   } else {
     tasks.unshift(t);
   }
-  fbSaveTask(t);
-  closeTaskModal();updateBadges();renderView();
+  // Actualizar UI inmediatamente (optimistic update)
+  updateBadges();
+  renderView();
+  closeTaskModal();
+  // Guardar en Firebase de forma asíncrona
+  fbSaveTask(t).catch(err => {
+    console.error('Error guardando tarea:', err);
+    toast('❌','Error al guardar en Firebase: '+err.message);
+  });
   if(toOutlook && t.date) {
     const outlookText = 'Asunto: ' + t.title + '\n' +
       'Fecha: ' + t.date + (t.time ? ' ' + t.time : '') + '\n' +
@@ -3980,12 +4039,10 @@ function addSubsubInline(e, taskId, subId, inp) {
 // NAVEGACIÓN MÓVIL
 // ══════════════════════════════════════════════════════
 function mobileNav(view, btn) {
-  // Actualizar botones activos del bottom nav
   document.querySelectorAll('.mob-nav-btn').forEach(b => b.classList.remove('active'));
   const activeBtn = btn || document.getElementById('mnv-' + view);
   if(activeBtn) activeBtn.classList.add('active');
-  // Navegar a la vista
-  gotoView(view, document.querySelector('[data-view="'+view+'"]'));
+  gotoView(view, null);
 }
 
 function toggleMobileMenu() {
@@ -4068,7 +4125,11 @@ function hideLoadingScreen() {
   const screen = document.getElementById('loadingScreen');
   if(!screen || screen.style.opacity === '0') return;
   screen.style.opacity = '0';
-  setTimeout(() => { screen.style.display = 'none'; }, 400);
+  setTimeout(() => {
+    screen.style.display = 'none';
+    // Re-aplicar layout móvil después de ocultar la pantalla de carga
+    if(typeof applyMobileLayout === 'function') applyMobileLayout();
+  }, 400);
 }
 
 
@@ -4585,6 +4646,202 @@ window.debugFirebase = async function() {
   console.log('Total:', snap.size);
 };
 
+
+// ══════════════════════════════════════════════════════
+// RECORDATORIOS POR CORREO — EmailJS
+// ══════════════════════════════════════════════════════
+
+// Config guardada en localStorage
+function getEmailConfig() {
+  try { return JSON.parse(localStorage.getItem('hq_email_cfg')||'{}'); } catch(e){ return {}; }
+}
+function saveEmailConfig(cfg) {
+  localStorage.setItem('hq_email_cfg', JSON.stringify(cfg));
+}
+
+// Inicializar EmailJS con la clave del usuario
+function initEmailJS() {
+  const cfg = getEmailConfig();
+  if(cfg.publicKey && typeof emailjs !== 'undefined') {
+    emailjs.init({publicKey: cfg.publicKey});
+    return true;
+  }
+  return false;
+}
+
+// Enviar recordatorio de tarea por correo
+async function sendTaskReminderEmail(task) {
+  const cfg = getEmailConfig();
+  if(!cfg.publicKey || !cfg.serviceId || !cfg.templateId || !cfg.toEmail) {
+    toast('⚙️','Configura el correo primero → Menú ☰ → Recordatorios');
+    openEmailConfig();
+    return false;
+  }
+  if(!initEmailJS()) { toast('❌','EmailJS no disponible'); return false; }
+  try {
+    const ctx = contexts.find(c=>c.id===task.ctx);
+    await emailjs.send(cfg.serviceId, cfg.templateId, {
+      to_email:   cfg.toEmail,
+      to_name:    cfg.toName || 'Héctor',
+      task_title: task.title,
+      task_date:  task.date || 'Sin fecha',
+      task_time:  task.time || 'Sin hora',
+      task_ctx:   ctx ? ctx.icon+' '+ctx.name : task.ctx,
+      task_notes: task.notes || '',
+      task_priority: task.priority === 'high' ? '🔴 Alta' : task.priority === 'medium' ? '🟡 Media' : '🟢 Baja',
+      app_url:    'https://ezquerrahector.github.io/hq-centro-control/'
+    });
+    toast('📧','Recordatorio enviado a '+cfg.toEmail);
+    return true;
+  } catch(err) {
+    console.error('EmailJS error:', err);
+    toast('❌','Error al enviar: '+err.text);
+    return false;
+  }
+}
+
+// Enviar resumen diario de tareas pendientes
+async function sendDailySummaryEmail() {
+  const cfg = getEmailConfig();
+  if(!cfg.publicKey || !cfg.serviceId || !cfg.summaryTemplateId || !cfg.toEmail) {
+    toast('⚙️','Configura el correo para recibir el resumen diario');
+    openEmailConfig();
+    return;
+  }
+  if(!initEmailJS()) return;
+  const pending = tasks.filter(t=>!t.done);
+  const todayTasks = pending.filter(t=>t.date===TODAY);
+  const highPri = pending.filter(t=>t.priority==='high');
+  const taskList = todayTasks.slice(0,10).map(t=>`• ${t.title} (${t.time||'sin hora'})`).join('\n');
+  try {
+    await emailjs.send(cfg.serviceId, cfg.summaryTemplateId||cfg.templateId, {
+      to_email:      cfg.toEmail,
+      to_name:       cfg.toName || 'Héctor',
+      total_pending: pending.length,
+      today_count:   todayTasks.length,
+      high_priority: highPri.length,
+      task_list:     taskList || 'Sin tareas para hoy 🎉',
+      app_url:       'https://ezquerrahector.github.io/hq-centro-control/'
+    });
+    toast('📧','Resumen diario enviado');
+  } catch(err) {
+    toast('❌','Error: '+err.text);
+  }
+}
+
+// Programar resumen diario automático
+function scheduleEmailSummary() {
+  const cfg = getEmailConfig();
+  if(!cfg.summaryHour || !cfg.toEmail) return;
+  const now = new Date();
+  const target = new Date(now);
+  target.setHours(parseInt(cfg.summaryHour)||8, 0, 0, 0);
+  if(now >= target) target.setDate(target.getDate()+1);
+  const ms = target - now;
+  setTimeout(()=>{
+    sendDailySummaryEmail();
+    setInterval(sendDailySummaryEmail, 24*60*60*1000); // repetir cada 24h
+  }, ms);
+  toast('📧','Resumen diario programado a las '+(cfg.summaryHour||8)+':00');
+}
+
+// Abrir modal de configuración de correo
+function openEmailConfig() {
+  const cfg = getEmailConfig();
+  const existing = document.getElementById('emailCfgModal');
+  if(existing) existing.remove();
+  const m = document.createElement('div');
+  m.id = 'emailCfgModal';
+  m.className = 'overlay open';
+  m.onclick = e => { if(e.target===m) m.remove(); };
+  m.innerHTML = `
+  <div class="modal" style="max-width:480px">
+    <div class="modal-hdr">
+      <span class="modal-ttl">📧 Configurar Recordatorios por Correo</span>
+      <button class="btn-icon" onclick="document.getElementById('emailCfgModal').remove()">✕</button>
+    </div>
+    <div style="font-size:12px;color:var(--c-text3);margin-bottom:16px;background:var(--c-bg3);padding:10px;border-radius:8px;line-height:1.6">
+      Usa <strong>EmailJS</strong> (gratis, 200 correos/mes). 
+      <a href="https://www.emailjs.com" target="_blank" style="color:var(--accent)">Regístrate en emailjs.com</a> 
+      y configura un servicio de Gmail para obtener los IDs.
+    </div>
+    <div class="form-grp">
+      <label class="form-lbl">Tu correo (destinatario)</label>
+      <input id="ecfg-email" class="form-inp" type="email" placeholder="tu@correo.com" value="${cfg.toEmail||''}">
+    </div>
+    <div class="form-grp">
+      <label class="form-lbl">Tu nombre</label>
+      <input id="ecfg-name" class="form-inp" placeholder="Héctor" value="${cfg.toName||'Héctor'}">
+    </div>
+    <div style="height:1px;background:var(--c-border);margin:12px 0"></div>
+    <div style="font-size:11px;font-weight:600;color:var(--c-text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Datos de EmailJS</div>
+    <div class="form-grp">
+      <label class="form-lbl">Public Key <span style="font-size:10px;color:var(--c-text3)">(Account → API Keys)</span></label>
+      <input id="ecfg-pk" class="form-inp" placeholder="user_XXXXXXXXXXXX" value="${cfg.publicKey||''}">
+    </div>
+    <div class="form-grp">
+      <label class="form-lbl">Service ID <span style="font-size:10px;color:var(--c-text3)">(Email Services → Service ID)</span></label>
+      <input id="ecfg-svc" class="form-inp" placeholder="service_XXXXXXX" value="${cfg.serviceId||''}">
+    </div>
+    <div class="form-grp">
+      <label class="form-lbl">Template ID — Recordatorio individual <span style="font-size:10px;color:var(--c-text3)">(Email Templates → Template ID)</span></label>
+      <input id="ecfg-tpl" class="form-inp" placeholder="template_XXXXXXX" value="${cfg.templateId||''}">
+    </div>
+    <div class="form-grp">
+      <label class="form-lbl">Hora del resumen diario</label>
+      <select id="ecfg-hr" class="form-inp">
+        ${[6,7,8,9,10].map(h=>`<option value="${h}" ${(cfg.summaryHour||8)==h?'selected':''}>0${h}:00 AM</option>`).join('')}
+      </select>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btn-primary" onclick="saveEmailCfg()" style="flex:1">💾 Guardar configuración</button>
+      <button class="btn-secondary" onclick="testEmailCfg()" style="flex:1">📤 Enviar correo de prueba</button>
+    </div>
+    <div style="margin-top:10px;font-size:11px;color:var(--c-text3)">
+      💡 Después de guardar, haz clic en "📧 Activar resumen diario" en el menú ☰
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+}
+
+function saveEmailCfg() {
+  const cfg = {
+    toEmail:    document.getElementById('ecfg-email').value.trim(),
+    toName:     document.getElementById('ecfg-name').value.trim(),
+    publicKey:  document.getElementById('ecfg-pk').value.trim(),
+    serviceId:  document.getElementById('ecfg-svc').value.trim(),
+    templateId: document.getElementById('ecfg-tpl').value.trim(),
+    summaryHour:document.getElementById('ecfg-hr').value,
+  };
+  if(!cfg.toEmail){ toast('⚠️','Ingresa tu correo'); return; }
+  if(!cfg.publicKey || !cfg.serviceId || !cfg.templateId){
+    toast('⚠️','Completa los datos de EmailJS'); return;
+  }
+  saveEmailConfig(cfg);
+  initEmailJS();
+  document.getElementById('emailCfgModal').remove();
+  toast('✅','Configuración guardada');
+  if(confirm('¿Activar el resumen diario automático a las '+cfg.summaryHour+':00?')){
+    scheduleEmailSummary();
+  }
+}
+
+async function testEmailCfg() {
+  const cfg = {
+    toEmail:    document.getElementById('ecfg-email').value.trim(),
+    publicKey:  document.getElementById('ecfg-pk').value.trim(),
+    serviceId:  document.getElementById('ecfg-svc').value.trim(),
+    templateId: document.getElementById('ecfg-tpl').value.trim(),
+  };
+  if(!cfg.publicKey||!cfg.serviceId||!cfg.templateId||!cfg.toEmail){
+    toast('⚠️','Completa todos los campos primero'); return;
+  }
+  saveEmailConfig({...getEmailConfig(),...cfg});
+  initEmailJS();
+  const fakeTask = {title:'✅ Prueba de HQ Centro de Control',date:TODAY,time:'09:00',ctx:'personal',notes:'Si recibes este correo, ¡los recordatorios funcionan!',priority:'medium'};
+  await sendTaskReminderEmail(fakeTask);
+}
+
 // ══════════════════════════════════════════════════════
 // TOAST
 // ══════════════════════════════════════════════════════
@@ -4602,7 +4859,7 @@ function toast(icon,msg){
 // ══════════════════════════════════════════════════════
 
 async function fbSaveTask(t) {
-  if(typeof firebase === 'undefined') return;
+  if(typeof firebase === 'undefined') return Promise.resolve();
   setSyncStatus('syncing', 'Guardando...');
   try {
     const data = Object.assign({}, t);
@@ -4618,6 +4875,7 @@ async function fbSaveTask(t) {
   } catch(e) {
     setSyncStatus('error', '✗ Error al guardar');
     console.error('fbSaveTask:', e);
+    throw e; // Re-lanzar para que el .catch() del caller lo reciba
   }
 }
 
@@ -4823,6 +5081,12 @@ setTimeout(() => {
     <button class="mob-nav-btn" style="flex-direction:column;height:60px;border-radius:10px;border:1px solid var(--sb-border)" onclick="document.getElementById('importFileInp').click();toggleMobileMenu()">
       <span class="mob-nav-icon">📥</span><span class="mob-nav-label">Importar</span>
     </button>
+    <button class="mob-nav-btn" style="flex-direction:column;height:60px;border-radius:10px;border:1px solid var(--sb-border)" onclick="openEmailConfig();toggleMobileMenu()">
+      <span class="mob-nav-icon">📧</span><span class="mob-nav-label">Correo</span>
+    </button>
+    <button class="mob-nav-btn" style="flex-direction:column;height:60px;border-radius:10px;border:1px solid var(--sb-border)" onclick="scheduleEmailSummary();toggleMobileMenu()">
+      <span class="mob-nav-icon">📬</span><span class="mob-nav-label">Resumen</span>
+    </button>
   </div>
 </div>
 
@@ -4836,7 +5100,7 @@ setTimeout(() => {
 <div id="loadingScreen" style="
   position:fixed;inset:0;background:var(--c-bg);
   display:flex;flex-direction:column;align-items:center;justify-content:center;
-  z-index:9998;transition:opacity .4s;">
+  z-index:9997;transition:opacity .4s;">
   <div style="width:48px;height:48px;background:var(--accent);border-radius:14px;
     display:flex;align-items:center;justify-content:center;
     font-family:'Syne',sans-serif;font-weight:800;font-size:20px;color:#fff;margin-bottom:20px">HQ</div>
