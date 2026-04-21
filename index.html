@@ -3063,14 +3063,23 @@ function completeTask(id){
   t.done=true;updateBadges();renderView();toast('✅','Tarea completada');
 }
 
-function deleteTask(id){
+async function deleteTask(id){
   const i=tasks.findIndex(x=>x.id===id);
-  if(i>=0){fbDeleteTask(tasks[i]);tasks.splice(i,1);updateBadges();renderView();toast('🗑️','Tarea eliminada');}
+  if(i<0) return;
+  await fbDeleteTask(tasks[i]);
+  tasks.splice(i,1);
+  updateBadges();
+  renderView();
+  toast('🗑️','Tarea eliminada');
 }
 
-function permDelete(id){
+async function permDelete(id){
   const i=tasks.findIndex(x=>x.id===id);
-  if(i>=0){tasks.splice(i,1);renderView();toast('🗑️','Eliminado permanentemente');}
+  if(i<0) return;
+  await fbDeleteTask(tasks[i]);
+  tasks.splice(i,1);
+  renderView();
+  toast('🗑️','Eliminado permanentemente');
 }
 
 function toggleSub(tid,sid){
@@ -5109,9 +5118,17 @@ async function fbSaveTask(t) {
 }
 
 async function fbDeleteTask(t) {
-  if(typeof firebase === 'undefined' || !t._fbId) return;
-  try { await db.collection('tasks').doc(t._fbId).delete(); }
-  catch(e){ console.error('fbDeleteTask:', e); }
+  if(typeof firebase === 'undefined' || !t._fbId) {
+    console.warn('fbDeleteTask: sin Firebase o sin _fbId', t);
+    return;
+  }
+  try {
+    await db.collection('tasks').doc(t._fbId).delete();
+    console.log('Tarea eliminada de Firebase:', t._fbId);
+  } catch(e) {
+    console.error('fbDeleteTask error:', e);
+    toast('❌','Error al eliminar de Firebase');
+  }
 }
 
 async function fbSaveContexts() {
