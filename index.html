@@ -244,6 +244,17 @@ textarea.form-inp{resize:vertical;min-height:65px;}
 .prio-btn.low.sel{background:rgba(82,168,224,.1);border-color:#52a8e0;color:#2d7dd2;}
 .prio-btn.none.sel{background:var(--c-bg3);border-color:var(--c-border2);color:var(--c-text);}
 .modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;}
+@media(max-width:600px){
+  .modal-footer{
+    position:sticky;
+    bottom:0;
+    background:var(--c-bg2);
+    padding:12px 0 4px;
+    margin-top:12px;
+    border-top:1px solid var(--c-border);
+    z-index:5;
+  }
+}
 .btn-sec{padding:8px 16px;border-radius:20px;border:1px solid var(--c-border2);background:transparent;color:var(--c-text2);cursor:pointer;font-family:'DM Sans',sans-serif;font-size:13px;transition:all .15s;}
 .btn-sec:hover{background:var(--c-bg3);}
 
@@ -585,13 +596,15 @@ textarea.form-inp{resize:vertical;min-height:65px;}
   .overlay{align-items:flex-end;padding:0;}
   .overlay .modal{
     border-radius:20px 20px 0 0;
-    max-height:92vh;
+    max-height:92dvh;
     min-height:auto;
     width:100%;
     max-width:100%;
     margin:0;
-    padding:20px 16px 32px;
+    padding:20px 16px 16px;
     overflow-y:auto;
+    display:flex;
+    flex-direction:column;
   }
   .modal-hdr{
     position:sticky;top:0;
@@ -1554,7 +1567,7 @@ function buildDash(){
     .sort((a,b)=>(a.start||'').localeCompare(b.start||''));
   // Tareas de hoy — con O sin hora asignada
   const todayTasksH = tasks
-    .filter(t=>!t.done&&t.date===TODAY&&(curCtxFilter==='all'||t.ctx===curCtxFilter))
+    .filter(t => taskOccursOnDate ? taskOccursOnDate(t, TODAY) : (!t.done && t.date===TODAY && (curCtxFilter==='all'||t.ctx===curCtxFilter)))
     .sort((a,b)=>(a.time||'99:99').localeCompare(b.time||'99:99'));
   const agenda = [
     ...todayEvs.map(e=>({time:e.start,title:e.title,sub:e.start+'-'+e.end,color:e.color||'var(--accent)',type:'event',id:e.id})),
@@ -2152,7 +2165,7 @@ function buildCal(){
 
   // Panel del día seleccionado o de hoy
   const panelDate = selStr || todayStr;
-  const panelTasks  = getTasksForDate(panelDate);
+  const panelTasks  = getTasksForDate(panelDate); // incluye recurrentes
   const panelEvents = getEventsForDate(panelDate);
   const panelLabel  = formatDateLabel(panelDate);
 
@@ -4661,9 +4674,26 @@ function getEventsForDate(dateStr) {
   return events.filter(e => e.date === dateStr);
 }
 
+function taskOccursOnDate(t, dateStr) {
+  if(t.done) return false;
+  if(curCtxFilter !== 'all' && t.ctx !== curCtxFilter) return false;
+  if(!t.date) return false;
+  const rec = t.recurring || 'none';
+  if(rec === 'none') return t.date === dateStr;
+  // Para recurrentes, la fecha de la tarea debe ser <= dateStr (no mostrar antes de creada)
+  if(t.date > dateStr) return false;
+  const d = new Date(dateStr + 'T00:00:00');
+  const dow = d.getDay(); // 0=Dom, 1=Lun ... 6=Sab
+  const orig = new Date(t.date + 'T00:00:00');
+  if(rec === 'daily')    return true;
+  if(rec === 'weekdays') return dow >= 1 && dow <= 5;
+  if(rec === 'weekly')   return dow === orig.getDay();
+  if(rec === 'monthly')  return d.getDate() === orig.getDate();
+  return t.date === dateStr;
+}
+
 function getTasksForDate(dateStr) {
-  return tasks.filter(t => !t.done && t.date === dateStr &&
-    (curCtxFilter === 'all' || t.ctx === curCtxFilter));
+  return tasks.filter(t => taskOccursOnDate(t, dateStr));
 }
 
 
