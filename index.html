@@ -642,6 +642,26 @@ console.log("Firebase compat cargado OK");
 <body>
 
 <!-- TOAST -->
+
+<!-- ── SYNC STATUS ── -->
+<div id="syncBar" style="
+  position:fixed;top:0;left:0;right:0;height:3px;
+  background:transparent;z-index:9999;pointer-events:none;
+  transition:background .3s;">
+  <div id="syncProgress" style="height:100%;width:0%;background:var(--accent);transition:width .4s;border-radius:0 2px 2px 0;"></div>
+</div>
+<div id="syncChip" style="
+  position:fixed;bottom:80px;right:16px;
+  display:none;align-items:center;gap:6px;
+  background:var(--c-bg2);border:1px solid var(--c-border);
+  border-radius:20px;padding:5px 12px;
+  font-size:11px;font-weight:500;color:var(--c-text2);
+  box-shadow:0 2px 10px rgba(0,0,0,.1);
+  z-index:400;transition:all .3s;">
+  <span id="syncDot" style="width:7px;height:7px;border-radius:50%;background:#e0a752;flex-shrink:0;"></span>
+  <span id="syncText">Sincronizando...</span>
+</div>
+
 <div class="toast" id="toast"><span id="ti">✅</span><span id="tm"></span></div>
 
 <!-- ── DETAIL PANEL ── -->
@@ -723,49 +743,7 @@ console.log("Firebase compat cargado OK");
       </div>
       <div class="tag-suggest" id="tagSug"></div>
     </div>
-    <!-- RECORDAR -->
-    <div class="form-grp">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-        <label class="form-lbl" style="margin:0">🔔 Recordatorio</label>
-        <button class="chip" id="remToggle" onclick="toggleRemind()">+ Agregar</button>
-      </div>
-      <div id="remBox" style="display:none">
-        <div class="remind-box">
-          <div class="remind-opts">
-            <div class="r-chip" onclick="pickRem('hoy',this)">Hoy</div>
-            <div class="r-chip" onclick="pickRem('man',this)">Mañana</div>
-            <div class="r-chip" onclick="pickRem('sem',this)">Esta semana</div>
-            <div class="r-chip" onclick="pickRem('custom',this)">Elegir fecha</div>
-          </div>
-          <input type="datetime-local" class="form-inp" id="remDate" style="margin-bottom:10px"/>
-          <label class="form-lbl">Recurrencia</label>
-          <select class="form-sel" id="remRecur" onchange="onRecurChange()">
-            <option value="none">Sin repetir</option>
-            <option value="daily">Diario</option>
-            <option value="weekly">Semanal</option>
-            <option value="monthly">Mensual</option>
-            <option value="yearly">Anual</option>
-          </select>
-          <div id="recurDts" style="display:none" class="form-row" >
-            <div class="form-grp" style="margin:8px 0 0">
-              <label class="form-lbl">Inicia el</label>
-              <input type="date" class="form-inp" id="recurStart"/>
-            </div>
-            <div class="form-grp" style="margin:8px 0 0">
-              <label class="form-lbl">¿Tiene fin?</label>
-              <select class="form-sel" id="recurHasEnd" onchange="onHasEndChange()">
-                <option value="no">Indefinido</option>
-                <option value="yes">Sí, elegir fecha</option>
-              </select>
-            </div>
-          </div>
-          <div id="recurEndBox" style="display:none;margin-top:8px">
-            <label class="form-lbl">Termina el</label>
-            <input type="date" class="form-inp" id="recurEnd"/>
-          </div>
-        </div>
-      </div>
-    </div>
+
     <!-- ADJUNTOS -->
     <div class="form-grp">
       <label class="form-lbl">📎 Adjuntos</label>
@@ -957,12 +935,11 @@ console.log("Firebase compat cargado OK");
         <input placeholder="Buscar tareas, etiquetas..." oninput="doSearch(this.value)"/>
       </div>
       <div class="topbar-actions">
-        <button class="btn-icon" title="Exportar tareas a Excel" onclick="exportToExcel()">📊</button>
-        <button class="btn-icon" title="Importar tareas desde CSV" onclick="document.getElementById('importFileInp').click()">📥</button>
+        <button class="btn-icon" title="Exportar a Excel" onclick="exportToExcel()">📊</button>
+        <button class="btn-icon" title="Importar desde CSV" onclick="document.getElementById('importFileInp').click()">📥</button>
         <input type="file" id="importFileInp" accept=".csv,.xlsx,.xls" style="display:none" onchange="importFromFile(this)"/>
-        <button class="btn-icon" title="Activar recordatorio diario a las 9am" onclick="scheduleDailyNotif()" id="btnNotif">🔔</button>
-        <button class="btn-icon" title="Enviar notificación ahora" onclick="requestNotifPermission().then(ok=>{if(ok)sendDayNotif()})">📋</button>
-        <button class="btn-icon" title="Héctor Ezquerra" onclick="toast('👤','Héctor Ezquerra · hq-centro-control.web.app')">👤</button>
+        <button class="btn-icon" title="Notificación diaria (9 AM)" onclick="scheduleDailyNotif()" id="btnNotif">🔔</button>
+        <button class="btn-icon" title="Perfil — Héctor Ezquerra" onclick="showProfileMenu()">👤</button>
         <button class="btn-primary" onclick="openTaskModal()">＋ Nueva tarea</button>
       </div>
     </div>
@@ -987,20 +964,9 @@ console.log("Firebase compat cargado OK");
 // ══════════════════════════════════════════════════════
 const TODAY = '2026-04-19';
 
-let contexts = [
-  {id:'personal',  name:'Personal',          color:'#7c5cbf', icon:'👤'},
-  {id:'banbajio',  name:'BanBajío',           color:'#2d7dd2', icon:'🏦'},
-  {id:'instinto',  name:'Instinto Fragancias',color:'#c9732a', icon:'🌸'},
-];
 
-let projects = [
-  {id:'p1',name:'MTU BanBajío',          ctx:'banbajio', date:'2026-05-30',desc:'Flujo de límites transaccionales'},
-  {id:'p2',name:'Estrategia Digital 2026–2030',ctx:'banbajio',date:'2026-05-01',desc:'Presentación al consejo directivo'},
-  {id:'p3',name:'Instinto — Lanzamiento Q2',   ctx:'instinto', date:'2026-06-30',desc:'Etiquetas, sitio web, catálogo'},
-  {id:'p4',name:'MBA UNITEC',            ctx:'personal', date:'2026-12-01',desc:'Maestría en Administración de Negocios'},
-];
-
-let tasks = [
+// Datos de ejemplo para seed inicial (solo se usan si Firebase está vacío)
+const SEED_TASKS = [
   {id:1, title:'Flujo MTU — Revisar documento de requisitos',
    notes:'Límites transaccionales pendientes de validación.',
    date:'2026-04-20',time:'10:00',priority:'high',ctx:'banbajio',
@@ -1061,6 +1027,27 @@ let tasks = [
    list:'banco',projId:'p2',done:true,recurring:'none',attachments:[],subtasks:[]},
 ];
 
+const SEED_CONTEXTS = [
+  {id:'personal',  name:'Personal',          color:'#7c5cbf', icon:'👤'},
+  {id:'banbajio',  name:'BanBajío',           color:'#2d7dd2', icon:'🏦'},
+  {id:'instinto',  name:'Instinto Fragancias',color:'#c9732a', icon:'🌸'},
+];
+
+const SEED_PROJECTS = [
+  {id:'p1',name:'MTU BanBajío',          ctx:'banbajio', date:'2026-05-30',desc:'Flujo de límites transaccionales'},
+  {id:'p2',name:'Estrategia Digital 2026–2030',ctx:'banbajio',date:'2026-05-01',desc:'Presentación al consejo directivo'},
+  {id:'p3',name:'Instinto — Lanzamiento Q2',   ctx:'instinto', date:'2026-06-30',desc:'Etiquetas, sitio web, catálogo'},
+  {id:'p4',name:'MBA UNITEC',            ctx:'personal', date:'2026-12-01',desc:'Maestría en Administración de Negocios'},
+];
+
+// Arrays activos — vacíos al inicio, se llenan desde Firebase
+let tasks    = [];
+let contexts = [
+  {id:'personal',  name:'Personal',           color:'#7c5cbf', icon:'👤'},
+  {id:'banbajio',  name:'BanBajío',            color:'#2d7dd2', icon:'🏦'},
+  {id:'instinto',  name:'Instinto Fragancias', color:'#c9732a', icon:'🌸'},
+];
+let projects = [];
 let alarms=[
   {id:1,name:'Ejercicio matutino',time:'07:00',repeat:'Lunes a viernes',on:true,ctx:'personal'},
   {id:2,name:'Revisión Power Automate',time:'08:00',repeat:'Cada día',on:true,ctx:'banbajio'},
@@ -1212,12 +1199,18 @@ function buildCtxEditList(){
 }
 
 function moveCtx(id,dir){
-  const i=contexts.findIndex(c=>c.id===id);
+  const i=contexts.findIndex(c=>String(c.id)===String(id));
+  if(i<0) return;
   const j=i+dir;
-  if(j<0||j>=contexts.length)return;
+  if(j<0||j>=contexts.length) return;
   [contexts[i],contexts[j]]=[contexts[j],contexts[i]];
-  renderSidebar();renderCtxFilterBar();
-  toast('↕️','Contexto reordenado');
+  // Guardar orden en Firebase → sincroniza todos los dispositivos
+  contexts.forEach((c,idx)=>{ c.order=idx; });
+  fbSaveContexts();
+  renderSidebar();
+  renderCtxFilterBar();
+  if(typeof buildCtxEditList==='function') buildCtxEditList();
+  toast('↕️','Contexto reordenado ☁️');
 }
 
 function deleteCtx(id){
@@ -2933,11 +2926,12 @@ function onCtxSbDrop(e, targetId) {
 
   const [moved] = contexts.splice(fromIdx, 1);
   contexts.splice(toIdx, 0, moved);
-
+  // Actualizar campo order y persistir
+  contexts.forEach((c,idx)=>{ c.order=idx; });
   fbSaveContexts();
   renderSidebar();
   renderCtxFilterBar();
-  toast('↕️', 'Contexto reordenado');
+  toast('↕️', 'Contexto reordenado ☁️');
   dragCtxId = null;
 }
 
@@ -3485,29 +3479,41 @@ function saveSubTask() {
     done:     false,
   };
 
-  if(addType === 'subsub' && subId) {
-    // Agregar sub-subtarea
-    const sub = task.subtasks.find(s=>String(s.id)===String(subId));
-    if(!sub) return;
+  if(addType === 'subsub') {
+    // ── Agregar O editar sub-subtarea ──
+    const sub = task.subtasks ? task.subtasks.find(s=>String(s.id)===String(subId)) : null;
+    if(!sub) { toast('⚠️','Subtarea padre no encontrada'); return; }
     sub.subsubtasks = sub.subsubtasks || [];
     if(editId) {
       // Editar sub-subtarea existente
       const idx = sub.subsubtasks.findIndex(ss=>String(ss.id)===String(editId));
-      if(idx>=0) Object.assign(sub.subsubtasks[idx], itemData);
+      if(idx>=0) {
+        sub.subsubtasks[idx] = Object.assign({}, sub.subsubtasks[idx], itemData);
+      }
     } else {
+      // Nueva sub-subtarea
       sub.subsubtasks.push({id:'ss_'+Date.now(), order: sub.subsubtasks.length, ...itemData});
     }
-  } else if(editId && !addType) {
-    // Editar subtarea existente
-    const idx = task.subtasks.findIndex(s=>String(s.id)===String(editId));
+  } else if(editId) {
+    // ── Editar subtarea existente ──
+    const idx = task.subtasks ? task.subtasks.findIndex(s=>String(s.id)===String(editId)) : -1;
     if(idx>=0) {
-      Object.assign(task.subtasks[idx], itemData);
-      task.subtasks[idx].subsubtasks = task.subtasks[idx].subsubtasks || [];
+      // Preservar subsubtasks y attachments al editar
+      const existing = task.subtasks[idx];
+      task.subtasks[idx] = Object.assign({}, existing, itemData, {
+        subsubtasks: existing.subsubtasks || [],
+        attachments: existing.attachments || [],
+        id: existing.id  // nunca cambiar el id
+      });
+    } else {
+      toast('⚠️','Subtarea no encontrada');
+      return;
     }
   } else {
-    // Nueva subtarea
+    // ── Nueva subtarea ──
+    task.subtasks = task.subtasks || [];
     task.subtasks.push({
-      id:'sub_'+Date.now(),
+      id: 'sub_'+Date.now(),
       order: task.subtasks.length,
       subsubtasks: [],
       attachments: [],
@@ -3670,6 +3676,114 @@ function updateMobileBadge() {
   }
 }
 
+
+// ══════════════════════════════════════════════════════
+// ESTADO DE SINCRONIZACIÓN CON FIREBASE
+// ══════════════════════════════════════════════════════
+let syncTimer = null;
+let _appLoaded = false;
+
+function setSyncStatus(state, msg) {
+  // state: 'syncing' | 'synced' | 'error'
+  const chip     = document.getElementById('syncChip');
+  const dot      = document.getElementById('syncDot');
+  const text     = document.getElementById('syncText');
+  const bar      = document.getElementById('syncBar');
+  const progress = document.getElementById('syncProgress');
+  if(!chip) return;
+
+  clearTimeout(syncTimer);
+
+  if(state === 'syncing') {
+    chip.style.display = 'flex';
+    dot.style.background = '#e0a752'; // amarillo
+    dot.style.animation = 'pulse 1s infinite';
+    text.textContent = msg || 'Sincronizando...';
+    // Barra de progreso animada
+    if(progress) { progress.style.width = '0%'; setTimeout(()=>{ progress.style.width='70%'; },50); }
+    if(bar) bar.style.background = 'var(--accent-light)';
+  } else if(state === 'synced') {
+    chip.style.display = 'flex';
+    dot.style.background = '#22a566'; // verde
+    dot.style.animation = 'none';
+    text.textContent = msg || '✓ Sincronizado';
+    if(progress) { progress.style.width = '100%'; }
+    if(bar) bar.style.background = 'transparent';
+    // Ocultar chip después de 2.5s
+    syncTimer = setTimeout(() => {
+      chip.style.opacity = '0';
+      setTimeout(() => {
+        chip.style.display = 'none';
+        chip.style.opacity = '1';
+        if(progress) progress.style.width = '0%';
+      }, 400);
+    }, 2500);
+  } else if(state === 'error') {
+    chip.style.display = 'flex';
+    dot.style.background = '#e05252'; // rojo
+    dot.style.animation = 'none';
+    text.textContent = msg || '✗ Error de conexión';
+    if(bar) bar.style.background = 'transparent';
+  }
+}
+
+// Animación del punto
+const pulseStyle = document.createElement('style');
+pulseStyle.textContent = '@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}';
+document.head.appendChild(pulseStyle);
+
+
+function hideLoadingScreen() {
+  const screen = document.getElementById('loadingScreen');
+  if(!screen || screen.style.opacity === '0') return;
+  screen.style.opacity = '0';
+  setTimeout(() => { screen.style.display = 'none'; }, 400);
+}
+
+
+function showProfileMenu() {
+  const existing = document.getElementById('profileMenu');
+  if(existing) { existing.remove(); return; }
+
+  const btn = document.querySelector('button[title="Perfil — Héctor Ezquerra"]');
+  const rect = btn ? btn.getBoundingClientRect() : {bottom:60,right:200};
+
+  const menu = document.createElement('div');
+  menu.id = 'profileMenu';
+  menu.style.cssText = 'position:fixed;top:'+(rect.bottom+6)+'px;right:'+(window.innerWidth-rect.right)+'px;'+
+    'background:var(--c-bg2);border:1px solid var(--c-border);border-radius:var(--radius);'+
+    'box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:800;min-width:200px;overflow:hidden;';
+
+  const ctx = contexts.find(c=>c.id===curCtxFilter) || {name:'Todos los contextos',icon:'🌐'};
+  menu.innerHTML = [
+    '<div style="padding:12px 14px;border-bottom:1px solid var(--c-border)">'+
+      '<div style="font-family:Syne,sans-serif;font-weight:700;font-size:13px">Héctor Ezquerra</div>'+
+      '<div style="font-size:11px;color:var(--c-text3)">ezquerrahector@gmail.com</div>'+
+      '<div style="font-size:11px;color:var(--accent);margin-top:3px">'+ctx.icon+' '+ctx.name+'</div>'+
+    '</div>',
+    '<div style="padding:6px">',
+      menuItem('🌐','Ver en GitHub','window.open("https://github.com/ezquerrahector/hq-centro-control","_blank")'),
+      menuItem('📊','Exportar tareas','exportToExcel()'),
+      menuItem('📥','Importar tareas','document.getElementById(\'importFileInp\').click()'),
+      menuItem('🔔','Activar notificación diaria','scheduleDailyNotif()'),
+      menuItem('🌙','Cerrar menú','document.getElementById(\'profileMenu\').remove()'),
+    '</div>'
+  ].join('');
+
+  document.body.appendChild(menu);
+  setTimeout(()=>document.addEventListener('click', function handler(e){
+    if(!menu.contains(e.target)){menu.remove();document.removeEventListener('click',handler);}
+  }), 100);
+}
+
+function menuItem(icon, label, action) {
+  return '<button onclick="'+action+';document.getElementById(\'profileMenu\')&&document.getElementById(\'profileMenu\').remove()" '+
+    'style="display:flex;align-items:center;gap:9px;width:100%;padding:8px 10px;border:none;background:transparent;'+
+    'color:var(--c-text2);cursor:pointer;font-family:DM Sans,sans-serif;font-size:13px;border-radius:7px;text-align:left;transition:all .15s" '+
+    'onmouseover="this.style.background=\'var(--c-bg3)\'" onmouseout="this.style.background=\'transparent\'">'+
+    '<span>'+icon+'</span><span>'+label+'</span></button>';
+}
+
 // ══════════════════════════════════════════════════════
 // TOAST
 // ══════════════════════════════════════════════════════
@@ -3688,6 +3802,7 @@ function toast(icon,msg){
 
 async function fbSaveTask(t) {
   if(typeof firebase === 'undefined') return;
+  setSyncStatus('syncing', 'Guardando...');
   try {
     const data = Object.assign({}, t);
     const fbId = data._fbId;
@@ -3698,7 +3813,11 @@ async function fbSaveTask(t) {
       const ref = await db.collection('tasks').add(data);
       t._fbId = ref.id;
     }
-  } catch(e){ console.error('fbSaveTask:', e); }
+    setSyncStatus('synced', '✓ Guardado');
+  } catch(e) {
+    setSyncStatus('error', '✗ Error al guardar');
+    console.error('fbSaveTask:', e);
+  }
 }
 
 async function fbDeleteTask(t) {
@@ -3709,14 +3828,20 @@ async function fbDeleteTask(t) {
 
 async function fbSaveContexts() {
   if(typeof firebase === 'undefined') return;
+  setSyncStatus('syncing','Guardando orden de contextos...');
   try {
-    for(const c of contexts) {
-      const data = Object.assign({}, c);
+    for(let i=0; i<contexts.length; i++) {
+      const c = contexts[i];
+      const data = Object.assign({}, c, {order: i}); // guardar orden
       const fbId = data._fbId; delete data._fbId;
       if(fbId) await db.collection('contexts').doc(fbId).set(data);
       else { const r = await db.collection('contexts').add(data); c._fbId = r.id; }
     }
-  } catch(e){ console.error('fbSaveContexts:', e); }
+    setSyncStatus('synced','✓ Contextos guardados');
+  } catch(e){
+    setSyncStatus('error','✗ Error guardando contextos');
+    console.error('fbSaveContexts:', e);
+  }
 }
 
 async function fbSaveProject(p) {
@@ -3739,55 +3864,88 @@ async function fbSeedIfEmpty() {
     }
     // Solo hacer seed si es la primera vez (Firestore vacío)
     console.log('Primera vez - subiendo datos iniciales...');
-    for(let i=0; i<tasks.length; i++) {
-      const d=Object.assign({},tasks[i]);
+    for(let i=0; i<SEED_TASKS.length; i++) {
+      const d=Object.assign({},SEED_TASKS[i]);
       d.order = i;
       delete d._fbId;
       await db.collection('tasks').add(d);
     }
-    for(const c of contexts) {
-      const d=Object.assign({},c);delete d._fbId;
-      await db.collection('contexts').add(d);
+    // Solo hacer seed de contextos si no hay ninguno
+    const ctxSnap = await db.collection('contexts').limit(1).get();
+    if(ctxSnap.empty) {
+      for(let i=0; i<SEED_CONTEXTS.length; i++) {
+        const d=Object.assign({},SEED_CONTEXTS[i],{order:i});
+        delete d._fbId;
+        await db.collection('contexts').add(d);
+      }
     }
-    for(const p of projects) {
+    for(const p of SEED_PROJECTS) {
       const d=Object.assign({},p);delete d._fbId;
       await db.collection('projects').add(d);
     }
-    toast('☁️','App iniciada con datos de ejemplo');
+    setSyncStatus('synced','Datos iniciales cargados');
   } catch(e){ console.error('fbSeed:', e); }
 }
 
 // Escuchar cambios en tiempo real
 function fbListenAll() {
   if(typeof firebase === 'undefined') return;
+  // Mostrar estado inicial
+  setSyncStatus('syncing', 'Conectando con Firebase...');
+
   db.collection('tasks').onSnapshot(snap => {
-    // No actualizar si hay un drag en curso (evita cancelar el reorden visual)
+    // No interrumpir drag activo
     if(dragTaskId) return;
+
     const arr = [];
     snap.forEach(d => arr.push(Object.assign({}, d.data(), {_fbId: d.id})));
-    if(arr.length > 0) {
-      // Ordenar por campo "order" si existe, sino mantener orden de llegada
-      arr.sort(function(a, b) {
-        const ao = (a.order !== undefined) ? a.order : 9999;
-        const bo = (b.order !== undefined) ? b.order : 9999;
-        return ao - bo;
-      });
-      tasks = arr;
-      updateBadges();
-      renderView();
+
+    // Ordenar por campo "order"
+    arr.sort(function(a, b) {
+      const ao = (a.order !== undefined) ? Number(a.order) : 9999;
+      const bo = (b.order !== undefined) ? Number(b.order) : 9999;
+      return ao - bo;
+    });
+
+    const isFirstLoad = !_appLoaded;
+    tasks = arr;
+
+    if(isFirstLoad) {
+      _appLoaded = true;
+      hideLoadingScreen();
+      setSyncStatus('synced', '✓ ' + arr.length + ' tarea' + (arr.length!==1?'s':'') + ' cargada' + (arr.length!==1?'s':''));
+    } else {
+      // Cambio en tiempo real desde otro dispositivo
+      setSyncStatus('synced', '✓ Sincronizado');
     }
+
+    updateBadges();
+    renderView();
+
+  }, function(err) {
+    setSyncStatus('error', '✗ Sin conexión a Firebase');
+    hideLoadingScreen();
+    console.error('Firestore tasks error:', err);
   });
   db.collection('contexts').onSnapshot(snap => {
     if(snap.empty) return;
     const arr = [];
     snap.forEach(d => arr.push(Object.assign({}, d.data(), {_fbId: d.id})));
-    contexts = arr; renderSidebar(); renderCtxFilterBar();
+    // Ordenar por campo "order" para sincronizar el orden entre dispositivos
+    arr.sort((a,b) => (a.order||0) - (b.order||0));
+    contexts = arr;
+    renderSidebar();
+    renderCtxFilterBar();
+    // Repoblar selects del modal con el nuevo orden
+    buildProjSelects();
   });
   db.collection('projects').onSnapshot(snap => {
     if(snap.empty) return;
     const arr = [];
     snap.forEach(d => arr.push(Object.assign({}, d.data(), {_fbId: d.id})));
-    projects = arr; renderSidebar();
+    projects = arr;
+    renderSidebar();
+    buildProjSelects();
   });
 }
 
@@ -3848,6 +4006,23 @@ setTimeout(() => {
 
 <!-- ── FAB NUEVA TAREA ── -->
 <button class="mob-fab" onclick="openTaskModal()" title="Nueva tarea">＋</button>
+
+
+<!-- ── PANTALLA DE CARGA ── -->
+<div id="loadingScreen" style="
+  position:fixed;inset:0;background:var(--c-bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  z-index:9998;transition:opacity .4s;">
+  <div style="width:48px;height:48px;background:var(--accent);border-radius:14px;
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Syne',sans-serif;font-weight:800;font-size:20px;color:#fff;margin-bottom:20px">HQ</div>
+  <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:18px;color:var(--c-text);margin-bottom:8px">HQ Centro de Control</div>
+  <div style="font-size:13px;color:var(--c-text3);margin-bottom:24px" id="loadingMsg">Conectando con Firebase...</div>
+  <div style="width:200px;height:3px;background:var(--c-border);border-radius:2px;overflow:hidden">
+    <div id="loadingBar" style="height:100%;width:30%;background:var(--accent);border-radius:2px;animation:loadSlide 1.2s ease-in-out infinite"></div>
+  </div>
+  <style>@keyframes loadSlide{0%{width:10%;margin-left:0}50%{width:60%;margin-left:20%}100%{width:10%;margin-left:190px}}</style>
+</div>
 
 </body>
 </html>
