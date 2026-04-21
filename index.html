@@ -528,7 +528,7 @@ textarea.form-inp{resize:vertical;min-height:65px;}
 
   /* App ocupa todo el ancho */
   .app{flex-direction:column;}
-  .main{width:100%;height:100vh;display:flex;flex-direction:column;}
+  .main{width:100%;height:100dvh;display:flex;flex-direction:column;}
 
   /* Topbar móvil compacto — con safe area para notch/barra URL */
   .topbar{height:52px;padding:0 14px;gap:8px;padding-top:max(8px, env(safe-area-inset-top));}
@@ -545,7 +545,10 @@ textarea.form-inp{resize:vertical;min-height:65px;}
   .ctx-filter-chip{font-size:11px;padding:4px 10px;white-space:nowrap;flex-shrink:0;}
 
   /* Contenido con espacio para bottom nav */
-  .content{padding:14px 12px 80px;overflow-y:auto;flex:1;}
+  .content{padding:14px 12px 100px;overflow-y:auto;flex:1;-webkit-overflow-scrolling:touch;}
+  /* Asegurar scroll en todos los contenedores internos */
+  .content > *{max-width:100%;}
+  .kanban-board{overflow-x:auto;padding-bottom:20px;}
 
   /* Dashboard - una columna */
   .dash-grid{grid-template-columns:1fr;gap:10px;margin-bottom:14px;}
@@ -1241,15 +1244,35 @@ document.addEventListener('DOMContentLoaded',()=>{
   // FAB móvil — usar addEventListener para garantizar que funcione
   const fabBtn = document.getElementById('mobFab');
   if(fabBtn) {
+    function openFabMenu() {
+      const existing = document.getElementById('fabMenu');
+      if(existing) { existing.remove(); return; }
+      const menu = document.createElement('div');
+      menu.id = 'fabMenu';
+      menu.style.cssText = 'position:fixed;bottom:140px;right:16px;background:var(--c-bg2);border:1px solid var(--c-border);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.4);z-index:9995;overflow:hidden;animation:slideUp .2s ease';
+      menu.innerHTML = `
+        <button onclick="openTaskModal();document.getElementById('fabMenu').remove()" style="display:flex;align-items:center;gap:10px;width:100%;padding:12px 18px;border:none;background:transparent;color:var(--c-text);cursor:pointer;font-size:14px;white-space:nowrap" onmouseover="this.style.background='var(--c-bg3)'" onmouseout="this.style.background='transparent'">
+          <span>✅</span> Nueva tarea
+        </button>
+        <div style="height:1px;background:var(--c-border);margin:0 12px"></div>
+        <button onclick="openEventModal(null,TODAY);document.getElementById('fabMenu').remove()" style="display:flex;align-items:center;gap:10px;width:100%;padding:12px 18px;border:none;background:transparent;color:var(--c-text);cursor:pointer;font-size:14px;white-space:nowrap" onmouseover="this.style.background='var(--c-bg3)'" onmouseout="this.style.background='transparent'">
+          <span>📅</span> Nuevo evento
+        </button>`;
+      document.body.appendChild(menu);
+      // Cerrar al tocar fuera
+      setTimeout(() => {
+        document.addEventListener('click', function closeFab(ev) {
+          if(!menu.contains(ev.target) && ev.target !== fabBtn) { menu.remove(); document.removeEventListener('click', closeFab); }
+        });
+      }, 100);
+    }
     fabBtn.addEventListener('click', function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      openTaskModal();
+      e.preventDefault(); e.stopPropagation();
+      openFabMenu();
     });
     fabBtn.addEventListener('touchend', function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      openTaskModal();
+      e.preventDefault(); e.stopPropagation();
+      openFabMenu();
     });
   }
 
@@ -1365,6 +1388,17 @@ function openCtxMgmt(focusId){
 }
 function closeCtxMgmt(){document.getElementById('ctxMgmtModal').classList.remove('open');}
 
+function renameCtx(id, newName) {
+  newName = (newName||'').trim();
+  if(!newName) return;
+  const ctx = contexts.find(c=>c.id===id);
+  if(!ctx || ctx.name===newName) return;
+  ctx.name = newName;
+  fbSaveContexts();
+  renderSidebar();
+  renderCtxFilterBar();
+}
+
 function buildCtxEditList(){
   document.getElementById('ctxEditList').innerHTML=contexts.map((c,i)=>{
     const delBtn = contexts.length>1
@@ -1380,7 +1414,12 @@ function buildCtxEditList(){
       '<span class="ctx-edit-handle" title="Arrastra para reordenar">⠿</span>' +
       '<span class="ctx-edit-dot" style="background:' + c.color + '"></span>' +
       '<span style="font-size:16px">' + c.icon + '</span>' +
-      '<span class="ctx-edit-name">' + c.name + '</span>' +
+      '<input class="ctx-edit-name" id="cni-' + c.id + '" data-id="' + c.id + '" ' +
+      'style="background:transparent;border:none;border-bottom:1px solid transparent;' +
+      'outline:none;cursor:text;width:100%;font-size:13px;font-weight:500;' +
+      'color:var(--c-text);padding:2px 4px;border-radius:4px" ' +
+      'onfocus="this.style.borderBottomColor=\'var(--accent)\'" ' +
+      'onblur="renameCtx(this.dataset.id,this.value);this.style.borderBottomColor=\'transparent\'"> ' +
       '<div class="ctx-edit-actions">' +
         '<button class="ctx-edit-btn" onclick="moveCtx(\'' + c.id + '\',-1);buildCtxEditList()" title="Subir">↑</button>' +
         '<button class="ctx-edit-btn" onclick="moveCtx(\'' + c.id + '\',1);buildCtxEditList()" title="Bajar">↓</button>' +
@@ -1388,6 +1427,13 @@ function buildCtxEditList(){
       '</div>' +
     '</div>';
   }).join('');
+  // Llenar los inputs con el nombre actual de cada contexto
+  setTimeout(() => {
+    contexts.forEach(c => {
+      const el = document.getElementById('cni-' + c.id);
+      if(el) el.value = c.name;
+    });
+  }, 10);
 }
 
 function moveCtx(id,dir){
@@ -1506,9 +1552,10 @@ function buildDash(){
   const todayEvs = (typeof events!=='undefined'?events:[])
     .filter(e=>e.date===TODAY)
     .sort((a,b)=>(a.start||'').localeCompare(b.start||''));
+  // Tareas de hoy — con O sin hora asignada
   const todayTasksH = tasks
-    .filter(t=>!t.done&&t.date===TODAY&&t.time&&(curCtxFilter==='all'||t.ctx===curCtxFilter))
-    .sort((a,b)=>(a.time||'').localeCompare(b.time||''));
+    .filter(t=>!t.done&&t.date===TODAY&&(curCtxFilter==='all'||t.ctx===curCtxFilter))
+    .sort((a,b)=>(a.time||'99:99').localeCompare(b.time||'99:99'));
   const agenda = [
     ...todayEvs.map(e=>({time:e.start,title:e.title,sub:e.start+'-'+e.end,color:e.color||'var(--accent)',type:'event',id:e.id})),
     ...todayTasksH.map(t=>{const c=contexts.find(x=>x.id===t.ctx);return{time:t.time,title:t.title,sub:c?c.icon+' '+c.name:t.ctx,color:c?c.color:'var(--accent)',type:'task',id:t.id};})
@@ -1517,7 +1564,7 @@ function buildDash(){
   const tlH = agenda.length ? agenda.map((it,i)=>`
     <div style="display:flex;gap:13px;padding-bottom:10px;cursor:pointer"
       onclick="${it.type==='event'?`openEventModal('${it.id}','${TODAY}')`:`openDetail(${it.id})`}">
-      <span style="font-size:11px;color:var(--c-text3);min-width:42px;padding-top:2px;text-align:right">${it.time}</span>
+      <span style="font-size:11px;color:var(--c-text3);min-width:42px;padding-top:2px;text-align:right">${it.time||'—'}</span>
       <div style="display:flex;flex-direction:column;align-items:center">
         <div style="width:9px;height:9px;border-radius:50%;background:${it.color};flex-shrink:0;margin-top:3px"></div>
         ${i<agenda.length-1?'<div style="width:1px;flex:1;background:var(--c-border);margin-top:3px;min-height:18px"></div>':''}
@@ -5016,6 +5063,7 @@ function fbListenAll() {
 // Para restaurar datos de ejemplo, ejecutar manualmente: fbSeedIfEmpty()
 setTimeout(() => {
   fbListenAll();
+  fbListenEvents(); // Sincronizar eventos del calendario
 }, 500);
 </script>
 
