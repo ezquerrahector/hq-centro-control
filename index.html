@@ -1999,19 +1999,21 @@ function buildCompleted(){
   return`
     <div class="sec-hdr">
       <div class="sec-ttl">🏆 Completadas — ${done.length}</div>
-      <span style="font-size:11px;color:var(--c-text3)">Haz clic en ↩️ para recuperar</span>
+      <span style="font-size:11px;color:var(--c-text3)">Clic para ver detalle · ↩️ para recuperar · ✓ en el círculo para recuperar directo</span>
     </div>
     ${done.length?done.map(t=>`
-      <div class="task-item p-none" style="opacity:.55">
-        <div class="task-check checked">✓</div>
+      <div class="task-item p-none" style="opacity:.6;cursor:pointer"
+        onclick="openDetail(${t.id})">
+        <div class="task-check checked" onclick="event.stopPropagation();restoreTask(${t.id})">✓</div>
         <div class="task-body">
           <div class="task-title" style="text-decoration:line-through;color:var(--c-text2)">${t.title}</div>
           <div class="task-meta">
             ${t.tags.map(tag=>`<span class="tag-pill" style="background:${tagColor(tag)}22;color:${tagColor(tag)}">${tag}</span>`).join('')}
             ${t.date?`<span class="task-due">📅 ${t.date}</span>`:''}
+            ${t.notes?`<span style="font-size:10px;color:var(--c-text3)">📝 Tiene notas</span>`:''}
           </div>
         </div>
-        <div class="task-actions" style="opacity:1">
+        <div class="task-actions" style="opacity:1" onclick="event.stopPropagation()">
           <button class="tact" onclick="restoreTask(${t.id})" title="Recuperar tarea" style="font-size:14px">↩️</button>
           <button class="tact del" onclick="permDelete(${t.id})" title="Eliminar definitivamente">🗑️</button>
         </div>
