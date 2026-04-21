@@ -703,6 +703,15 @@ textarea.form-inp{resize:vertical;min-height:65px;}
 }
 
 </style>
+<!-- EmailJS para recordatorios por correo -->
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script type="text/javascript">
+  // Inicializar EmailJS (el usuario necesita registrarse en emailjs.com)
+  if(typeof emailjs !== 'undefined') {
+    emailjs.init({publicKey: 'YOUR_EMAILJS_PUBLIC_KEY'}); // Reemplazar con tu clave
+  }
+</script>
+
 <!-- Firebase SDK (compat - acceso global) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
@@ -2006,34 +2015,70 @@ function addProjTask(e,projId,inp){
 // ══════════════════════════════════════════════════════
 // KANBAN
 // ══════════════════════════════════════════════════════
+function getKanbanStatus(t) {
+  // Categorización automática por estado real de la tarea
+  if(t.done) return 'done2';
+  const subs = t.subtasks || [];
+  const subDone = subs.filter(s=>s.done).length;
+  const subTot  = subs.length;
+  if(t.priority === 'high' && subTot === 0) return 'review'; // Alta prioridad sin subtareas = urgente/revisión
+  if(subTot > 0 && subDone > 0 && subDone < subTot) return 'doing'; // Subtareas en progreso = en proceso
+  if(subTot > 0 && subDone === subTot) return 'review'; // Subtareas completas = en revisión
+  if(t.priority === 'high') return 'review';
+  if(t.priority === 'medium') return 'doing';
+  return 'todo'; // Baja prioridad o sin subtareas = por hacer
+}
+
 function buildKanban(){
-  const base=tasks.filter(t=>curCtxFilter==='all'||t.ctx===curCtxFilter);
-  const kt={
-    todo:base.filter(t=>!t.done&&t.priority==='low'),
-    doing:base.filter(t=>!t.done&&t.priority==='medium'),
-    review:base.filter(t=>!t.done&&t.priority==='high'),
-    done2:base.filter(t=>t.done).slice(0,4),
-  };
-  const cols=[{id:'todo',l:'📋 Por hacer',col:'var(--c-text2)'},
-              {id:'doing',l:'⚡ En proceso',col:'#2d7dd2'},
-              {id:'review',l:'👁️ En revisión',col:'#c9732a'},
-              {id:'done2',l:'✅ Hecho',col:'#22a566'}];
-  return`<div class="kanban-board">${cols.map(col=>`
-    <div class="kanban-col">
-      <div class="kanban-col-hdr">
-        <div class="kanban-col-title" style="color:${col.col}">${col.l}</div>
-        <div class="kanban-col-cnt">${(kt[col.id]||[]).length}</div>
+  const base = tasks.filter(t => curCtxFilter==='all' || t.ctx===curCtxFilter);
+  const kt = {todo:[], doing:[], review:[], done2:[]};
+  base.forEach(t => { const col = getKanbanStatus(t); kt[col].push(t); });
+
+  const cols=[
+    {id:'todo',   l:'📋 Por hacer',   col:'var(--c-text2)', desc:'Sin iniciar'},
+    {id:'doing',  l:'⚡ En proceso',  col:'#2d7dd2',        desc:'Subtareas en progreso'},
+    {id:'review', l:'👁️ En revisión', col:'#c9732a',        desc:'Alta prioridad'},
+    {id:'done2',  l:'✅ Completado',  col:'#22a566',         desc:'Terminadas'},
+  ];
+
+  function buildKanbanCard(t) {
+    const ctxC = contexts.find(c=>c.id===t.ctx);
+    const subDone = (t.subtasks||[]).filter(s=>s.done).length;
+    const subTot  = (t.subtasks||[]).length;
+    const pct = subTot ? Math.round(subDone/subTot*100) : null;
+    return `<div class="kanban-card" onclick="openDetail(${t.id})">
+      <div class="kanban-card-title" style="${t.done?'text-decoration:line-through;opacity:.6':''}">${t.title}</div>
+      <div class="kanban-card-meta" style="margin-top:6px">
+        <div style="display:flex;gap:5px;flex-wrap:wrap">
+          ${ctxC?`<span style="font-size:9px;padding:1px 5px;border-radius:10px;background:${ctxC.color}22;color:${ctxC.color}">${ctxC.icon}</span>`:''}
+          ${(t.tags||[]).slice(0,1).map(tag=>`<span style="font-size:9px;padding:1px 5px;border-radius:10px;background:${tagColor(tag)}22;color:${tagColor(tag)}">${tag}</span>`).join('')}
+        </div>
+        <span style="font-size:10px;color:var(--c-text3)">${t.date||'—'}</span>
       </div>
-      ${(kt[col.id]||[]).map(t=>`
-        <div class="kanban-card" onclick="openDetail(${t.id})">
-          <div class="kanban-card-title">${t.title}</div>
-          <div class="kanban-card-meta">
-            <div>${t.tags.slice(0,2).map(tag=>`<span style="font-size:9px;padding:1px 5px;border-radius:10px;background:${tagColor(tag)}22;color:${tagColor(tag)}">${tag}</span>`).join('')}</div>
-            <span style="font-size:10px;color:var(--c-text3)">${t.date||'—'}</span>
+      ${pct!==null?`<div style="margin-top:7px;height:3px;background:var(--c-border);border-radius:2px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:var(--accent);border-radius:2px"></div>
+      </div><div style="font-size:9px;color:var(--c-text3);margin-top:2px">${subDone}/${subTot} subtareas</div>`:''}
+    </div>`;
+  }
+
+  return `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <span style="font-size:11px;color:var(--c-text3)">Las columnas se asignan automáticamente según el estado de cada tarea</span>
+    </div>
+    <div class="kanban-board">${cols.map(col=>`
+      <div class="kanban-col">
+        <div class="kanban-col-hdr">
+          <div>
+            <div class="kanban-col-title" style="color:${col.col}">${col.l}</div>
+            <div style="font-size:9px;color:var(--c-text3)">${col.desc}</div>
           </div>
-        </div>`).join('')}
-      <button onclick="openTaskModal()" style="width:100%;padding:8px;border-radius:7px;border:1.5px dashed var(--c-border2);background:transparent;color:var(--c-text3);cursor:pointer;font-size:12px;margin-top:4px;transition:all .15s" onmouseover="this.style.background='var(--c-bg3)'" onmouseout="this.style.background='transparent'">＋ Agregar</button>
-    </div>`).join('')}</div>`;
+          <div class="kanban-col-cnt">${kt[col.id].length}</div>
+        </div>
+        ${kt[col.id].map(t=>buildKanbanCard(t)).join('')}
+        ${col.id!=='done2'?`<button onclick="openTaskModal()"
+          style="width:100%;padding:8px;border-radius:7px;border:1.5px dashed var(--c-border2);background:transparent;color:var(--c-text3);cursor:pointer;font-size:12px;margin-top:4px;transition:all .15s"
+          onmouseover="this.style.background='var(--c-bg3)'" onmouseout="this.style.background='transparent'">＋ Nueva tarea</button>`:''}
+      </div>`).join('')}</div>`;
 }
 
 // ══════════════════════════════════════════════════════
@@ -2382,45 +2427,40 @@ function closeDetail(){document.getElementById('detailOv').classList.remove('ope
 function openTaskModal(id){
   editingId=id||null;mTags=[];mAttach=[];remOpen=false;
   const tm=document.getElementById('taskModal');
-  document.getElementById('taskModalTitle').textContent=id?'✏️ Editar tarea':'➕ Nueva tarea';
-  document.getElementById('mTitle').value='';
-  document.getElementById('mNotes').value='';
-  document.getElementById('mDate').value=TODAY;
-  document.getElementById('mTime').value='';
-  document.getElementById('mOutlook').checked=false;
-  document.getElementById('remBox').style.display='none';
-  document.getElementById('remToggle').textContent='+ Agregar';
-  document.getElementById('attachList').innerHTML='';
-  buildProjSelects();
-  renderTagPills();
-  renderTagSug();
+  if(!tm){console.error('taskModal not found');return;}
+  const setVal=(elId,v)=>{const el=document.getElementById(elId);if(el)el.value=v||'';};
+  const setTxt=(elId,v)=>{const el=document.getElementById(elId);if(el)el.textContent=v;};
+  const setHTML=(elId,v)=>{const el=document.getElementById(elId);if(el)el.innerHTML=v;};
+  const setDisp=(elId,v)=>{const el=document.getElementById(elId);if(el)el.style.display=v;};
+  const setChk=(elId,v)=>{const el=document.getElementById(elId);if(el)el.checked=!!v;};
+  setTxt('taskModalTitle',id?'✏️ Editar tarea':'➕ Nueva tarea');
+  setVal('mTitle','');setVal('mNotes','');setVal('mDate',TODAY);setVal('mTime','');
+  setChk('mOutlook',false);setDisp('remBox','none');
+  setTxt('remToggle','+ Agregar');setHTML('attachList','');
+  buildProjSelects();renderTagPills();renderTagSug();
   if(id){
-    const t=tasks.find(x=>x.id===id);
+    const t=tasks.find(x=>Number(x.id)===Number(id));
     if(t){
-      document.getElementById('mTitle').value=t.title;
-      document.getElementById('mNotes').value=t.notes;
-      document.getElementById('mDate').value=t.date;
-      document.getElementById('mTime').value=t.time;
-      document.getElementById('mCtx').value=t.ctx;
-      document.getElementById('mList') && (document.getElementById('mList').value=t.list||'inbox');
-      const editProj = t.projId ? projects.find(p=>p.id===t.projId) : null;
-      document.getElementById('mProjSearch').value = editProj ? editProj.name : '';
-      document.getElementById('mProj').value = t.projId||'';
-      mTags=[...t.tags];mAttach=[...t.attachments];
+      setVal('mTitle',t.title);setVal('mNotes',t.notes);
+      setVal('mDate',t.date);setVal('mTime',t.time);
+      const ctxEl=document.getElementById('mCtx');if(ctxEl)ctxEl.value=t.ctx;
+      if(document.getElementById('remRecurTop'))document.getElementById('remRecurTop').value=t.recurring||'none';
+      const editProj=t.projId?projects.find(p=>p.id===t.projId):null;
+      setVal('mProjSearch',editProj?editProj.name:'');setVal('mProj',t.projId||'');
+      mTags=[...t.tags||[]];mAttach=[...t.attachments||[]];
       renderTagPills();renderTagSug();renderAttachList();
       selP(t.priority);
     }
   } else {
-    document.getElementById('mCtx').value=curCtxFilter!=='all'?curCtxFilter:'personal';
-  document.getElementById('mProjSearch').value='';
-  document.getElementById('mProj').value='';
+    const ctxEl=document.getElementById('mCtx');
+    if(ctxEl)ctxEl.value=curCtxFilter!=='all'?curCtxFilter:'personal';
     selP('medium');
   }
   tm.classList.add('open');
-  setTimeout(()=>document.getElementById('mTitle').focus(),200);
+  setTimeout(()=>{const el=document.getElementById('mTitle');if(el)el.focus();},200);
 }
 
-function closeTaskModal(){document.getElementById('taskModal').classList.remove('open');editingId=null;}
+function closeTaskModal(){ const el=document.getElementById('taskModal'); if(el) el.classList.remove('open'); editingId=null; }
 
 function buildProjSelects(){
   // Datalist para búsqueda de proyecto
@@ -4181,7 +4221,7 @@ async function reloadFromFirebase() {
     const arr = [];
     tSnap.forEach(d => arr.push(Object.assign({}, d.data(), {_fbId: d.id})));
     arr.sort((a,b) => ((a.order||9999)-(b.order||9999)));
-    tasks = arr;
+    if(arr.length > 0) tasks = arr; // Solo actualizar si hay datos reales
 
     // Recargar contextos
     const cSnap = await db.collection('contexts').get();
@@ -4516,6 +4556,35 @@ function getTasksForDate(dateStr) {
     (curCtxFilter === 'all' || t.ctx === curCtxFilter));
 }
 
+
+// ══════════════════════════════════════════════════════
+// UTILIDADES DE MANTENIMIENTO
+// ══════════════════════════════════════════════════════
+
+// Limpiar datos de ejemplo del seed (ejecutar desde consola si es necesario)
+// window.cleanSeedData() — elimina tareas con IDs 1-12 (datos de ejemplo)
+window.cleanSeedData = async function() {
+  if(!confirm('¿Eliminar los datos de ejemplo del seed? Solo se eliminarán tareas con id 1-12.')) return;
+  const snap = await db.collection('tasks').get();
+  let deleted = 0;
+  for(const doc of snap.docs) {
+    const data = doc.data();
+    if(data.id && Number(data.id) <= 12) {
+      await db.collection('tasks').doc(doc.id).delete();
+      deleted++;
+    }
+  }
+  alert('Eliminados ' + deleted + ' registros de ejemplo. Recarga la página.');
+};
+
+// Ver qué hay en Firebase (ejecutar desde consola: window.debugFirebase())
+window.debugFirebase = async function() {
+  const snap = await db.collection('tasks').get();
+  console.log('=== TASKS EN FIREBASE ===');
+  snap.forEach(d => console.log(d.id, d.data().id, d.data().title, 'done:', d.data().done));
+  console.log('Total:', snap.size);
+};
+
 // ══════════════════════════════════════════════════════
 // TOAST
 // ══════════════════════════════════════════════════════
@@ -4640,7 +4709,9 @@ function fbListenAll() {
     });
 
     const isFirstLoad = !_appLoaded;
+    // SIEMPRE actualizar con datos de Firebase (nunca ignorar aunque sean pocos)
     tasks = arr;
+    console.log('Firebase tasks cargadas:', arr.length);
 
     if(isFirstLoad) {
       _appLoaded = true;
@@ -4681,10 +4752,11 @@ function fbListenAll() {
   });
 }
 
+// Seed deshabilitado — ya hay datos en Firebase
+// Para restaurar datos de ejemplo, ejecutar manualmente: fbSeedIfEmpty()
 setTimeout(() => {
-  fbSeedIfEmpty();
   fbListenAll();
-}, 1000);
+}, 500);
 </script>
 
 <!-- ── BOTTOM NAV MÓVIL ── -->
@@ -4714,24 +4786,42 @@ setTimeout(() => {
 
 <!-- ── MENÚ "MÁS" MÓVIL ── -->
 <div id="mobileMenuOverlay" style="display:none;position:fixed;inset:0;z-index:9980;background:rgba(0,0,0,.5)" onclick="toggleMobileMenu()">
-  <div style="position:absolute;bottom:62px;left:0;right:0;background:var(--sb-bg);border-top:1px solid var(--sb-border);padding:12px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px" onclick="event.stopPropagation()">
-    <button class="mob-nav-btn" style="flex-direction:column;height:64px;border-radius:10px;border:1px solid var(--sb-border)" onclick="mobileNav('midia',null);toggleMobileMenu()">
+  <div style="position:absolute;bottom:62px;left:0;right:0;background:var(--sb-bg);border-top:1px solid var(--sb-border);padding:12px;display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;max-height:80vh;overflow-y:auto" onclick="event.stopPropagation()">
+    <button class="mob-nav-btn" style="flex-direction:column;height:60px;border-radius:10px;border:1px solid var(--sb-border)" onclick="mobileNav('midia',null);toggleMobileMenu()">
       <span class="mob-nav-icon">☀️</span><span class="mob-nav-label">Mi Día</span>
     </button>
-    <button class="mob-nav-btn" style="flex-direction:column;height:64px;border-radius:10px;border:1px solid var(--sb-border)" onclick="mobileNav('kanban',null);toggleMobileMenu()">
+    <button class="mob-nav-btn" style="flex-direction:column;height:60px;border-radius:10px;border:1px solid var(--sb-border)" onclick="mobileNav('kanban',null);toggleMobileMenu()">
       <span class="mob-nav-icon">🗂️</span><span class="mob-nav-label">Kanban</span>
     </button>
-    <button class="mob-nav-btn" style="flex-direction:column;height:64px;border-radius:10px;border:1px solid var(--sb-border)" onclick="mobileNav('alarmas',null);toggleMobileMenu()">
+    <button class="mob-nav-btn" style="flex-direction:column;height:60px;border-radius:10px;border:1px solid var(--sb-border)" onclick="mobileNav('alarmas',null);toggleMobileMenu()">
       <span class="mob-nav-icon">🔔</span><span class="mob-nav-label">Alarmas</span>
     </button>
-    <button class="mob-nav-btn" style="flex-direction:column;height:64px;border-radius:10px;border:1px solid var(--sb-border)" onclick="mobileNav('instinto',null);toggleMobileMenu()">
+    <button class="mob-nav-btn" style="flex-direction:column;height:60px;border-radius:10px;border:1px solid var(--sb-border)" onclick="mobileNav('instinto',null);toggleMobileMenu()">
       <span class="mob-nav-icon">🌸</span><span class="mob-nav-label">Instinto</span>
     </button>
-    <button class="mob-nav-btn" style="flex-direction:column;height:64px;border-radius:10px;border:1px solid var(--sb-border)" onclick="mobileNav('completadas',null);toggleMobileMenu()">
+    <button class="mob-nav-btn" style="flex-direction:column;height:60px;border-radius:10px;border:1px solid var(--sb-border)" onclick="mobileNav('completadas',null);toggleMobileMenu()">
       <span class="mob-nav-icon">🏆</span><span class="mob-nav-label">Hechas</span>
     </button>
-    <button class="mob-nav-btn" style="flex-direction:column;height:64px;border-radius:10px;border:1px solid var(--sb-border)" onclick="exportToExcel();toggleMobileMenu()">
+    <button class="mob-nav-btn" style="flex-direction:column;height:60px;border-radius:10px;border:1px solid var(--sb-border)" onclick="mobileNav('calendario',null);toggleMobileMenu()">
+      <span class="mob-nav-icon">📅</span><span class="mob-nav-label">Agenda</span>
+    </button>
+    <button class="mob-nav-btn" style="flex-direction:column;height:60px;border-radius:10px;border:1px solid var(--sb-border)" onclick="document.getElementById('projModal').classList.add('open');buildProjSelects();toggleMobileMenu()">
+      <span class="mob-nav-icon">📁＋</span><span class="mob-nav-label">Proyecto</span>
+    </button>
+    <button class="mob-nav-btn" style="flex-direction:column;height:60px;border-radius:10px;border:1px solid var(--sb-border)" onclick="openCtxMgmt();toggleMobileMenu()">
+      <span class="mob-nav-icon">⚙️</span><span class="mob-nav-label">Contextos</span>
+    </button>
+    <button class="mob-nav-btn" style="flex-direction:column;height:60px;border-radius:10px;border:1px solid var(--sb-border)" onclick="exportToExcel();toggleMobileMenu()">
       <span class="mob-nav-icon">📊</span><span class="mob-nav-label">Excel</span>
+    </button>
+    <button class="mob-nav-btn" style="flex-direction:column;height:60px;border-radius:10px;border:1px solid var(--sb-border)" onclick="reloadFromFirebase();toggleMobileMenu()">
+      <span class="mob-nav-icon">🔄</span><span class="mob-nav-label">Recargar</span>
+    </button>
+    <button class="mob-nav-btn" style="flex-direction:column;height:60px;border-radius:10px;border:1px solid var(--sb-border)" onclick="scheduleDailyNotif();toggleMobileMenu()">
+      <span class="mob-nav-icon">🔔＋</span><span class="mob-nav-label">Notif.</span>
+    </button>
+    <button class="mob-nav-btn" style="flex-direction:column;height:60px;border-radius:10px;border:1px solid var(--sb-border)" onclick="document.getElementById('importFileInp').click();toggleMobileMenu()">
+      <span class="mob-nav-icon">📥</span><span class="mob-nav-label">Importar</span>
     </button>
   </div>
 </div>
