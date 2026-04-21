@@ -306,6 +306,52 @@ textarea.form-inp{resize:vertical;min-height:65px;}
 .toast.show{transform:translateY(0);opacity:1;}
 
 
+
+/* ── JERARQUÍA 3 NIVELES ── */
+.subtask-block{background:var(--c-bg3);border-radius:var(--radius-sm);padding:10px 12px;margin-top:6px;border:1px solid var(--c-border);}
+.subtask-block-hdr{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.subtask-block-title{font-size:12px;font-weight:600;color:var(--c-text2);text-transform:uppercase;letter-spacing:.5px;}
+.sub-item{display:flex;align-items:flex-start;gap:8px;padding:8px 10px;background:var(--c-bg2);border:1px solid var(--c-border);border-radius:var(--radius-sm);margin-bottom:5px;position:relative;transition:all .15s;}
+.sub-item:hover{border-color:var(--c-border2);}
+.sub-item::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2px;border-radius:2px 0 0 2px;}
+.sub-item.p-high::before{background:#e05252;}
+.sub-item.p-medium::before{background:#e0a752;}
+.sub-item.p-low::before{background:#52a8e0;}
+.sub-check-sm{width:16px;height:16px;border-radius:50%;border:2px solid var(--c-border2);flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:8px;transition:all .15s;margin-top:1px;}
+.sub-check-sm:hover{border-color:var(--accent);}
+.sub-check-sm.checked{background:var(--accent);border-color:var(--accent);color:#fff;}
+.sub-body{flex:1;min-width:0;}
+.sub-title{font-size:12px;font-weight:500;color:var(--c-text);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sub-title.done{text-decoration:line-through;color:var(--c-text3);}
+.sub-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.sub-actions{display:flex;gap:3px;opacity:0;transition:opacity .15s;flex-shrink:0;}
+.sub-item:hover .sub-actions{opacity:1;}
+.sub-act-btn{width:22px;height:22px;border-radius:5px;border:none;background:var(--c-bg3);color:var(--c-text3);cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.sub-act-btn:hover{background:var(--c-border);color:var(--c-text);}
+.sub-act-btn.del:hover{background:rgba(224,82,82,.1);color:#e05252;}
+
+/* Sub-subtareas (nivel 3) */
+.subsub-list{margin-top:6px;padding-left:20px;display:flex;flex-direction:column;gap:3px;}
+.subsub-item{display:flex;align-items:center;gap:7px;padding:5px 8px;background:var(--c-bg3);border-radius:6px;border:1px solid transparent;transition:all .15s;position:relative;}
+.subsub-item:hover{border-color:var(--c-border);background:var(--c-bg2);}
+.subsub-item::before{content:'└';color:var(--c-text3);font-size:10px;position:absolute;left:-14px;top:50%;transform:translateY(-50%);}
+.subsub-check{width:13px;height:13px;border-radius:3px;border:1.5px solid var(--c-border2);flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:7px;transition:all .15s;}
+.subsub-check:hover{border-color:var(--accent);}
+.subsub-check.checked{background:var(--accent);border-color:var(--accent);color:#fff;}
+.subsub-text{font-size:11px;color:var(--c-text2);flex:1;}
+.subsub-text.done{text-decoration:line-through;color:var(--c-text3);}
+.subsub-date{font-size:10px;color:var(--c-text3);}
+.subsub-prio{font-size:9px;}
+
+/* Expand toggle */
+.expand-toggle{cursor:pointer;font-size:11px;color:var(--c-text3);padding:2px 5px;border-radius:4px;transition:all .15s;border:none;background:transparent;display:flex;align-items:center;gap:3px;}
+.expand-toggle:hover{background:var(--c-bg3);color:var(--c-text);}
+.expand-toggle .arrow{transition:transform .2s;display:inline-block;}
+.expand-toggle.open .arrow{transform:rotate(90deg);}
+
+/* Modal de subtarea */
+.sub-modal{max-width:500px;}
+
 /* ── DRAG & DROP ── */
 .task-item{transition:all .15s,box-shadow .15s;}
 .task-item[draggable="true"]{cursor:grab;}
@@ -584,6 +630,55 @@ console.log("Firebase compat cargado OK");
   </div>
 </div>
 
+
+<!-- ── MODAL: SUBTAREA / SUB-SUBTAREA ── -->
+<div class="overlay" id="subModal" onclick="if(event.target===this)closeSubModal()">
+  <div class="modal sub-modal">
+    <div class="modal-hdr">
+      <span class="modal-ttl" id="subModalTitle">➕ Nueva subtarea</span>
+      <button class="btn-icon" onclick="closeSubModal()">✕</button>
+    </div>
+    <div style="font-size:11px;color:var(--c-text3);background:var(--c-bg3);padding:6px 10px;border-radius:6px;margin-bottom:14px" id="subModalParent"></div>
+    <div class="form-grp">
+      <label class="form-lbl">Título *</label>
+      <input class="form-inp" id="subTitle" placeholder="¿Qué necesitas hacer?"/>
+    </div>
+    <div class="form-grp">
+      <label class="form-lbl">Notas</label>
+      <textarea class="form-inp" id="subNotes" placeholder="Detalles..." rows="2"></textarea>
+    </div>
+    <div class="form-row">
+      <div class="form-grp">
+        <label class="form-lbl">Fecha límite</label>
+        <input type="date" class="form-inp" id="subDate"/>
+      </div>
+      <div class="form-grp">
+        <label class="form-lbl">Hora</label>
+        <input type="time" class="form-inp" id="subTime"/>
+      </div>
+    </div>
+    <div class="form-grp">
+      <label class="form-lbl">Prioridad</label>
+      <div class="prio-row">
+        <button class="prio-btn high"   onclick="selSubP('high',this)">🔴 Alta</button>
+        <button class="prio-btn medium sel" onclick="selSubP('medium',this)">🟡 Media</button>
+        <button class="prio-btn low"    onclick="selSubP('low',this)">🔵 Baja</button>
+        <button class="prio-btn none"   onclick="selSubP('none',this)">⚪ Sin</button>
+      </div>
+    </div>
+    <div class="form-grp">
+      <label class="form-lbl">Etiquetas (Enter para agregar)</label>
+      <div class="tags-wrap" id="subTagsWrap" onclick="document.getElementById('subTagInp').focus()">
+        <input class="tag-input" id="subTagInp" placeholder="Escribe y Enter..." onkeydown="addSubTag(event)"/>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-sec" onclick="closeSubModal()">Cancelar</button>
+      <button class="btn-primary" onclick="saveSubTask()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ════════════════════════════════════════════ -->
 <!-- APP                                          -->
 <!-- ════════════════════════════════════════════ -->
@@ -677,12 +772,23 @@ let projects = [
 ];
 
 let tasks = [
-  {id:1, title:'Flujo MTU — Revisar documento de requisitos', notes:'Límites transaccionales pendientes de validación.',
-   date:'2026-04-20',time:'10:00',priority:'high',ctx:'banbajio',tags:['MTU','urgente','banco'],
-   list:'proyectos',projId:'p1',done:false,recurring:'none',attachments:[],
-   subtasks:[{id:'s1',text:'Revisar requisitos funcionales',date:'2026-04-19',done:true},
-             {id:'s2',text:'Validar con equipo técnico',date:'2026-04-20',done:false},
-             {id:'s3',text:'Entregar a arquitectura',date:'2026-04-22',done:false}]},
+  {id:1, title:'Flujo MTU — Revisar documento de requisitos',
+   notes:'Límites transaccionales pendientes de validación.',
+   date:'2026-04-20',time:'10:00',priority:'high',ctx:'banbajio',
+   tags:['MTU','urgente','banco'],projId:'p1',done:false,recurring:'none',
+   attachments:[],order:0,
+   subtasks:[
+     {id:'s1',title:'Revisar requisitos funcionales',notes:'',date:'2026-04-19',time:'',
+      priority:'high',tags:['MTU'],done:true,order:0,attachments:[],
+      subsubtasks:[
+        {id:'ss1',title:'Leer documento actual',notes:'',date:'2026-04-19',time:'',priority:'medium',tags:[],done:true,order:0},
+        {id:'ss2',title:'Identificar gaps',notes:'',date:'2026-04-19',time:'',priority:'medium',tags:[],done:false,order:1}
+      ]},
+     {id:'s2',title:'Validar con equipo técnico',notes:'',date:'2026-04-20',time:'10:00',
+      priority:'medium',tags:[],done:false,order:1,attachments:[],subsubtasks:[]},
+     {id:'s3',title:'Entregar a arquitectura',notes:'',date:'2026-04-22',time:'',
+      priority:'low',tags:[],done:false,order:2,attachments:[],subsubtasks:[]}
+   ]},
   {id:2, title:'Foro MBA — Retroalimentación compañero', notes:'Mínimo 200 palabras.',
    date:'2026-04-19',time:'23:59',priority:'high',ctx:'personal',tags:['MBA','UNITEC','foro'],
    list:'inbox',projId:'p4',done:false,recurring:'none',attachments:[],subtasks:[]},
@@ -697,8 +803,10 @@ let tasks = [
    date:'2026-04-25',time:'09:00',priority:'high',ctx:'banbajio',tags:['estrategia','consejo','slides'],
    list:'proyectos',projId:'p2',done:false,recurring:'none',
    attachments:[{name:'estrategia_2026_2030.pptx',size:'4.8 MB',icon:'📊'}],
-   subtasks:[{id:'s7',text:'Completar slide 7 — métricas',date:'2026-04-23',done:false},
-             {id:'s8',text:'Completar slide 8 — presupuesto',date:'2026-04-24',done:false}]},
+   subtasks:[
+     {id:'s7',title:'Completar slide 7 — métricas',notes:'',date:'2026-04-23',time:'',priority:'high',tags:[],done:false,order:0,attachments:[],subsubtasks:[]},
+     {id:'s8',title:'Completar slide 8 — presupuesto',notes:'',date:'2026-04-24',time:'',priority:'high',tags:[],done:false,order:1,attachments:[],subsubtasks:[]}
+   ]},
   {id:5, title:'Ejercicio matutino',notes:'',date:'2026-04-19',time:'07:00',priority:'low',
    ctx:'personal',tags:['salud','rutina'],list:'inbox',projId:'',done:true,recurring:'daily',attachments:[],subtasks:[]},
   {id:6, title:'Inventario fragancias — actualizar',notes:'Osmara y Baccarat Rouge.',
@@ -1071,25 +1179,13 @@ function buildTaskCards(list){
         <div class="task-title">${t.title}</div>
         <div class="task-meta">${tc}${pjl}${ctxBadge}<span class="task-due ${dc}">${dl}</span>${rl}${at}${sp}</div>
         ${t.subtasks&&t.subtasks.length?`
-          <div id="subs-${t.id}" style="display:none;margin-top:8px;padding-top:8px;border-top:1px solid var(--c-border)">
-            ${t.subtasks.map(s=>`
-              <div style="display:flex;align-items:center;gap:7px;padding:4px 0;font-size:12px;color:var(--c-text2);">
-                <div class="sub-check ${s.done?'checked':''}" onclick="event.stopPropagation();toggleSub(${t.id},'${s.id}')" style="flex-shrink:0">${s.done?'✓':''}</div>
-                <span style="${s.done?'text-decoration:line-through;color:var(--c-text3)':''}">${s.text}</span>
-              </div>`).join('')}
-            <div style="display:flex;align-items:center;gap:6px;margin-top:6px">
-              <input style="flex:1;border:none;background:var(--c-bg3);border-radius:5px;padding:4px 8px;font-size:11px;font-family:DM Sans,sans-serif;color:var(--c-text);outline:none;border:1px solid var(--c-border)"
-                placeholder="+ Agregar subtarea (Enter)"
-                onclick="event.stopPropagation()"
-                onkeydown="event.stopPropagation();addSubInline(event,${t.id},this)"/>
-            </div>
-          </div>` : ''}
+          <div id="subs-${t.id}" style="display:none;margin-top:6px">${renderSubtasks(t)}</div>` : ''}
       </div>
-      <div class="task-actions" onclick="event.stopPropagation()" style="opacity:1">
-        ${t.subtasks&&t.subtasks.length?`<button class="tact" onclick="event.stopPropagation();toggleSubsPanel(${t.id})" title="Ver subtareas">📋</button>`:''}
-        <button class="tact" onclick="event.stopPropagation();addSubtaskQuick(${t.id})" title="Agregar subtarea">＋</button>
-        <button class="tact" onclick="openTaskModal(${t.id})" title="Editar">✏️</button>
-        <button class="tact del" onclick="deleteTask(${t.id})" title="Eliminar">🗑️</button>
+      <div class="task-actions" onclick="event.stopPropagation()">
+        ${t.subtasks&&t.subtasks.length?`<button class="tact" onclick="event.stopPropagation();toggleSubsPanel(${t.id})" title="Ver subtareas (${t.subtasks.length})">📋</button>`:''}
+        <button class="tact" onclick="event.stopPropagation();openSubModal('sub',${t.id},null,null)" title="Nueva subtarea">➕</button>
+        <button class="tact" onclick="openTaskModal(${t.id})" title="Editar tarea">✏️</button>
+        <button class="tact del" onclick="deleteTask(${t.id})" title="Eliminar tarea">🗑️</button>
       </div>
     </div>`;
   }).join('');
@@ -1461,7 +1557,7 @@ function openDetail(id){
   const proj=t.projId?projects.find(p=>p.id===t.projId):null;
   const ctxC=contexts.find(c=>c.id===t.ctx);
   const prioLbl={high:'🔴 Alta',medium:'🟡 Media',low:'🔵 Baja',none:'⚪ Sin prioridad'};
-  const sdone=t.subtasks.filter(s=>s.done).length,stot=t.subtasks.length;
+  const sdone=(t.subtasks||[]).filter(s=>s.done).length,stot=(t.subtasks||[]).length;
 
   document.getElementById('detailPanel').innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
@@ -2654,6 +2750,11 @@ function toggleSubsPanel(taskId) {
   if(!panel) return;
   const isOpen = panel.style.display !== 'none';
   panel.style.display = isOpen ? 'none' : 'block';
+  // Si se abre, renderizar subtareas
+  if(!isOpen) {
+    const task = tasks.find(t=>Number(t.id)===Number(taskId));
+    if(task) panel.innerHTML = renderSubtasks(task);
+  }
 }
 
 function addSubInline(e, taskId, inp) {
@@ -2700,6 +2801,361 @@ function addSubtaskQuick(taskId) {
       }
     }, 100);
   }
+}
+
+
+// ══════════════════════════════════════════════════════
+// JERARQUÍA 3 NIVELES — Subtareas y Sub-subtareas
+// ══════════════════════════════════════════════════════
+
+let subModalCtx = null; // {type:'sub'|'subsub', taskId, subId, editId}
+let curSubPrio  = 'medium';
+let subModalTags = [];
+
+// ── RENDERIZAR SUBTAREAS (nivel 2) con sub-subtareas (nivel 3) ──
+function renderSubtasks(task) {
+  if(!task.subtasks || !task.subtasks.length) return '';
+  
+  const items = task.subtasks.map(s => {
+    const doneCls   = s.done ? 'done' : '';
+    const checkedCls = s.done ? 'checked' : '';
+    const prioMark  = {high:'🔴',medium:'🟡',low:'🔵',none:''}[s.priority||'none']||'';
+    const dateTxt   = s.date ? '📅 '+s.date : '';
+    const tagHTML   = (s.tags||[]).map(t=>{const c=tagColor(t);return`<span style="font-size:9px;padding:1px 5px;border-radius:10px;background:${c}22;color:${c}">${t}</span>`;}).join('');
+    const subDone   = (s.subsubtasks||[]).filter(ss=>ss.done).length;
+    const subTotal  = (s.subsubtasks||[]).length;
+    const subProg   = subTotal ? `<span style="font-size:10px;color:var(--c-text3)">📋${subDone}/${subTotal}</span>` : '';
+    const panelId   = 'ssub-'+task.id+'-'+s.id;
+    
+    // Sub-subtareas (nivel 3)
+    const subsubHTML = renderSubSubtasks(task.id, s);
+    const hasSubsub  = (s.subsubtasks||[]).length > 0;
+    
+    return `
+      <div class="sub-item p-${s.priority||'none'}" id="si-${task.id}-${s.id}"
+        draggable="true"
+        ondragstart="onSubDragStart(event,${task.id},'${s.id}')"
+        ondragover="onSubDragOver(event,${task.id},'${s.id}')"
+        ondragleave="onSubDragLeave(event)"
+        ondrop="onSubDrop(event,${task.id},'${s.id}')"
+        ondragend="onSubDragEnd(event)">
+        <span class="sub-drag-handle" onclick="event.stopPropagation()" title="Arrastra">⠿</span>
+        <div class="sub-check-sm ${checkedCls}" onclick="event.stopPropagation();toggleSubDone(${task.id},'${s.id}')">${s.done?'✓':''}</div>
+        <div class="sub-body">
+          <div class="sub-title ${doneCls}"
+            ondblclick="event.stopPropagation();inlineEditSubtask(${task.id},'${s.id}',this)"
+            style="cursor:text" title="Doble clic para editar">${s.title||s.text||''}</div>
+          <div class="sub-meta">${tagHTML}${prioMark?`<span style="font-size:10px">${prioMark}</span>`:''}${dateTxt?`<span class="sub-date">${dateTxt}</span>`:''}${subProg}</div>
+          ${subsubHTML ? `
+            <button class="expand-toggle ${hasSubsub?'':'open'}" id="toggle-${panelId}" onclick="event.stopPropagation();togglePanel('${panelId}',this)" style="margin-top:4px">
+              <span class="arrow">▶</span> ${subTotal} sub-subtarea${subTotal!==1?'s':''}
+            </button>
+            <div id="${panelId}" class="subsub-list" style="display:none">${subsubHTML}</div>
+          ` : ''}
+        </div>
+        <div class="sub-actions">
+          <button class="sub-act-btn" onclick="event.stopPropagation();openSubModal('sub',${task.id},'${s.id}',null,'subsub')" title="Agregar sub-subtarea">＋</button>
+          <button class="sub-act-btn" onclick="event.stopPropagation();openSubModal('sub',${task.id},'${s.id}','${s.id}')" title="Editar subtarea">✏️</button>
+          <button class="sub-act-btn del" onclick="event.stopPropagation();deleteSubtaskById(${task.id},'${s.id}')" title="Eliminar">🗑️</button>
+        </div>
+      </div>`;
+  }).join('');
+  
+  return `
+    <div class="subtask-block">
+      <div class="subtask-block-hdr">
+        <span class="subtask-block-title">Subtareas (${task.subtasks.filter(s=>s.done).length}/${task.subtasks.length})</span>
+        <div style="flex:1;height:3px;background:var(--c-bg2);border-radius:2px;overflow:hidden;margin:0 8px">
+          <div style="height:100%;width:${task.subtasks.length?Math.round(task.subtasks.filter(s=>s.done).length/task.subtasks.length*100):0}%;background:var(--accent);border-radius:2px;transition:width .3s"></div>
+        </div>
+        <button class="sub-act-btn" onclick="event.stopPropagation();openSubModal('sub',${task.id},null,null)" title="Nueva subtarea" style="width:auto;padding:0 8px;font-size:11px">＋ Subtarea</button>
+      </div>
+      ${items}
+    </div>`;
+}
+
+// ── RENDERIZAR SUB-SUBTAREAS (nivel 3) ──
+function renderSubSubtasks(taskId, sub) {
+  if(!sub.subsubtasks || !sub.subsubtasks.length) return '';
+  return sub.subsubtasks.map(ss => {
+    const checkedCls = ss.done ? 'checked' : '';
+    const doneCls    = ss.done ? 'done' : '';
+    const prioMark   = {high:'🔴',medium:'🟡',low:'🔵',none:''}[ss.priority||'none']||'';
+    return `
+      <div class="subsub-item" id="ssi-${taskId}-${sub.id}-${ss.id}">
+        <div class="subsub-check ${checkedCls}" onclick="event.stopPropagation();toggleSubSubDone(${taskId},'${sub.id}','${ss.id}')">${ss.done?'✓':''}</div>
+        <span class="subsub-text ${doneCls}"
+          ondblclick="event.stopPropagation();inlineEditSubsub(${taskId},'${sub.id}','${ss.id}',this)"
+          style="cursor:text" title="Doble clic para editar">${ss.title||''}</span>
+        ${prioMark?`<span class="subsub-prio">${prioMark}</span>`:''}
+        ${ss.date?`<span class="subsub-date">📅 ${ss.date}</span>`:''}
+        <button class="sub-act-btn" onclick="event.stopPropagation();openSubModal('subsub',${taskId},'${sub.id}','${ss.id}')" title="Editar" style="opacity:0" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0'">✏️</button>
+        <button class="sub-act-btn del" onclick="event.stopPropagation();deleteSubSubtask(${taskId},'${sub.id}','${ss.id}')" title="Eliminar" style="opacity:0" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0'">🗑️</button>
+      </div>`;
+  }).join('');
+}
+
+function togglePanel(panelId, btn) {
+  const panel = document.getElementById(panelId);
+  if(!panel) return;
+  const isOpen = panel.style.display !== 'none';
+  panel.style.display = isOpen ? 'none' : 'block';
+  btn.classList.toggle('open', !isOpen);
+}
+
+// ── MODAL DE SUBTAREA ──
+function openSubModal(type, taskId, subId, editId, addType) {
+  subModalCtx = {type, taskId: Number(taskId), subId: subId ? String(subId) : null, editId: editId ? String(editId) : null, addType};
+  curSubPrio  = 'medium';
+  subModalTags = [];
+  
+  // Limpiar campos
+  document.getElementById('subTitle').value  = '';
+  document.getElementById('subNotes').value  = '';
+  document.getElementById('subDate').value   = '';
+  document.getElementById('subTime').value   = '';
+  document.querySelectorAll('#subModal .prio-btn').forEach(b=>b.classList.remove('sel'));
+  document.querySelector('#subModal .prio-btn.medium').classList.add('sel');
+  renderSubTagPills();
+  
+  const task = tasks.find(t=>Number(t.id)===Number(taskId));
+  
+  // Determinar título y contexto del modal
+  if(addType === 'subsub' && subId) {
+    // Agregar sub-subtarea a una subtarea
+    const sub = task && task.subtasks ? task.subtasks.find(s=>String(s.id)===String(subId)) : null;
+    document.getElementById('subModalTitle').textContent = '➕ Nueva sub-subtarea';
+    document.getElementById('subModalParent').innerHTML = 
+      '📋 ' + (task?task.title:'') + ' › ' + (sub?sub.title:'');
+  } else if(editId && type === 'sub') {
+    // Editar subtarea existente
+    const sub = task && task.subtasks ? task.subtasks.find(s=>String(s.id)===String(editId)) : null;
+    if(sub) {
+      document.getElementById('subModalTitle').textContent = '✏️ Editar subtarea';
+      document.getElementById('subModalParent').innerHTML = '📋 ' + (task?task.title:'');
+      document.getElementById('subTitle').value  = sub.title||sub.text||'';
+      document.getElementById('subNotes').value  = sub.notes||'';
+      document.getElementById('subDate').value   = sub.date||'';
+      document.getElementById('subTime').value   = sub.time||'';
+      curSubPrio   = sub.priority||'medium';
+      subModalTags = [...(sub.tags||[])];
+      document.querySelectorAll('#subModal .prio-btn').forEach(b=>b.classList.remove('sel'));
+      const pb = document.querySelector('#subModal .prio-btn.'+curSubPrio);
+      if(pb) pb.classList.add('sel');
+      renderSubTagPills();
+    }
+  } else if(editId && type === 'subsub') {
+    // Editar sub-subtarea existente
+    const sub = task && task.subtasks ? task.subtasks.find(s=>String(s.id)===String(subId)) : null;
+    const ss  = sub && sub.subsubtasks ? sub.subsubtasks.find(x=>String(x.id)===String(editId)) : null;
+    if(ss) {
+      document.getElementById('subModalTitle').textContent = '✏️ Editar sub-subtarea';
+      document.getElementById('subModalParent').innerHTML  = '📋 ' + (task?task.title:'') + ' › ' + (sub?sub.title:'');
+      document.getElementById('subTitle').value  = ss.title||'';
+      document.getElementById('subNotes').value  = ss.notes||'';
+      document.getElementById('subDate').value   = ss.date||'';
+      document.getElementById('subTime').value   = ss.time||'';
+      curSubPrio   = ss.priority||'medium';
+      subModalTags = [...(ss.tags||[])];
+      document.querySelectorAll('#subModal .prio-btn').forEach(b=>b.classList.remove('sel'));
+      const pb = document.querySelector('#subModal .prio-btn.'+curSubPrio);
+      if(pb) pb.classList.add('sel');
+      renderSubTagPills();
+    }
+  } else {
+    // Nueva subtarea
+    document.getElementById('subModalTitle').textContent = '➕ Nueva subtarea';
+    document.getElementById('subModalParent').innerHTML  = '📋 ' + (task?task.title:'');
+  }
+  
+  document.getElementById('subModal').classList.add('open');
+  setTimeout(()=>document.getElementById('subTitle').focus(),200);
+}
+
+function closeSubModal() {
+  document.getElementById('subModal').classList.remove('open');
+  subModalCtx = null;
+}
+
+function selSubP(p, btn) {
+  curSubPrio = p;
+  document.querySelectorAll('#subModal .prio-btn').forEach(b=>b.classList.remove('sel'));
+  if(btn) btn.classList.add('sel');
+}
+
+// ── GUARDAR SUBTAREA / SUB-SUBTAREA ──
+function saveSubTask() {
+  const title = (document.getElementById('subTitle').value||'').trim();
+  if(!title) return toast('⚠️','Escribe el título');
+  if(!subModalCtx) return;
+  
+  const {type, taskId, subId, editId, addType} = subModalCtx;
+  const task = tasks.find(t=>Number(t.id)===Number(taskId));
+  if(!task) return;
+  
+  task.subtasks = task.subtasks || [];
+  
+  const itemData = {
+    title,
+    notes:    document.getElementById('subNotes').value||'',
+    date:     document.getElementById('subDate').value||'',
+    time:     document.getElementById('subTime').value||'',
+    priority: curSubPrio,
+    tags:     [...subModalTags],
+    done:     false,
+  };
+
+  if(addType === 'subsub' && subId) {
+    // Agregar sub-subtarea
+    const sub = task.subtasks.find(s=>String(s.id)===String(subId));
+    if(!sub) return;
+    sub.subsubtasks = sub.subsubtasks || [];
+    if(editId) {
+      // Editar sub-subtarea existente
+      const idx = sub.subsubtasks.findIndex(ss=>String(ss.id)===String(editId));
+      if(idx>=0) Object.assign(sub.subsubtasks[idx], itemData);
+    } else {
+      sub.subsubtasks.push({id:'ss_'+Date.now(), order: sub.subsubtasks.length, ...itemData});
+    }
+  } else if(editId && !addType) {
+    // Editar subtarea existente
+    const idx = task.subtasks.findIndex(s=>String(s.id)===String(editId));
+    if(idx>=0) {
+      Object.assign(task.subtasks[idx], itemData);
+      task.subtasks[idx].subsubtasks = task.subtasks[idx].subsubtasks || [];
+    }
+  } else {
+    // Nueva subtarea
+    task.subtasks.push({
+      id:'sub_'+Date.now(),
+      order: task.subtasks.length,
+      subsubtasks: [],
+      attachments: [],
+      ...itemData
+    });
+  }
+  
+  fbSaveTask(task);
+  closeSubModal();
+  renderView();
+  toast('✅', title + ' guardado');
+}
+
+// ── TOGGLE DONE ──
+function toggleSubDone(taskId, subId) {
+  const task = tasks.find(t=>Number(t.id)===Number(taskId));
+  if(!task) return;
+  const sub = task.subtasks && task.subtasks.find(s=>String(s.id)===String(subId));
+  if(!sub) return;
+  sub.done = !sub.done;
+  fbSaveTask(task);
+  renderView();
+  toast(sub.done?'✅':'↩️', sub.done?'Subtarea completada':'Subtarea recuperada');
+}
+
+function toggleSubSubDone(taskId, subId, ssId) {
+  const task = tasks.find(t=>Number(t.id)===Number(taskId));
+  if(!task) return;
+  const sub = task.subtasks && task.subtasks.find(s=>String(s.id)===String(subId));
+  if(!sub) return;
+  const ss = sub.subsubtasks && sub.subsubtasks.find(x=>String(x.id)===String(ssId));
+  if(!ss) return;
+  ss.done = !ss.done;
+  fbSaveTask(task);
+  renderView();
+  toast(ss.done?'✅':'↩️', ss.done?'Sub-subtarea completada':'Recuperada');
+}
+
+// ── ELIMINAR ──
+function deleteSubtaskById(taskId, subId) {
+  const task = tasks.find(t=>Number(t.id)===Number(taskId));
+  if(!task) return;
+  task.subtasks = (task.subtasks||[]).filter(s=>String(s.id)!==String(subId));
+  fbSaveTask(task);
+  renderView();
+  toast('🗑️','Subtarea eliminada');
+}
+
+function deleteSubSubtask(taskId, subId, ssId) {
+  const task = tasks.find(t=>Number(t.id)===Number(taskId));
+  if(!task) return;
+  const sub = task.subtasks && task.subtasks.find(s=>String(s.id)===String(subId));
+  if(!sub) return;
+  sub.subsubtasks = (sub.subsubtasks||[]).filter(x=>String(x.id)!==String(ssId));
+  fbSaveTask(task);
+  renderView();
+  toast('🗑️','Sub-subtarea eliminada');
+}
+
+// ── EDICIÓN INLINE SUB-SUBTAREA ──
+function inlineEditSubsub(taskId, subId, ssId, spanEl) {
+  const task = tasks.find(t=>Number(t.id)===Number(taskId));
+  if(!task) return;
+  const sub = task.subtasks && task.subtasks.find(s=>String(s.id)===String(subId));
+  if(!sub) return;
+  const ss = sub.subsubtasks && sub.subsubtasks.find(x=>String(x.id)===String(ssId));
+  if(!ss) return;
+  const orig = ss.title;
+  const inp = document.createElement('input');
+  inp.value = orig;
+  inp.style.cssText = 'border:none;background:transparent;font-size:11px;flex:1;outline:none;border-bottom:1px solid var(--accent);font-family:DM Sans,sans-serif;color:var(--c-text2);padding:1px 0;width:100%';
+  spanEl.replaceWith(inp);
+  inp.focus();
+  inp.select();
+  function save() {
+    const v = inp.value.trim();
+    if(v && v!==orig) { ss.title=v; fbSaveTask(task); toast('✅','Sub-subtarea actualizada'); }
+    renderView();
+  }
+  inp.addEventListener('blur', save);
+  inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){e.preventDefault();inp.blur();} if(e.key==='Escape'){inp.value=orig;inp.blur();} });
+  inp.addEventListener('click', e=>e.stopPropagation());
+}
+
+// ── ETIQUETAS EN MODAL DE SUBTAREA ──
+function addSubTag(e) {
+  if(e.key!=='Enter') return;
+  const inp = document.getElementById('subTagInp');
+  const v = (inp.value||'').trim().toLowerCase().replace(/\s+/g,'-');
+  if(!v || subModalTags.includes(v)) { inp.value=''; return; }
+  subModalTags.push(v);
+  inp.value='';
+  renderSubTagPills();
+}
+
+function removeSubTag(i) {
+  subModalTags.splice(i,1);
+  renderSubTagPills();
+}
+
+function renderSubTagPills() {
+  const wrap = document.getElementById('subTagsWrap');
+  const inp  = document.getElementById('subTagInp');
+  if(!wrap || !inp) return;
+  [...wrap.querySelectorAll('.tag-pill-rm')].forEach(e=>e.remove());
+  subModalTags.forEach((tag,i)=>{
+    const col = tagColor(tag);
+    const pill = document.createElement('span');
+    pill.className = 'tag-pill-rm';
+    pill.style = 'background:'+col+'22;color:'+col;
+    pill.innerHTML = tag+'<span class="rm" onclick="removeSubTag('+i+')">✕</span>';
+    wrap.insertBefore(pill, inp);
+  });
+}
+
+// ── AGREGAR SUB-SUBTAREA RÁPIDA (inline) ──
+function addSubsubInline(e, taskId, subId, inp) {
+  if(e.key !== 'Enter' || !inp.value.trim()) return;
+  const task = tasks.find(t=>Number(t.id)===Number(taskId));
+  if(!task) return;
+  const sub = task.subtasks && task.subtasks.find(s=>String(s.id)===String(subId));
+  if(!sub) return;
+  sub.subsubtasks = sub.subsubtasks || [];
+  sub.subsubtasks.push({id:'ss_'+Date.now(), title:inp.value.trim(), notes:'', date:'', time:'', priority:'medium', tags:[], done:false, order:sub.subsubtasks.length});
+  fbSaveTask(task);
+  inp.value = '';
+  renderView();
+  toast('➕','Sub-subtarea agregada');
 }
 
 // ══════════════════════════════════════════════════════
