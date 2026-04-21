@@ -1557,7 +1557,7 @@ function buildDash(){
 
   // Agenda real: eventos + tareas con hora de hoy
   const todayEvs = (typeof events!=='undefined'?events:[])
-    .filter(e=>e.date===TODAY)
+    .filter(e => typeof eventOccursOnDate==='function' ? eventOccursOnDate(e,TODAY) : e.date===TODAY)
     .sort((a,b)=>(a.start||'').localeCompare(b.start||''));
   // Tareas de hoy — con O sin hora asignada
   const todayTasksH = tasks
