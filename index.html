@@ -420,6 +420,63 @@ textarea.form-inp{resize:vertical;min-height:65px;}
 .tree-add-inp::placeholder{color:var(--c-text3);}
 .tree-subsub-add-row{display:flex;align-items:center;gap:7px;padding:6px 14px 6px 56px;border-top:1px dashed var(--c-border);background:var(--c-bg2);}
 
+
+/* ── CALENDARIO CON EVENTOS ── */
+.cal-event-pill{
+  font-size:9px;padding:2px 5px;border-radius:4px;
+  margin-bottom:2px;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;cursor:pointer;
+  transition:opacity .15s;font-weight:500;
+}
+.cal-event-pill:hover{opacity:.8;}
+.cal-day.selected{background:var(--accent-light)!important;border-color:var(--accent)!important;}
+.cal-day.has-events{position:relative;}
+
+/* Modal selector tarea/evento */
+.add-type-modal{max-width:380px;}
+.add-type-btn{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:10px;padding:24px 20px;border-radius:var(--radius);
+  border:2px solid var(--c-border);background:var(--c-bg3);
+  cursor:pointer;transition:all .2s;flex:1;
+}
+.add-type-btn:hover{border-color:var(--accent);background:var(--accent-light);transform:translateY(-2px);}
+.add-type-icon{font-size:32px;}
+.add-type-label{font-family:'Syne',sans-serif;font-weight:700;font-size:14px;}
+.add-type-desc{font-size:11px;color:var(--c-text3);text-align:center;line-height:1.4;}
+
+/* Color picker de eventos */
+.event-color-row{display:flex;gap:8px;flex-wrap:wrap;}
+.event-color-swatch{
+  width:26px;height:26px;border-radius:50%;cursor:pointer;
+  border:3px solid transparent;transition:all .15s;
+}
+.event-color-swatch.active{border-color:var(--c-text);transform:scale(1.15);}
+
+/* Panel lateral del día seleccionado */
+.day-panel{
+  background:var(--c-bg2);border:1px solid var(--c-border);
+  border-radius:var(--radius);padding:16px;margin-top:16px;
+}
+.day-panel-hdr{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:14px;
+}
+.day-panel-date{font-family:'Syne',sans-serif;font-weight:700;font-size:15px;}
+.event-list-item{
+  display:flex;align-items:flex-start;gap:10px;
+  padding:10px 12px;border-radius:var(--radius-sm);
+  background:var(--c-bg3);border:1px solid var(--c-border);
+  margin-bottom:6px;cursor:pointer;transition:all .15s;
+}
+.event-list-item:hover{border-color:var(--c-border2);}
+.event-color-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:3px;}
+.event-list-info{flex:1;min-width:0;}
+.event-list-title{font-size:13px;font-weight:500;color:var(--c-text);margin-bottom:2px;}
+.event-list-time{font-size:11px;color:var(--c-text3);}
+.event-list-actions{display:flex;gap:4px;opacity:0;transition:opacity .15s;}
+.event-list-item:hover .event-list-actions{opacity:1;}
+
 /* ── DRAG & DROP ── */
 .task-item{transition:all .15s,box-shadow .15s;}
 .task-item[draggable="true"]{cursor:grab;}
@@ -913,6 +970,107 @@ console.log("Firebase compat cargado OK");
     <div class="modal-footer">
       <button class="btn-sec" onclick="closeSubModal()">Cancelar</button>
       <button class="btn-primary" onclick="saveSubTask()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ── MODAL: ¿QUÉ QUIERES AGREGAR? ── -->
+<div class="overlay" id="addTypeModal" onclick="if(event.target===this)closeAddTypeModal()">
+  <div class="modal add-type-modal">
+    <div class="modal-hdr">
+      <span class="modal-ttl" id="addTypeTitle">➕ ¿Qué quieres agregar?</span>
+      <button class="btn-icon" onclick="closeAddTypeModal()">✕</button>
+    </div>
+    <div id="addTypeDate" style="font-size:12px;color:var(--c-text3);margin-bottom:16px;text-align:center"></div>
+    <div style="display:flex;gap:12px">
+      <div class="add-type-btn" onclick="addTypeTask()">
+        <span class="add-type-icon">✅</span>
+        <span class="add-type-label">Nueva tarea</span>
+        <span class="add-type-desc">Con subtareas, prioridad y seguimiento</span>
+      </div>
+      <div class="add-type-btn" onclick="addTypeEvent()">
+        <span class="add-type-icon">📅</span>
+        <span class="add-type-label">Nuevo evento</span>
+        <span class="add-type-desc">Reunión, cita o recordatorio en el calendario</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: NUEVO / EDITAR EVENTO ── -->
+<div class="overlay" id="eventModal" onclick="if(event.target===this)closeEventModal()">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-hdr">
+      <span class="modal-ttl" id="eventModalTitle">📅 Nuevo evento</span>
+      <button class="btn-icon" onclick="closeEventModal()">✕</button>
+    </div>
+    <div class="form-grp">
+      <label class="form-lbl">Título *</label>
+      <input class="form-inp" id="evTitle" placeholder="Ej. Reunión equipo, Cita médica..."/>
+    </div>
+    <div class="form-grp">
+      <label class="form-lbl">Descripción</label>
+      <textarea class="form-inp" id="evDesc" placeholder="Detalles del evento..." rows="2"></textarea>
+    </div>
+    <div class="form-row">
+      <div class="form-grp">
+        <label class="form-lbl">Fecha</label>
+        <input type="date" class="form-inp" id="evDate"/>
+      </div>
+      <div class="form-grp">
+        <label class="form-lbl">Contexto</label>
+        <select class="form-sel" id="evCtx"></select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-grp">
+        <label class="form-lbl">Hora inicio</label>
+        <input type="time" class="form-inp" id="evStart" value="09:00"/>
+      </div>
+      <div class="form-grp">
+        <label class="form-lbl">Hora fin</label>
+        <input type="time" class="form-inp" id="evEnd" value="10:00"/>
+      </div>
+    </div>
+    <div class="form-grp">
+      <label class="form-lbl">Color del evento</label>
+      <div class="event-color-row" id="evColorRow">
+        <div class="event-color-swatch active" style="background:#2d7dd2" onclick="selEvColor('#2d7dd2',this)"></div>
+        <div class="event-color-swatch" style="background:#7c5cbf" onclick="selEvColor('#7c5cbf',this)"></div>
+        <div class="event-color-swatch" style="background:#22a566" onclick="selEvColor('#22a566',this)"></div>
+        <div class="event-color-swatch" style="background:#e05252" onclick="selEvColor('#e05252',this)"></div>
+        <div class="event-color-swatch" style="background:#e0a752" onclick="selEvColor('#e0a752',this)"></div>
+        <div class="event-color-swatch" style="background:#c9732a" onclick="selEvColor('#c9732a',this)"></div>
+        <div class="event-color-swatch" style="background:#e07ad4" onclick="selEvColor('#e07ad4',this)"></div>
+        <div class="event-color-swatch" style="background:#4ecdc4" onclick="selEvColor('#4ecdc4',this)"></div>
+      </div>
+    </div>
+    <div class="form-grp">
+      <label class="form-lbl">🔔 Recordatorio</label>
+      <select class="form-sel" id="evRemind">
+        <option value="none">Sin recordatorio</option>
+        <option value="5">5 minutos antes</option>
+        <option value="15" selected>15 minutos antes</option>
+        <option value="30">30 minutos antes</option>
+        <option value="60">1 hora antes</option>
+        <option value="1440">1 día antes</option>
+      </select>
+    </div>
+    <div class="form-grp">
+      <label class="form-lbl">🔁 Recurrencia</label>
+      <select class="form-sel" id="evRecur">
+        <option value="none">Sin repetir</option>
+        <option value="daily">Cada día</option>
+        <option value="weekly">Cada semana</option>
+        <option value="monthly">Cada mes</option>
+        <option value="yearly">Cada año</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button id="evDeleteBtn" class="btn-sec" style="color:#e05252;border-color:#e05252;display:none" onclick="deleteEvent()">🗑️ Eliminar</button>
+      <button class="btn-sec" onclick="closeEventModal()">Cancelar</button>
+      <button class="btn-primary" onclick="saveEvent()">💾 Guardar evento</button>
     </div>
   </div>
 </div>
@@ -1882,33 +2040,112 @@ function buildKanban(){
 // CALENDAR
 // ══════════════════════════════════════════════════════
 function buildCal(){
-  const days=[];
-  for(let i=0;i<3;i++)days.push({n:29+i,other:true});
-  for(let i=1;i<=30;i++)days.push({n:i,other:false});
-  let e=1;while(days.length<42)days.push({n:e++,other:true});
-  const evMap={};
-  tasks.filter(t=>curCtxFilter==='all'||t.ctx===curCtxFilter).forEach(t=>{
-    if(!t.date)return;const d=parseInt(t.date.split('-')[2]);
-    if(!evMap[d])evMap[d]=[];evMap[d].push(t);
-  });
-  return`
-    <button class="btn-icon" style="display:flex;align-items:center;gap:7px;width:auto;padding:7px 12px;height:auto;margin-bottom:13px;background:#0078d4;border-color:#0078d4;color:#fff;border-radius:7px;font-size:12px;font-weight:600" onclick="toast('📅','Conectando con Outlook...')">📅 Ver en Outlook Calendar</button>
-    <div class="cal-wrap">
-      <div class="cal-hdr">
-        <button class="btn-icon">◀</button>
-        <div class="cal-month-lbl">Abril 2026</div>
-        <button class="btn-icon">▶</button>
+  const MONTHS_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const daysInMonth = new Date(calCurrentYear, calCurrentMonth+1, 0).getDate();
+  const firstDay    = new Date(calCurrentYear, calCurrentMonth, 1).getDay();
+
+  const days = [];
+  const prevDays = new Date(calCurrentYear, calCurrentMonth, 0).getDate();
+  for(let i = firstDay-1; i >= 0; i--) days.push({n: prevDays-i, other:true, dateStr:null});
+  for(let i = 1; i <= daysInMonth; i++) {
+    const mm = String(calCurrentMonth+1).padStart(2,'0');
+    const dd = String(i).padStart(2,'0');
+    days.push({n:i, other:false, dateStr:`${calCurrentYear}-${mm}-${dd}`});
+  }
+  while(days.length < 42) days.push({n: days.length-daysInMonth-firstDay+1, other:true, dateStr:null});
+
+  const todayStr = TODAY;
+  const selStr   = calSelectedDate;
+
+  const daysHTML = days.map(d => {
+    if(d.other) return `<div class="cal-day other"><div class="day-n" style="color:var(--c-text3)">${d.n}</div></div>`;
+    const isToday = d.dateStr === todayStr;
+    const isSel   = d.dateStr === selStr;
+    const dayTasks  = getTasksForDate(d.dateStr);
+    const dayEvents = getEventsForDate(d.dateStr);
+    const pills = [
+      ...dayEvents.map(ev => `<div class="cal-event-pill" style="background:${ev.color}22;color:${ev.color}" onclick="event.stopPropagation();openEventModal('${ev.id}','${d.dateStr}')" title="${ev.title}">📅 ${ev.title.slice(0,14)}</div>`),
+      ...dayTasks.slice(0,2).map(t => { const c=contexts.find(x=>x.id===t.ctx); return`<div class="cal-event-pill" style="background:${c?c.color+'22':'var(--accent-light)'};color:${c?c.color:'var(--accent)'}" onclick="event.stopPropagation();openDetail(${t.id})" title="${t.title}">✅ ${t.title.slice(0,14)}</div>`; }),
+    ];
+    const more = (dayTasks.length + dayEvents.length) > 3 ? `<div style="font-size:8px;color:var(--c-text3);padding:1px 3px">+${dayTasks.length+dayEvents.length-3} más</div>` : '';
+    return `<div class="cal-day ${isToday?'today':''} ${isSel?'selected':''} ${(dayTasks.length||dayEvents.length)?'has-events':''}"
+      onclick="selectCalDay('${d.dateStr}')">
+      <div class="day-n">${d.n}</div>
+      ${pills.slice(0,3).join('')}${more}
+    </div>`;
+  }).join('');
+
+  // Panel del día seleccionado o de hoy
+  const panelDate = selStr || todayStr;
+  const panelTasks  = getTasksForDate(panelDate);
+  const panelEvents = getEventsForDate(panelDate);
+  const panelLabel  = formatDateLabel(panelDate);
+
+  const panelHTML = `
+    <div class="day-panel">
+      <div class="day-panel-hdr">
+        <div class="day-panel-date">${panelLabel.charAt(0).toUpperCase()+panelLabel.slice(1)}</div>
+        <button class="btn-primary" style="font-size:12px;padding:6px 13px" onclick="openAddTypeModal('${panelDate}')">＋ Agregar</button>
       </div>
-      <div class="cal-wds">${['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'].map(d=>`<div class="cal-wd">${d}</div>`).join('')}</div>
-      <div class="cal-days">${days.map(d=>`
-        <div class="cal-day ${d.n===19&&!d.other?'today':''} ${d.other?'other':''}">
-          <div class="day-n">${d.n}</div>
-          ${(evMap[d.n]||[]).slice(0,2).map(t=>{const c=contexts.find(x=>x.id===t.ctx);return`<div class="day-ev" style="background:${c?c.color+'22':'#7c5cbf22'};color:${c?c.color:'#7c5cbf'}">${t.title.slice(0,16)}</div>`;}).join('')}
+      ${!panelEvents.length && !panelTasks.length ? `<div class="empty" style="padding:20px"><div class="empty-icon" style="font-size:28px">📭</div><div class="empty-sub">Sin eventos ni tareas este día.<br>Usa ＋ Agregar para crear.</div></div>` : ''}
+      ${panelEvents.map(ev=>`
+        <div class="event-list-item" onclick="openEventModal('${ev.id}','${panelDate}')">
+          <div class="event-color-dot" style="background:${ev.color}"></div>
+          <div class="event-list-info">
+            <div class="event-list-title">${ev.title}</div>
+            <div class="event-list-time">🕐 ${ev.start}–${ev.end}${ev.desc?` · ${ev.desc.slice(0,40)}`:''}</div>
+          </div>
+          <div class="event-list-actions">
+            <button class="tact" onclick="event.stopPropagation();openEventModal('${ev.id}','${panelDate}')">✏️</button>
+            <button class="tact del" onclick="event.stopPropagation();editingEventId='${ev.id}';deleteEvent()">🗑️</button>
+          </div>
         </div>`).join('')}
+      ${panelTasks.length?`<div style="font-size:10px;color:var(--c-text3);text-transform:uppercase;letter-spacing:.5px;margin:${panelEvents.length?'10px':0} 0 6px;font-weight:600">Tareas (${panelTasks.length})</div>`:''}
+      ${buildTaskCards(panelTasks)}
+    </div>`;
+
+  return `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:13px">
+      <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:16px">${MONTHS_ES[calCurrentMonth]} ${calCurrentYear}</div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button class="btn-icon" onclick="prevMonth()" title="Mes anterior">◀</button>
+        <button class="btn-icon" onclick="nextMonth()" title="Mes siguiente">▶</button>
+        <button class="btn-icon" onclick="goToToday()" title="Hoy" style="font-size:11px;width:auto;padding:0 10px">Hoy</button>
+        <button class="btn-primary" style="font-size:12px;padding:6px 13px" onclick="openAddTypeModal(calSelectedDate||TODAY)">＋ Agregar</button>
       </div>
     </div>
-    <div class="sec-hdr"><div class="sec-ttl">📋 Hoy — 19 de abril</div></div>
-    <div class="task-list">${buildTaskCards(tasks.filter(t=>t.date===TODAY&&!t.done&&(curCtxFilter==='all'||t.ctx===curCtxFilter)))}</div>`;
+    <div class="cal-wrap">
+      <div class="cal-wds">${['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'].map(d=>`<div class="cal-wd">${d}</div>`).join('')}</div>
+      <div class="cal-days">${daysHTML}</div>
+    </div>
+    ${panelHTML}`;
+}
+
+function selectCalDay(dateStr) {
+  calSelectedDate = dateStr;
+  renderView();
+}
+
+function prevMonth() {
+  calCurrentMonth--;
+  if(calCurrentMonth < 0) { calCurrentMonth = 11; calCurrentYear--; }
+  calSelectedDate = null;
+  renderView();
+}
+
+function nextMonth() {
+  calCurrentMonth++;
+  if(calCurrentMonth > 11) { calCurrentMonth = 0; calCurrentYear++; }
+  calSelectedDate = null;
+  renderView();
+}
+
+function goToToday() {
+  const d = new Date(TODAY);
+  calCurrentMonth = d.getMonth();
+  calCurrentYear  = d.getFullYear();
+  calSelectedDate = TODAY;
+  renderView();
 }
 
 // ══════════════════════════════════════════════════════
@@ -4048,6 +4285,236 @@ async function reloadFromFirebase() {
     _active = false;
   }, {passive: true});
 })();
+
+
+// ══════════════════════════════════════════════════════
+// EVENTOS DE CALENDARIO
+// ══════════════════════════════════════════════════════
+
+let events = []; // Se llena desde Firebase
+let selEvColorVal = '#2d7dd2';
+let editingEventId = null;
+let calSelectedDate = null;
+let calCurrentMonth = (function(){ const d=new Date(TODAY); return d.getMonth(); })();
+let calCurrentYear  = (function(){ const d=new Date(TODAY); return d.getFullYear(); })();
+
+// Colores de contexto automáticos para eventos
+function getCtxColor(ctxId) {
+  const c = contexts.find(x => x.id === ctxId);
+  return c ? c.color : '#2d7dd2';
+}
+
+// ── FIREBASE EVENTOS ──
+async function fbSaveEvent(ev) {
+  if(typeof firebase === 'undefined') return;
+  setSyncStatus('syncing', 'Guardando evento...');
+  try {
+    const data = Object.assign({}, ev);
+    const fbId = data._fbId;
+    delete data._fbId;
+    if(fbId) {
+      await db.collection('events').doc(fbId).set(data);
+    } else {
+      const ref = await db.collection('events').add(data);
+      ev._fbId = ref.id;
+    }
+    setSyncStatus('synced', '✓ Evento guardado');
+  } catch(e) {
+    setSyncStatus('error', '✗ Error al guardar evento');
+    console.error('fbSaveEvent:', e);
+  }
+}
+
+async function fbDeleteEvent(ev) {
+  if(typeof firebase === 'undefined' || !ev._fbId) return;
+  try {
+    await db.collection('events').doc(ev._fbId).delete();
+  } catch(e) { console.error('fbDeleteEvent:', e); }
+}
+
+function fbListenEvents() {
+  if(typeof firebase === 'undefined') return;
+  db.collection('events').onSnapshot(snap => {
+    events = [];
+    snap.forEach(d => events.push(Object.assign({}, d.data(), {_fbId: d.id})));
+    if(curView === 'calendario') renderView();
+  });
+}
+
+// ── MODAL SELECTOR TAREA/EVENTO ──
+function openAddTypeModal(date) {
+  calSelectedDate = date;
+  const dateObj = new Date(date + 'T12:00:00');
+  const label = dateObj.toLocaleDateString('es-MX', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+  document.getElementById('addTypeDate').textContent = '📅 ' + label.charAt(0).toUpperCase() + label.slice(1);
+  document.getElementById('addTypeModal').classList.add('open');
+}
+
+function closeAddTypeModal() {
+  document.getElementById('addTypeModal').classList.remove('open');
+}
+
+function addTypeTask() {
+  closeAddTypeModal();
+  openTaskModal();
+  // Pre-llenar la fecha con el día seleccionado
+  setTimeout(() => {
+    const dateEl = document.getElementById('mDate');
+    if(dateEl && calSelectedDate) dateEl.value = calSelectedDate;
+  }, 100);
+}
+
+function addTypeEvent() {
+  closeAddTypeModal();
+  openEventModal(null, calSelectedDate);
+}
+
+// ── MODAL DE EVENTO ──
+function openEventModal(eventId, date) {
+  editingEventId = eventId || null;
+  selEvColorVal = '#2d7dd2';
+
+  // Poblar contextos
+  const ctxEl = document.getElementById('evCtx');
+  if(ctxEl) ctxEl.innerHTML = contexts.map(c => `<option value="${c.id}">${c.icon} ${c.name}</option>`).join('');
+
+  // Resetear campos
+  document.getElementById('evTitle').value  = '';
+  document.getElementById('evDesc').value   = '';
+  document.getElementById('evDate').value   = date || calSelectedDate || TODAY;
+  document.getElementById('evStart').value  = '09:00';
+  document.getElementById('evEnd').value    = '10:00';
+  document.getElementById('evRemind').value = '15';
+  document.getElementById('evRecur').value  = 'none';
+  document.getElementById('evDeleteBtn').style.display = 'none';
+  document.getElementById('eventModalTitle').textContent = '📅 Nuevo evento';
+
+  // Resetear color swatches
+  document.querySelectorAll('.event-color-swatch').forEach(s => s.classList.remove('active'));
+  const firstSwatch = document.querySelector('.event-color-swatch');
+  if(firstSwatch) firstSwatch.classList.add('active');
+
+  if(eventId) {
+    // Editar evento existente
+    const ev = events.find(e => e.id === eventId);
+    if(ev) {
+      document.getElementById('evTitle').value  = ev.title || '';
+      document.getElementById('evDesc').value   = ev.desc  || '';
+      document.getElementById('evDate').value   = ev.date  || '';
+      document.getElementById('evStart').value  = ev.start || '09:00';
+      document.getElementById('evEnd').value    = ev.end   || '10:00';
+      document.getElementById('evRemind').value = ev.remind || 'none';
+      document.getElementById('evRecur').value  = ev.recur  || 'none';
+      if(ctxEl) ctxEl.value = ev.ctx || (curCtxFilter !== 'all' ? curCtxFilter : 'personal');
+      selEvColorVal = ev.color || '#2d7dd2';
+      document.getElementById('eventModalTitle').textContent = '✏️ Editar evento';
+      document.getElementById('evDeleteBtn').style.display = 'inline-flex';
+      // Marcar swatch activo
+      document.querySelectorAll('.event-color-swatch').forEach(s => {
+        s.classList.toggle('active', s.style.background === selEvColorVal);
+      });
+    }
+  } else {
+    const ctxVal = curCtxFilter !== 'all' ? curCtxFilter : 'personal';
+    if(ctxEl) ctxEl.value = ctxVal;
+    selEvColorVal = getCtxColor(ctxVal);
+    // Marcar swatch del color del contexto
+    const matchSwatch = [...document.querySelectorAll('.event-color-swatch')]
+      .find(s => s.style.background === selEvColorVal);
+    if(matchSwatch) {
+      document.querySelectorAll('.event-color-swatch').forEach(s => s.classList.remove('active'));
+      matchSwatch.classList.add('active');
+    }
+  }
+
+  document.getElementById('eventModal').classList.add('open');
+  setTimeout(() => document.getElementById('evTitle').focus(), 200);
+}
+
+function closeEventModal() {
+  document.getElementById('eventModal').classList.remove('open');
+  editingEventId = null;
+}
+
+function selEvColor(col, el) {
+  selEvColorVal = col;
+  document.querySelectorAll('.event-color-swatch').forEach(s => s.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function saveEvent() {
+  const title = (document.getElementById('evTitle').value || '').trim();
+  if(!title) return toast('⚠️', 'Escribe el título del evento');
+
+  const ev = {
+    id:     editingEventId || 'ev_' + Date.now(),
+    title,
+    desc:   document.getElementById('evDesc').value   || '',
+    date:   document.getElementById('evDate').value   || TODAY,
+    start:  document.getElementById('evStart').value  || '09:00',
+    end:    document.getElementById('evEnd').value    || '10:00',
+    color:  selEvColorVal,
+    ctx:    document.getElementById('evCtx').value    || 'personal',
+    remind: document.getElementById('evRemind').value || 'none',
+    recur:  document.getElementById('evRecur').value  || 'none',
+  };
+
+  if(editingEventId) {
+    const idx = events.findIndex(e => e.id === editingEventId);
+    if(idx >= 0) { ev._fbId = events[idx]._fbId; events[idx] = ev; }
+  } else {
+    events.push(ev);
+  }
+
+  fbSaveEvent(ev);
+  closeEventModal();
+  renderView();
+  toast('📅', editingEventId ? 'Evento actualizado' : 'Evento creado');
+
+  // Programar recordatorio si aplica
+  if(ev.remind !== 'none') scheduleEventReminder(ev);
+}
+
+function deleteEvent() {
+  if(!editingEventId) return;
+  const ev = events.find(e => e.id === editingEventId);
+  if(!ev) return;
+  fbDeleteEvent(ev);
+  events = events.filter(e => e.id !== editingEventId);
+  closeEventModal();
+  renderView();
+  toast('🗑️', 'Evento eliminado');
+}
+
+// ── RECORDATORIO DE EVENTO ──
+function scheduleEventReminder(ev) {
+  if(ev.remind === 'none' || Notification.permission !== 'granted') return;
+  const evDateTime = new Date(ev.date + 'T' + ev.start);
+  const remindMs   = evDateTime.getTime() - (parseInt(ev.remind) * 60000) - Date.now();
+  if(remindMs < 0) return; // Ya pasó
+  setTimeout(() => {
+    new Notification('📅 ' + ev.title, {
+      body: 'En ' + ev.remind + ' min · ' + ev.start + ' - ' + ev.end,
+      tag:  'event-' + ev.id
+    });
+  }, remindMs);
+  toast('🔔', 'Recordatorio programado para ' + ev.title);
+}
+
+// ── HELPERS DE FECHA ──
+function formatDateLabel(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00');
+  return d.toLocaleDateString('es-MX', {weekday:'long', day:'numeric', month:'long'});
+}
+
+function getEventsForDate(dateStr) {
+  return events.filter(e => e.date === dateStr);
+}
+
+function getTasksForDate(dateStr) {
+  return tasks.filter(t => !t.done && t.date === dateStr &&
+    (curCtxFilter === 'all' || t.ctx === curCtxFilter));
+}
 
 // ══════════════════════════════════════════════════════
 // TOAST
