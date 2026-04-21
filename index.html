@@ -1121,6 +1121,7 @@ console.log("Firebase compat cargado OK");
       </div>
       <div class="ctx-list" id="ctxList"></div>
       <button class="ctx-add-btn" onclick="openCtxMgmt()">＋ <span>Nuevo contexto</span></button>
+      <button class="ctx-add-btn" onclick="openEmailConfig()" style="margin-top:4px;color:var(--sb-text2)">📧 <span>Recordatorios</span></button>
     </div>
 
     <div class="sb-nav">
@@ -1157,6 +1158,7 @@ console.log("Firebase compat cargado OK");
         <input type="file" id="importFileInp" accept=".csv,.xlsx,.xls" style="display:none" onchange="importFromFile(this)"/>
         <button class="btn-icon" title="Notificación diaria (9 AM)" onclick="scheduleDailyNotif()" id="btnNotif">🔔</button>
         <button class="btn-icon" title="Perfil — Héctor Ezquerra" onclick="showProfileMenu()">👤</button>
+        <button class="btn-icon" title="📧 Recordatorios por correo" onclick="openEmailConfig()">📧</button>
         <button class="btn-icon" title="Recargar datos" onclick="reloadFromFirebase()" id="reloadBtn">🔄</button>
         <button class="btn-primary" onclick="openTaskModal()">＋ Nueva tarea</button>
       </div>
