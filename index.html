@@ -2056,13 +2056,18 @@ function openDetail(id){
       <div style="display:flex;flex-wrap:wrap;gap:5px">${t.tags.map(tag=>`<span class="tag-pill" style="background:${tagColor(tag)}22;color:${tagColor(tag)}">${tag}</span>`).join('')}</div>
     </div>`:''}
 
-    ${stot?`<div style="margin-bottom:16px">
-      <div class="detail-sec-lbl">Subtareas — ${sdone}/${stot}</div>
-      <div style="height:4px;background:var(--c-bg3);border-radius:2px;overflow:hidden;margin-bottom:9px">
-        <div style="height:100%;width:${Math.round(sdone/stot*100)}%;background:var(--accent);border-radius:2px"></div>
+    <div style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div class="detail-sec-lbl" style="margin:0">${stot?`Subtareas — ${sdone}/${stot} completadas`:'Subtareas'}</div>
+        <button onclick="openSubModal('sub',${t.id},null,null)" class="btn-primary" style="font-size:11px;padding:5px 11px">➕ Nueva</button>
       </div>
-      ${t.subtasks.map(s=>buildSubRow(t.id,s,true)).join('')}
-    </div>`:''}
+      ${stot?`
+        <div style="height:4px;background:var(--c-bg3);border-radius:2px;overflow:hidden;margin-bottom:12px">
+          <div style="height:100%;width:${Math.round(sdone/stot*100)}%;background:var(--accent);border-radius:2px;transition:width .4s"></div>
+        </div>
+        ${t.subtasks.map(s=>buildDetailSubRow(t,s)).join('')}
+      `:'<div style="font-size:12px;color:var(--c-text3);padding:6px 0">Sin subtareas. Usa ➕ para agregar.</div>'}
+    </div>
 
     ${t.attachments&&t.attachments.length?`<div style="margin-bottom:16px">
       <div class="detail-sec-lbl">Adjuntos (${t.attachments.length})</div>
@@ -3784,6 +3789,92 @@ function menuItem(icon, label, action) {
     'color:var(--c-text2);cursor:pointer;font-family:DM Sans,sans-serif;font-size:13px;border-radius:7px;text-align:left;transition:all .15s" '+
     'onmouseover="this.style.background=\'var(--c-bg3)\'" onmouseout="this.style.background=\'transparent\'">'+
     '<span>'+icon+'</span><span>'+label+'</span></button>';
+}
+
+
+// ── Construir subtarea en el panel de detalle (árbol completo) ──
+function buildDetailSubRow(task, s) {
+  const checkedCls = s.done ? 'checked' : '';
+  const doneCls    = s.done ? 'done' : '';
+  const pMark      = {high:'🔴',medium:'🟡',low:'🔵',none:''}[s.priority||'none']||'';
+  const tagHTML    = (s.tags||[]).map(tag=>{const c=tagColor(tag);return`<span style="font-size:9px;padding:1px 5px;border-radius:10px;background:${c}22;color:${c}">${tag}</span>`;}).join('');
+  const ssDone     = (s.subsubtasks||[]).filter(ss=>ss.done).length;
+  const ssTot      = (s.subsubtasks||[]).length;
+  const ssProgress = ssTot?`<div style="display:flex;align-items:center;gap:4px;margin-top:4px">
+    <div style="width:40px;height:2px;background:var(--c-border);border-radius:2px;overflow:hidden">
+      <div style="height:100%;width:${Math.round(ssDone/ssTot*100)}%;background:var(--accent);border-radius:2px"></div>
+    </div>
+    <span style="font-size:10px;color:var(--c-text3)">${ssDone}/${ssTot}</span>
+  </div>`:'';
+
+  // Sub-subtareas
+  const subsubHTML = (s.subsubtasks||[]).map(ss => {
+    const ssCls = ss.done ? 'checked' : '';
+    const ssDoneCls = ss.done ? 'done' : '';
+    const ssPMark = {high:'🔴',medium:'🟡',low:'🔵',none:''}[ss.priority||'none']||'';
+    return `<div style="display:flex;align-items:center;gap:7px;padding:6px 10px 6px 20px;border-top:1px solid var(--c-border);background:${ss.done?'var(--c-bg3)':'var(--c-bg2)'};position:relative">
+      <span style="position:absolute;left:8px;color:var(--c-text3);font-size:10px">└</span>
+      <div class="sub-check-sm ${ssCls}" onclick="toggleSubSubDone(${task.id},'${s.id}','${ss.id}');openDetail(${task.id})">${ss.done?'✓':''}</div>
+      <span style="font-size:11px;color:var(--c-text)!important;flex:1;${ss.done?'text-decoration:line-through;color:var(--c-text3)!important':''}"
+        ondblclick="inlineEditSubsub(${task.id},'${s.id}','${ss.id}',this)"
+        title="Doble clic para editar">${ss.title||''}</span>
+      ${ssPMark?`<span style="font-size:10px">${ssPMark}</span>`:''}
+      ${ss.date?`<span style="font-size:10px;color:var(--c-text3)">📅 ${ss.date}</span>`:''}
+      <div style="display:flex;gap:3px">
+        <button onclick="openSubModal('subsub',${task.id},'${s.id}','${ss.id}')" title="Editar"
+          style="width:20px;height:20px;border:none;background:transparent;color:var(--c-text3);cursor:pointer;font-size:11px;border-radius:4px;display:flex;align-items:center;justify-content:center"
+          onmouseover="this.style.background='var(--c-bg3)'" onmouseout="this.style.background='transparent'">✏️</button>
+        <button onclick="deleteSubSubtask(${task.id},'${s.id}','${ss.id}');openDetail(${task.id})" title="Eliminar"
+          style="width:20px;height:20px;border:none;background:transparent;color:var(--c-text3);cursor:pointer;font-size:11px;border-radius:4px;display:flex;align-items:center;justify-content:center"
+          onmouseover="this.style.background='rgba(224,82,82,.1)';this.style.color='#e05252'" onmouseout="this.style.background='transparent';this.style.color='var(--c-text3)'">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Input rápido para sub-subtarea
+  const addSubsubRow = `<div style="display:flex;align-items:center;gap:6px;padding:5px 10px 5px 20px;border-top:1px dashed var(--c-border);background:var(--c-bg3)">
+    <span style="color:var(--c-text3);font-size:11px">└＋</span>
+    <input style="flex:1;border:none;background:transparent;font-size:11px;font-family:'DM Sans',sans-serif;color:var(--c-text);outline:none;border-bottom:1px solid transparent;padding:2px 0;transition:border-color .15s"
+      placeholder="Nueva sub-subtarea (Enter)"
+      onfocus="this.style.borderBottomColor='var(--accent)'"
+      onblur="this.style.borderBottomColor='transparent'"
+      onkeydown="quickAddSubsub(event,${task.id},'${s.id}',this);if(event.key==='Enter')setTimeout(()=>openDetail(${task.id}),100)"/>
+    <button onclick="openSubModal('sub',${task.id},'${s.id}',null,'subsub')"
+      style="font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--c-border);background:var(--c-bg2);color:var(--c-text2);cursor:pointer;white-space:nowrap">+ Detalle</button>
+  </div>`;
+
+  return `<div style="background:var(--c-bg2);border:1px solid var(--c-border);border-radius:var(--radius-sm);margin-bottom:6px;overflow:hidden">
+    <!-- Fila de la subtarea -->
+    <div style="display:flex;align-items:flex-start;gap:9px;padding:10px 12px;position:relative;border-left:3px solid ${s.priority==='high'?'#e05252':s.priority==='medium'?'#e0a752':s.priority==='low'?'#52a8e0':'transparent'}">
+      <div class="sub-check-sm ${checkedCls}" onclick="toggleSubDone(${task.id},'${s.id}');openDetail(${task.id})">${s.done?'✓':''}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:500;color:var(--c-text)!important;${s.done?'text-decoration:line-through;color:var(--c-text3)!important':''};margin-bottom:3px"
+          ondblclick="inlineEditSubtask(${task.id},'${s.id}',this)"
+          title="Doble clic para editar">${s.title||s.text||'Sin título'}</div>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          ${tagHTML}
+          ${pMark?`<span style="font-size:11px">${pMark}</span>`:''}
+          ${s.date?`<span style="font-size:11px;color:var(--c-text3)">📅 ${s.date}</span>`:''}
+          ${s.notes?`<span style="font-size:10px;color:var(--c-text3)">📝 ${s.notes.slice(0,30)}${s.notes.length>30?'...':''}</span>`:''}
+          ${ssProgress}
+        </div>
+      </div>
+      <div style="display:flex;gap:3px;flex-shrink:0">
+        <button onclick="openSubModal('sub',${task.id},'${s.id}',null,'subsub')" title="Nueva sub-subtarea"
+          style="width:22px;height:22px;border:none;background:var(--c-bg3);color:var(--c-text2);cursor:pointer;border-radius:5px;font-size:11px;display:flex;align-items:center;justify-content:center;transition:all .15s"
+          onmouseover="this.style.background='var(--c-border)'" onmouseout="this.style.background='var(--c-bg3)'">＋</button>
+        <button onclick="openSubModal('sub',${task.id},'${s.id}','${s.id}')" title="Editar subtarea"
+          style="width:22px;height:22px;border:none;background:var(--c-bg3);color:var(--c-text2);cursor:pointer;border-radius:5px;font-size:11px;display:flex;align-items:center;justify-content:center;transition:all .15s"
+          onmouseover="this.style.background='var(--c-border)'" onmouseout="this.style.background='var(--c-bg3)'">✏️</button>
+        <button onclick="deleteSubtaskById(${task.id},'${s.id}');openDetail(${task.id})" title="Eliminar subtarea"
+          style="width:22px;height:22px;border:none;background:var(--c-bg3);color:var(--c-text2);cursor:pointer;border-radius:5px;font-size:11px;display:flex;align-items:center;justify-content:center;transition:all .15s"
+          onmouseover="this.style.background='rgba(224,82,82,.1)';this.style.color='#e05252'" onmouseout="this.style.background='var(--c-bg3)';this.style.color='var(--c-text2)'">🗑️</button>
+      </div>
+    </div>
+    <!-- Sub-subtareas -->
+    ${subsubHTML}
+    ${addSubsubRow}
+  </div>`;
 }
 
 // ══════════════════════════════════════════════════════
