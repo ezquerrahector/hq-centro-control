@@ -2241,42 +2241,162 @@ function goToToday() {
 // ALARMS
 // ══════════════════════════════════════════════════════
 function buildAlarms(){
-  const list=alarms.filter(a=>curCtxFilter==='all'||a.ctx===curCtxFilter);
+  const list = alarms.filter(a=>curCtxFilter==='all'||a.ctx===curCtxFilter)
+    .sort((a,b)=>a.time.localeCompare(b.time));
+  const ctxOpts = contexts.map(c=>`<option value="${c.id}" ${c.id===(curCtxFilter!=='all'?curCtxFilter:'personal')?'selected':''}>${c.icon} ${c.name}</option>`).join('');
+  const repOpts = ['Sin repetir','Cada día','Lunes a viernes','Cada semana','Lunes y Miércoles','Cada viernes','Fines de semana']
+    .map(r=>`<option>${r}</option>`).join('');
   return`
-    <div class="sec-hdr"><div class="sec-ttl">🔔 Alarmas</div>
-      <button class="btn-primary" onclick="toast('➕','Alarma creada')">＋ Nueva</button>
+    <div class="sec-hdr">
+      <div class="sec-ttl">🔔 Alarmas</div>
     </div>
-    ${list.map(a=>`
-      <div class="alarm-item">
+    ${list.length===0?`<div style="text-align:center;padding:32px;color:var(--c-text3)">Sin alarmas. Crea una abajo ↓</div>`:''}
+    ${list.map(a=>{
+      const ctx=contexts.find(c=>c.id===a.ctx);
+      return`<div class="alarm-item">
         <div class="alarm-time">${a.time}</div>
-        <div class="alarm-info">
+        <div class="alarm-info" style="flex:1">
           <div class="alarm-name">${a.name}</div>
-          <div class="alarm-rep">🔁 ${a.repeat} · ${contexts.find(c=>c.id===a.ctx)?.icon||''} ${contexts.find(c=>c.id===a.ctx)?.name||a.ctx}</div>
+          <div class="alarm-rep">🔁 ${a.repeat} · ${ctx?ctx.icon+' '+ctx.name:a.ctx}</div>
         </div>
+        <button onclick="openEditAlarm(${a.id})" title="Editar"
+          style="width:28px;height:28px;border:none;background:transparent;color:var(--c-text3);cursor:pointer;border-radius:6px;font-size:14px;margin-right:4px"
+          onmouseover="this.style.background='var(--c-bg3)'" onmouseout="this.style.background='transparent'">✏️</button>
         <button class="alarm-toggle ${a.on?'on':''}" onclick="toggleAlarm(${a.id},this)"></button>
-        <button class="tact del" onclick="toast('🗑️','Alarma eliminada')">🗑️</button>
-      </div>`).join('')}
-    <div style="background:var(--c-bg2);border:1px solid var(--c-border);border-radius:var(--radius);padding:16px;margin-top:16px">
-      <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:13px;margin-bottom:12px">⏰ Nueva alarma</div>
-      <div class="form-row" style="margin-bottom:11px">
-        <div><label class="form-lbl">Hora</label><input type="time" class="form-inp" value="08:00"/></div>
-        <div><label class="form-lbl">Nombre</label><input class="form-inp" placeholder="Ej. Reunión matutina"/></div>
+        <button onclick="deleteAlarm(${a.id})" title="Eliminar"
+          style="width:28px;height:28px;border:none;background:transparent;color:#e05252;cursor:pointer;border-radius:6px;font-size:14px;margin-left:4px"
+          onmouseover="this.style.background='rgba(224,82,82,.1)'" onmouseout="this.style.background='transparent'">🗑️</button>
+      </div>`;
+    }).join('')}
+    <div style="background:var(--c-bg2);border:1px solid var(--c-border);border-radius:var(--radius);padding:18px;margin-top:16px">
+      <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:13px;margin-bottom:14px">⏰ Nueva alarma</div>
+      <div class="form-row" style="margin-bottom:12px">
+        <div class="form-grp">
+          <label class="form-lbl">Hora</label>
+          <input type="time" class="form-inp" id="newAlarmTime" value="08:00">
+        </div>
+        <div class="form-grp">
+          <label class="form-lbl">Nombre</label>
+          <input class="form-inp" id="newAlarmName" placeholder="Ej. Reunión matutina">
+        </div>
       </div>
       <div class="form-row">
-        <div><label class="form-lbl">Repetir</label>
-          <select class="form-sel"><option>Sin repetir</option><option>Cada día</option><option>Lunes a viernes</option><option>Cada semana</option></select>
+        <div class="form-grp">
+          <label class="form-lbl">Repetir</label>
+          <select class="form-inp" id="newAlarmRepeat">${repOpts}</select>
         </div>
-        <div style="display:flex;align-items:flex-end">
-          <button class="btn-primary" style="width:100%" onclick="toast('🔔','Alarma programada')">Programar</button>
+        <div class="form-grp">
+          <label class="form-lbl">Contexto</label>
+          <select class="form-inp" id="newAlarmCtx">${ctxOpts}</select>
         </div>
       </div>
+      <button class="btn-primary" style="width:100%;margin-top:12px" onclick="addAlarm()">🔔 Programar alarma</button>
     </div>`;
 }
 
 function toggleAlarm(id,btn){
   const a=alarms.find(x=>x.id===id);if(!a)return;
   a.on=!a.on;btn.classList.toggle('on',a.on);
+  saveAlarmsLocal();
   toast(a.on?'🔔':'🔕',a.on?'Alarma activada':'Alarma desactivada');
+}
+
+function saveAlarmsLocal(){
+  try{ localStorage.setItem('hq_alarms', JSON.stringify(alarms)); }catch(e){}
+}
+
+function loadAlarmsLocal(){
+  try{
+    const saved = localStorage.getItem('hq_alarms');
+    if(saved){ alarms = JSON.parse(saved); }
+  }catch(e){}
+}
+
+function addAlarm(){
+  const timeEl = document.getElementById('newAlarmTime');
+  const nameEl = document.getElementById('newAlarmName');
+  const repEl  = document.getElementById('newAlarmRepeat');
+  const ctxEl  = document.getElementById('newAlarmCtx');
+  const time = timeEl ? timeEl.value : '08:00';
+  const name = nameEl ? nameEl.value.trim() : '';
+  if(!name){ toast('⚠️','Escribe un nombre para la alarma'); return; }
+  const newAlarm = {
+    id: Date.now(),
+    name,
+    time,
+    repeat: repEl ? repEl.value : 'Sin repetir',
+    on: true,
+    ctx: ctxEl ? ctxEl.value : (curCtxFilter!=='all'?curCtxFilter:'personal')
+  };
+  alarms.push(newAlarm);
+  saveAlarmsLocal();
+  renderView();
+  toast('🔔','Alarma programada: '+name+' a las '+time);
+}
+
+function deleteAlarm(id){
+  if(!confirm('¿Eliminar esta alarma?')) return;
+  alarms = alarms.filter(a=>a.id!==id);
+  saveAlarmsLocal();
+  renderView();
+  toast('🗑️','Alarma eliminada');
+}
+
+function openEditAlarm(id){
+  const a = alarms.find(x=>x.id===id);
+  if(!a) return;
+  const existing = document.getElementById('editAlarmModal');
+  if(existing) existing.remove();
+  const m = document.createElement('div');
+  m.id = 'editAlarmModal';
+  m.className = 'overlay open';
+  m.onclick = e => { if(e.target===m) m.remove(); };
+  const ctxOpts = contexts.map(c=>`<option value="${c.id}" ${c.id===a.ctx?'selected':''}>${c.icon} ${c.name}</option>`).join('');
+  const repOpts = ['Sin repetir','Cada día','Lunes a viernes','Cada semana','Lunes y Miércoles','Cada viernes','Fines de semana']
+    .map(r=>`<option ${r===a.repeat?'selected':''}>${r}</option>`).join('');
+  m.innerHTML = `
+  <div class="modal" style="max-width:400px">
+    <div class="modal-hdr">
+      <span class="modal-ttl">✏️ Editar alarma</span>
+      <button class="btn-icon" onclick="document.getElementById('editAlarmModal').remove()">✕</button>
+    </div>
+    <div class="form-grp">
+      <label class="form-lbl">Nombre</label>
+      <input class="form-inp" id="ealName" value="${a.name}">
+    </div>
+    <div class="form-row">
+      <div class="form-grp">
+        <label class="form-lbl">Hora</label>
+        <input type="time" class="form-inp" id="ealTime" value="${a.time}">
+      </div>
+      <div class="form-grp">
+        <label class="form-lbl">Contexto</label>
+        <select class="form-inp" id="ealCtx">${ctxOpts}</select>
+      </div>
+    </div>
+    <div class="form-grp">
+      <label class="form-lbl">Repetir</label>
+      <select class="form-inp" id="ealRepeat">${repOpts}</select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-sec" onclick="document.getElementById('editAlarmModal').remove()">Cancelar</button>
+      <button class="btn-primary" onclick="saveEditAlarm(${id})">💾 Guardar</button>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+}
+
+function saveEditAlarm(id){
+  const a = alarms.find(x=>x.id===id);
+  if(!a) return;
+  a.name   = document.getElementById('ealName').value.trim() || a.name;
+  a.time   = document.getElementById('ealTime').value || a.time;
+  a.repeat = document.getElementById('ealRepeat').value;
+  a.ctx    = document.getElementById('ealCtx').value;
+  saveAlarmsLocal();
+  document.getElementById('editAlarmModal').remove();
+  renderView();
+  toast('✅','Alarma actualizada');
 }
 
 // ══════════════════════════════════════════════════════
@@ -5121,6 +5241,9 @@ function fbListenAll() {
 
 // Seed deshabilitado — ya hay datos en Firebase
 // Para restaurar datos de ejemplo, ejecutar manualmente: fbSeedIfEmpty()
+// Cargar alarmas guardadas localmente
+loadAlarmsLocal();
+
 setTimeout(() => {
   fbListenAll();
   fbListenEvents(); // Sincronizar eventos del calendario
