@@ -608,19 +608,42 @@ textarea.form-inp{resize:vertical;min-height:65px;}
 /* FAB — botón nueva tarea en móvil */
 .mob-fab{
   display:none;
-  position:fixed;bottom:74px;right:16px;
-  width:52px;height:52px;border-radius:50%;
+  position:fixed;bottom:76px;right:16px;
+  width:56px;height:56px;border-radius:50%;
   background:var(--accent);color:#fff;
   border:none;cursor:pointer;
-  font-size:24px;
-  box-shadow:0 4px 16px rgba(0,0,0,.3);
-  z-index:490;align-items:center;justify-content:center;
-  transition:transform .15s;
+  font-size:26px;line-height:1;
+  box-shadow:0 4px 20px rgba(0,0,0,.35);
+  z-index:9990;align-items:center;justify-content:center;
+  transition:transform .15s,box-shadow .15s;
+  -webkit-tap-highlight-color:transparent;
 }
-.mob-fab:hover{transform:scale(1.08);}
+.mob-fab:active{transform:scale(.94);box-shadow:0 2px 8px rgba(0,0,0,.3);}
 @media(max-width:600px){
-  .mob-fab{display:flex;}
+  .mob-fab{display:flex !important;}
 }
+
+/* ── PULL TO REFRESH ── */
+.ptr-indicator{
+  position:fixed;top:0;left:50%;transform:translateX(-50%);
+  display:none;align-items:center;gap:8px;
+  background:var(--c-bg2);border:1px solid var(--c-border);
+  border-radius:0 0 20px 20px;padding:8px 18px;
+  font-size:12px;font-weight:500;color:var(--c-text2);
+  box-shadow:0 4px 12px rgba(0,0,0,.1);
+  z-index:9995;transition:opacity .2s;
+}
+.ptr-spinner{
+  width:16px;height:16px;border-radius:50%;
+  border:2px solid var(--c-border2);
+  border-top-color:var(--accent);
+  animation:spin .7s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(max-width:600px){
+  .ptr-indicator{display:flex;}
+}
+
 </style>
 <!-- Firebase SDK (compat - acceso global) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -660,6 +683,13 @@ console.log("Firebase compat cargado OK");
   z-index:400;transition:all .3s;">
   <span id="syncDot" style="width:7px;height:7px;border-radius:50%;background:#e0a752;flex-shrink:0;"></span>
   <span id="syncText">Sincronizando...</span>
+</div>
+
+
+<!-- ── PULL TO REFRESH INDICATOR ── -->
+<div class="ptr-indicator" id="ptrIndicator" style="display:none">
+  <div class="ptr-spinner" id="ptrSpinner"></div>
+  <span id="ptrText">Suelta para actualizar</span>
 </div>
 
 <div class="toast" id="toast"><span id="ti">✅</span><span id="tm"></span></div>
@@ -940,6 +970,7 @@ console.log("Firebase compat cargado OK");
         <input type="file" id="importFileInp" accept=".csv,.xlsx,.xls" style="display:none" onchange="importFromFile(this)"/>
         <button class="btn-icon" title="Notificación diaria (9 AM)" onclick="scheduleDailyNotif()" id="btnNotif">🔔</button>
         <button class="btn-icon" title="Perfil — Héctor Ezquerra" onclick="showProfileMenu()">👤</button>
+        <button class="btn-icon" title="Recargar datos" onclick="reloadFromFirebase()" id="reloadBtn">🔄</button>
         <button class="btn-primary" onclick="openTaskModal()">＋ Nueva tarea</button>
       </div>
     </div>
@@ -3876,6 +3907,131 @@ function buildDetailSubRow(task, s) {
     ${addSubsubRow}
   </div>`;
 }
+
+
+// ══════════════════════════════════════════════════════
+// RELOAD Y PULL TO REFRESH
+// ══════════════════════════════════════════════════════
+
+// Recargar datos desde Firebase manualmente
+async function reloadFromFirebase() {
+  const btn = document.getElementById('reloadBtn');
+  if(btn) {
+    btn.style.transform = 'rotate(360deg)';
+    btn.style.transition = 'transform .6s ease';
+    setTimeout(() => { btn.style.transform = ''; btn.style.transition = ''; }, 700);
+  }
+  setSyncStatus('syncing', 'Actualizando...');
+  try {
+    // Recargar tareas
+    const tSnap = await db.collection('tasks').get();
+    const arr = [];
+    tSnap.forEach(d => arr.push(Object.assign({}, d.data(), {_fbId: d.id})));
+    arr.sort((a,b) => ((a.order||9999)-(b.order||9999)));
+    tasks = arr;
+
+    // Recargar contextos
+    const cSnap = await db.collection('contexts').get();
+    if(!cSnap.empty) {
+      const ctxArr = [];
+      cSnap.forEach(d => ctxArr.push(Object.assign({}, d.data(), {_fbId: d.id})));
+      contexts = ctxArr;
+    }
+
+    // Recargar proyectos
+    const pSnap = await db.collection('projects').get();
+    if(!pSnap.empty) {
+      const projArr = [];
+      pSnap.forEach(d => projArr.push(Object.assign({}, d.data(), {_fbId: d.id})));
+      projects = projArr;
+    }
+
+    updateBadges();
+    renderSidebar();
+    renderCtxFilterBar();
+    renderView();
+    setSyncStatus('synced', '✓ Actualizado');
+    toast('🔄', 'Datos actualizados desde Firebase');
+  } catch(e) {
+    setSyncStatus('error', '✗ Error al actualizar');
+    console.error('reloadFromFirebase:', e);
+    toast('❌', 'Error al conectar con Firebase');
+  }
+}
+
+// ── PULL TO REFRESH (solo móvil) ──
+(function() {
+  let startY    = 0;
+  let pulling   = false;
+  let threshold = 80; // px para activar
+  let maxPull   = 120;
+  let _active   = false;
+
+  const indicator = () => document.getElementById('ptrIndicator');
+  const spinner   = () => document.getElementById('ptrSpinner');
+  const ptrText   = () => document.getElementById('ptrText');
+  const content   = () => document.getElementById('content');
+
+  function isMobile() { return window.innerWidth <= 600; }
+
+  document.addEventListener('touchstart', function(e) {
+    if(!isMobile()) return;
+    const el = content();
+    if(!el || el.scrollTop > 0) return; // Solo si estamos en el tope
+    startY  = e.touches[0].clientY;
+    pulling = true;
+    _active = false;
+  }, {passive: true});
+
+  document.addEventListener('touchmove', function(e) {
+    if(!pulling || !isMobile()) return;
+    const el = content();
+    if(!el || el.scrollTop > 0) { pulling = false; return; }
+
+    const deltaY = Math.min(e.touches[0].clientY - startY, maxPull);
+    if(deltaY < 10) return;
+
+    // Mostrar indicador
+    const ind = indicator();
+    if(ind) {
+      ind.style.display = 'flex';
+      const pct = Math.min(deltaY / threshold, 1);
+      ind.style.opacity = String(pct);
+      if(deltaY >= threshold) {
+        _active = true;
+        if(ptrText()) ptrText().textContent = 'Suelta para actualizar ↑';
+        ind.style.background = 'var(--accent-light)';
+      } else {
+        _active = false;
+        if(ptrText()) ptrText().textContent = 'Desliza para actualizar ↓';
+        ind.style.background = 'var(--c-bg2)';
+      }
+    }
+  }, {passive: true});
+
+  document.addEventListener('touchend', function() {
+    if(!pulling || !isMobile()) return;
+    pulling = false;
+
+    const ind = indicator();
+    if(_active) {
+      // Mostrar spinner mientras recarga
+      if(ind) {
+        ind.style.opacity = '1';
+        ind.style.background = 'var(--accent-light)';
+        if(ptrText()) ptrText().textContent = 'Actualizando...';
+      }
+      reloadFromFirebase().then(() => {
+        setTimeout(() => {
+          if(ind) { ind.style.opacity='0'; setTimeout(()=>{ ind.style.display='none'; ind.style.opacity='1'; },300); }
+        }, 800);
+      });
+    } else {
+      if(ind) { ind.style.display = 'none'; }
+    }
+    _active = false;
+  }, {passive: true});
+})();
 
 // ══════════════════════════════════════════════════════
 // TOAST
