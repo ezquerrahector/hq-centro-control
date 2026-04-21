@@ -1070,8 +1070,24 @@ function buildTaskCards(list){
       <div class="task-body">
         <div class="task-title">${t.title}</div>
         <div class="task-meta">${tc}${pjl}${ctxBadge}<span class="task-due ${dc}">${dl}</span>${rl}${at}${sp}</div>
+        ${t.subtasks&&t.subtasks.length?`
+          <div id="subs-${t.id}" style="display:none;margin-top:8px;padding-top:8px;border-top:1px solid var(--c-border)">
+            ${t.subtasks.map(s=>`
+              <div style="display:flex;align-items:center;gap:7px;padding:4px 0;font-size:12px;color:var(--c-text2);">
+                <div class="sub-check ${s.done?'checked':''}" onclick="event.stopPropagation();toggleSub(${t.id},'${s.id}')" style="flex-shrink:0">${s.done?'✓':''}</div>
+                <span style="${s.done?'text-decoration:line-through;color:var(--c-text3)':''}">${s.text}</span>
+              </div>`).join('')}
+            <div style="display:flex;align-items:center;gap:6px;margin-top:6px">
+              <input style="flex:1;border:none;background:var(--c-bg3);border-radius:5px;padding:4px 8px;font-size:11px;font-family:DM Sans,sans-serif;color:var(--c-text);outline:none;border:1px solid var(--c-border)"
+                placeholder="+ Agregar subtarea (Enter)"
+                onclick="event.stopPropagation()"
+                onkeydown="event.stopPropagation();addSubInline(event,${t.id},this)"/>
+            </div>
+          </div>` : ''}
       </div>
-      <div class="task-actions" onclick="event.stopPropagation()">
+      <div class="task-actions" onclick="event.stopPropagation()" style="opacity:1">
+        ${t.subtasks&&t.subtasks.length?`<button class="tact" onclick="event.stopPropagation();toggleSubsPanel(${t.id})" title="Ver subtareas">📋</button>`:''}
+        <button class="tact" onclick="event.stopPropagation();addSubtaskQuick(${t.id})" title="Agregar subtarea">＋</button>
         <button class="tact" onclick="openTaskModal(${t.id})" title="Editar">✏️</button>
         <button class="tact del" onclick="deleteTask(${t.id})" title="Eliminar">🗑️</button>
       </div>
@@ -1081,28 +1097,22 @@ function buildTaskCards(list){
 
 function buildList(todayOnly){
   const list=getFiltered(todayOnly);
-  const qa=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+  const qa=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
     <div class="quick-add-wrap" style="flex:1;margin-bottom:0"><span style="font-size:16px;color:var(--c-text3)">＋</span>
       <input placeholder="Tarea rápida… presiona Enter para guardar" onkeydown="quickAdd(event,this)"/>
     </div>
     <button onclick="exportToExcel()" title="Exportar a Excel"
-      style="padding:8px 13px;border-radius:20px;border:1px solid var(--c-border);background:var(--c-bg2);color:var(--c-text2);cursor:pointer;font-size:12px;font-weight:500;white-space:nowrap;transition:all .15s;display:flex;align-items:center;gap:5px"
-      onmouseover="this.style.background='var(--c-bg3)'" onmouseout="this.style.background='var(--c-bg2)'">
-      📊 Exportar Excel
+      style="padding:8px 13px;border-radius:20px;border:1px solid var(--c-border);background:var(--c-bg2);color:var(--c-text2);cursor:pointer;font-size:12px;font-weight:500;white-space:nowrap;display:flex;align-items:center;gap:5px">
+      📊 Excel
     </button>
     <button onclick="document.getElementById('importFileInp').click()" title="Importar CSV"
-      style="padding:8px 13px;border-radius:20px;border:1px solid var(--c-border);background:var(--c-bg2);color:var(--c-text2);cursor:pointer;font-size:12px;font-weight:500;white-space:nowrap;transition:all .15s;display:flex;align-items:center;gap:5px"
-      onmouseover="this.style.background='var(--c-bg3)'" onmouseout="this.style.background='var(--c-bg2)'">
+      style="padding:8px 13px;border-radius:20px;border:1px solid var(--c-border);background:var(--c-bg2);color:var(--c-text2);cursor:pointer;font-size:12px;font-weight:500;white-space:nowrap;display:flex;align-items:center;gap:5px">
       📥 Importar
     </button>
-    <button onclick="downloadTemplate()" title="Descargar plantilla de importación"
-      style="padding:8px 13px;border-radius:20px;border:1px solid var(--c-border);background:var(--c-bg2);color:var(--c-text2);cursor:pointer;font-size:12px;font-weight:500;white-space:nowrap;transition:all .15s;display:flex;align-items:center;gap:5px"
-      onmouseover="this.style.background='var(--c-bg3)'" onmouseout="this.style.background='var(--c-bg2)'">
+    <button onclick="downloadTemplate()" title="Descargar plantilla"
+      style="padding:8px 13px;border-radius:20px;border:1px solid var(--c-border);background:var(--c-bg2);color:var(--c-text2);cursor:pointer;font-size:12px;font-weight:500;white-space:nowrap;display:flex;align-items:center;gap:5px">
       📋 Plantilla
     </button>
-  </div>
-  <div class="quick-add-wrap" style="margin-bottom:4px"><span style="font-size:16px;color:var(--c-text3)">＋</span>
-      <input placeholder="Tarea rápida… presiona Enter para guardar" onkeydown="quickAdd(event,this)"/>
   </div>`;
   const cards=list.length?buildTaskCards(list):`<div class="empty"><div class="empty-icon">✨</div><div class="empty-ttl">Sin pendientes</div><div class="empty-sub">Todo bajo control.</div></div>`;
   return qa+`<div class="task-list">${cards}</div>`;
@@ -1582,26 +1592,40 @@ function selP(p,btn){
 }
 
 function saveTask(){
-  const title=document.getElementById('mTitle').value.trim();
-  if(!title)return toast('⚠️','Escribe el título');
-  const toOutlook=document.getElementById('mOutlook').checked;
+  const title=(document.getElementById('mTitle').value||'').trim();
+  if(!title)return toast('⚠️','Escribe el título de la tarea');
+  
+  const ctxEl = document.getElementById('mCtx');
+  const ctxVal = ctxEl ? ctxEl.value : (curCtxFilter!=='all'?curCtxFilter:'personal');
+  
+  const toOutlook = document.getElementById('mOutlook') ? document.getElementById('mOutlook').checked : false;
+  
+  const prevTask = editingId ? tasks.find(x => Number(x.id) === Number(editingId)) : null;
+  
   const t={
-    id:editingId||Date.now(),title,
-    notes:document.getElementById('mNotes').value,
-    date:document.getElementById('mDate').value,
-    time:document.getElementById('mTime').value,
-    priority:curPrio,
-    ctx:document.getElementById('mCtx').value,
-    tags:[...mTags],
-    list:document.getElementById('mList').value,
-    projId:document.getElementById('mProj').value,
-    done:false,
-    recurring:(document.getElementById('remRecurTop')&&document.getElementById('remRecurTop').value)||'none',
-    attachments:[...mAttach],
-    subtasks:editingId?(tasks.find(x=>x.id===editingId)?.subtasks||[]):[],
+    id: editingId || Date.now(),
+    title,
+    notes: (document.getElementById('mNotes')||{}).value || '',
+    date:  (document.getElementById('mDate')||{}).value  || '',
+    time:  (document.getElementById('mTime')||{}).value  || '',
+    priority: curPrio || 'medium',
+    ctx: ctxVal || 'personal',
+    tags: [...mTags],
+    list: 'inbox',
+    projId: (document.getElementById('mProj')||{}).value || '',
+    done: false,
+    recurring: (document.getElementById('remRecurTop')||{}).value || 'none',
+    attachments: [...mAttach],
+    subtasks: prevTask ? (prevTask.subtasks||[]) : [],
+    order: prevTask ? (prevTask.order||0) : tasks.length,
   };
-  if(editingId){const i=tasks.findIndex(x=>x.id===editingId);if(i>=0){t._fbId=tasks[i]._fbId;tasks[i]=t;}}
-  else tasks.unshift(t);
+  if(editingId){
+    const i=tasks.findIndex(x=>Number(x.id)===Number(editingId));
+    if(i>=0){t._fbId=tasks[i]._fbId; tasks[i]=t;}
+    else tasks.unshift(t);
+  } else {
+    tasks.unshift(t);
+  }
   fbSaveTask(t);
   closeTaskModal();updateBadges();renderView();
   if(toOutlook && t.date) {
@@ -2620,6 +2644,64 @@ async function checkPendingNotifs() {
   }
 }
 
+
+// ══════════════════════════════════════════════════════
+// SUBTAREAS INLINE EN VISTA DE TAREAS
+// ══════════════════════════════════════════════════════
+
+function toggleSubsPanel(taskId) {
+  const panel = document.getElementById('subs-' + taskId);
+  if(!panel) return;
+  const isOpen = panel.style.display !== 'none';
+  panel.style.display = isOpen ? 'none' : 'block';
+}
+
+function addSubInline(e, taskId, inp) {
+  if(e.key !== 'Enter' || !inp.value.trim()) return;
+  const task = tasks.find(t => Number(t.id) === Number(taskId));
+  if(!task) return;
+  const newSub = { id: 'sub_' + Date.now(), text: inp.value.trim(), done: false, date: '' };
+  task.subtasks = task.subtasks || [];
+  task.subtasks.push(newSub);
+  fbSaveTask(task);
+  inp.value = '';
+  renderView();
+  // Mantener el panel abierto
+  setTimeout(() => {
+    const panel = document.getElementById('subs-' + taskId);
+    if(panel) panel.style.display = 'block';
+  }, 50);
+  toast('➕', 'Subtarea agregada');
+}
+
+function addSubtaskQuick(taskId) {
+  const task = tasks.find(t => Number(t.id) === Number(taskId));
+  if(!task) return;
+  
+  // Abrir el panel de subtareas si no está abierto
+  const panel = document.getElementById('subs-' + taskId);
+  if(panel) {
+    panel.style.display = 'block';
+    // Enfocar el input
+    setTimeout(() => {
+      const inp = panel.querySelector('input');
+      if(inp) inp.focus();
+    }, 50);
+  } else {
+    // Si no existe panel aún (tarea sin subtareas), re-renderizar y luego enfocar
+    task.subtasks = task.subtasks || [];
+    renderView();
+    setTimeout(() => {
+      const p2 = document.getElementById('subs-' + taskId);
+      if(p2) {
+        p2.style.display = 'block';
+        const inp = p2.querySelector('input');
+        if(inp) inp.focus();
+      }
+    }, 100);
+  }
+}
+
 // ══════════════════════════════════════════════════════
 // TOAST
 // ══════════════════════════════════════════════════════
@@ -2683,18 +2765,27 @@ async function fbSeedIfEmpty() {
   if(typeof firebase === 'undefined') return;
   try {
     const snap = await db.collection('tasks').limit(1).get();
-    if(!snap.empty) { console.log('Datos ya en Firestore'); return; }
-    console.log('Subiendo datos iniciales...');
+    if(!snap.empty) {
+      console.log('Datos ya en Firestore - no seed');
+      return; // YA HAY DATOS - no tocar nada
+    }
+    // Solo hacer seed si es la primera vez (Firestore vacío)
+    console.log('Primera vez - subiendo datos iniciales...');
     for(let i=0; i<tasks.length; i++) {
       const d=Object.assign({},tasks[i]);
       d.order = i;
-      tasks[i].order = i;
       delete d._fbId;
       await db.collection('tasks').add(d);
     }
-    for(const c of contexts) { const d=Object.assign({},c);delete d._fbId; await db.collection('contexts').add(d); }
-    for(const p of projects) { const d=Object.assign({},p);delete d._fbId; await db.collection('projects').add(d); }
-    toast('☁️','Datos guardados en Firebase');
+    for(const c of contexts) {
+      const d=Object.assign({},c);delete d._fbId;
+      await db.collection('contexts').add(d);
+    }
+    for(const p of projects) {
+      const d=Object.assign({},p);delete d._fbId;
+      await db.collection('projects').add(d);
+    }
+    toast('☁️','App iniciada con datos de ejemplo');
   } catch(e){ console.error('fbSeed:', e); }
 }
 
