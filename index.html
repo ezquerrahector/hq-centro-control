@@ -1645,17 +1645,42 @@ function buildDash(){
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:4px">
     <div>
-      <div class="sec-hdr"><div class="sec-ttl">📋 Agenda de hoy</div></div>
-      <div style="background:var(--c-bg2);border:1px solid var(--c-border);border-radius:var(--radius);padding:14px">${tlH}</div>
+      <div class="sec-hdr">
+        <div class="sec-ttl">☀️ Hoy (${todayTasksH.length})</div>
+        <button class="btn-sec" onclick="gotoView('midia',null)" style="font-size:11px;padding:4px 10px">Ver todo</button>
+      </div>
+      ${buildDashTodayRows(todayTasksH.slice(0,6))}
     </div>
     <div>
-      <div class="sec-hdr">
-        <div class="sec-ttl">🔥 Alta prioridad</div>
-      </div>
-      ${buildTaskCards(pending.filter(t=>t.priority==='high').slice(0,3)) ||
-        '<div class="empty" style="padding:16px"><div class="empty-sub">Sin tareas urgentes</div></div>'}
+      <div class="sec-hdr"><div class="sec-ttl">📅 Agenda de hoy</div></div>
+      <div style="background:var(--c-bg2);border:1px solid var(--c-border);border-radius:var(--radius);padding:14px">${tlH}</div>
     </div>
   </div>`;
+}
+
+function buildDashTodayRows(list){
+  if(!list||!list.length) return '<div style="text-align:center;padding:24px 0;color:var(--c-text3);font-size:12px">¡Todo al día! 🎉</div>';
+  const div = document.createElement('div');
+  list.forEach(t=>{
+    const c = contexts.find(x=>x.id===t.ctx);
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;cursor:pointer;border-bottom:1px solid var(--c-border)';
+    row.onmouseover = ()=>row.style.background='var(--c-bg3)';
+    row.onmouseout  = ()=>row.style.background='transparent';
+    row.onclick = ()=>openDetail(t.id);
+    const dot = document.createElement('div');
+    dot.style.cssText = 'width:16px;height:16px;border-radius:50%;border:2px solid '+(c?c.color:'var(--accent)')+';flex-shrink:0;cursor:pointer';
+    dot.onclick = e=>{e.stopPropagation();toggleDone(t.id);};
+    const info = document.createElement('div');
+    info.style.cssText = 'flex:1;overflow:hidden';
+    info.innerHTML = '<div style="font-size:12px;font-weight:500;color:var(--c-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+t.title+'</div>'
+      +'<div style="font-size:10px;color:var(--c-text3)">'+(c?c.icon+' '+c.name:'')+(t.time?' · ⏰'+t.time:'')+'</div>';
+    row.appendChild(dot);
+    row.appendChild(info);
+    if(t.priority==='high'){const p=document.createElement('span');p.textContent='🔴';p.style.fontSize='9px';row.appendChild(p);}
+    div.appendChild(row);
+  });
+  return div.innerHTML;
 }
 
 function buildTaskCards(list){
@@ -5134,28 +5159,26 @@ async function fbSaveTask(t) {
     let fbId = data._fbId;
     delete data._fbId;
 
-    // Si no tenemos _fbId, buscar en Firestore por el id numérico
+    // Si no tiene _fbId, buscar en el array en memoria (sin queries a Firestore)
     if(!fbId && t.id) {
-      const snap = await db.collection('tasks').where('id','==', Number(t.id)).limit(1).get();
-      if(!snap.empty) {
-        fbId = snap.docs[0].id;
-        t._fbId = fbId; // guardar para futuros usos
+      const inMem = tasks.find(x => Number(x.id) === Number(t.id));
+      if(inMem && inMem._fbId) {
+        fbId = inMem._fbId;
+        t._fbId = fbId;
       }
     }
 
     if(fbId) {
       await db.collection('tasks').doc(fbId).set(data);
-      console.log('Tarea actualizada en Firebase:', fbId, data.title);
     } else {
       const ref = await db.collection('tasks').add(data);
       t._fbId = ref.id;
-      console.log('Tarea creada en Firebase:', ref.id, data.title);
     }
     setSyncStatus('synced', '✓ Guardado');
   } catch(e) {
     setSyncStatus('error', '✗ Error al guardar');
-    console.error('fbSaveTask:', e);
-    toast('❌', 'Error al guardar: ' + e.message);
+    console.error('fbSaveTask error:', e);
+    toast('❌', 'Error al guardar: ' + (e.message||e));
   }
 }
 
