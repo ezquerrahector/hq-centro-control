@@ -2652,7 +2652,7 @@ function selP(p,btn){
   else{const b=document.querySelector(`.prio-btn.${p}`);if(b)b.classList.add('sel');}
 }
 
-function saveTask(){
+async function saveTask(){
   const titleEl = document.getElementById('mTitle');
   const title = (titleEl ? titleEl.value : '').trim();
   if(!title) return toast('⚠️','Escribe el título de la tarea');
@@ -2688,7 +2688,7 @@ function saveTask(){
     tasks.unshift(t);
   }
 
-  fbSaveTask(t);
+  await fbSaveTask(t);
   closeTaskModal();
   updateBadges();
   renderView();
@@ -5097,7 +5097,7 @@ function toast(icon,msg){
 // ══════════════════════════════════════════════════════
 
 async function fbSaveTask(t) {
-  if(typeof firebase === 'undefined') return Promise.resolve();
+  if(typeof firebase === 'undefined') return;
   setSyncStatus('syncing', 'Guardando...');
   try {
     const data = Object.assign({}, t);
@@ -5113,7 +5113,6 @@ async function fbSaveTask(t) {
   } catch(e) {
     setSyncStatus('error', '✗ Error al guardar');
     console.error('fbSaveTask:', e);
-    throw e; // Re-lanzar para que el .catch() del caller lo reciba
   }
 }
 
