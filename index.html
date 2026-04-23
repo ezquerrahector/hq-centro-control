@@ -2659,30 +2659,34 @@ async function saveTask(){
 
   const get = id => { const el=document.getElementById(id); return el ? el.value||'' : ''; };
   const ctxVal = get('mCtx') || (curCtxFilter!=='all' ? curCtxFilter : 'personal');
+  
+  // Buscar tarea existente por id numérico
   const prevTask = editingId ? tasks.find(x=>Number(x.id)===Number(editingId)) : null;
+  const isEdit = !!prevTask;
 
   const t = {
-    id:         editingId || Date.now(),
-    title:      title,
-    notes:      get('mNotes'),
-    date:       get('mDate'),
-    time:       get('mTime'),
-    priority:   curPrio || 'medium',
-    ctx:        ctxVal,
-    tags:       [...(mTags||[])],
-    projId:     get('mProj'),
-    done:       false,
-    recurring:  get('remRecurTop') || 'none',
-    attachments:[...(mAttach||[])],
-    subtasks:   prevTask ? (prevTask.subtasks||[]) : [],
-    subsubtasks:[],
-    order:      prevTask ? (prevTask.order||0) : tasks.length,
-    list:       'inbox',
+    id:          isEdit ? prevTask.id : Date.now(),  // preservar id original (número)
+    title:       title,
+    notes:       get('mNotes'),
+    date:        get('mDate'),
+    time:        get('mTime'),
+    priority:    curPrio || 'medium',
+    ctx:         ctxVal,
+    tags:        [...(mTags||[])],
+    projId:      get('mProj'),
+    done:        isEdit ? (prevTask.done || false) : false,  // preservar estado done
+    recurring:   get('remRecurTop') || 'none',
+    attachments: [...(mAttach||[])],
+    subtasks:    isEdit ? (prevTask.subtasks||[]) : [],
+    subsubtasks: isEdit ? (prevTask.subsubtasks||[]) : [],
+    order:       isEdit ? (prevTask.order||0) : tasks.length,
+    list:        isEdit ? (prevTask.list||'inbox') : 'inbox',
+    _fbId:       isEdit ? prevTask._fbId : undefined,  // clave: preservar _fbId
   };
 
-  if(editingId){
-    const i = tasks.findIndex(x=>Number(x.id)===Number(editingId));
-    if(i>=0){ t._fbId=tasks[i]._fbId; tasks[i]=t; }
+  if(isEdit){
+    const i = tasks.findIndex(x=>Number(x.id)===Number(prevTask.id));
+    if(i>=0) tasks[i] = t;
     else tasks.unshift(t);
   } else {
     tasks.unshift(t);
@@ -2692,7 +2696,7 @@ async function saveTask(){
   closeTaskModal();
   updateBadges();
   renderView();
-  toast('✅', editingId ? 'Tarea actualizada' : 'Tarea guardada');
+  toast('✅', isEdit ? 'Tarea actualizada' : 'Tarea guardada');
 }
 
 function closeTaskModal(){ const el=document.getElementById('taskModal'); if(el) el.classList.remove('open'); editingId=null; }
