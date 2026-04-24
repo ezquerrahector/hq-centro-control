@@ -731,7 +731,7 @@ textarea.form-inp{resize:vertical;min-height:65px;}
 <script type="text/javascript">
   // Inicializar EmailJS (el usuario necesita registrarse en emailjs.com)
   if(typeof emailjs !== 'undefined') {
-    emailjs.init({publicKey: 'YOUR_EMAILJS_PUBLIC_KEY'}); // Reemplazar con tu clave
+    emailjs.init({publicKey: 'KPpwENKdPFEgbvdFk'});
   }
 </script>
 
@@ -1121,7 +1121,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v2.6</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v2.8</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -1168,6 +1168,7 @@ console.log("Firebase compat cargado OK");
         <input type="file" id="importFileInp" accept=".csv,.xlsx,.xls" style="display:none" onchange="importFromFile(this)"/>
         <button class="btn-icon" title="Notificación diaria (9 AM)" onclick="scheduleDailyNotif()" id="btnNotif">🔔</button>
         <button class="btn-icon" title="Perfil — Héctor Ezquerra" onclick="showProfileMenu()">👤</button>
+        <button class="btn-icon" title="🔔 Configurar notificaciones" onclick="openNotifConfig()">🔔</button>
         <button class="btn-icon" title="📧 Recordatorios por correo" onclick="openEmailConfig()">📧</button>
         <button class="btn-icon" title="Recargar datos" onclick="reloadFromFirebase()" id="reloadBtn">🔄</button>
         <button class="btn-primary" onclick="openTaskModal()">＋ Nueva tarea</button>
@@ -1273,6 +1274,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         {icon:'🗂️', label:'Kanban',       action:"mobileNav('kanban',null)"},
         {icon:'📅', label:'Calendario',    action:"mobileNav('calendario',null)"},
         {icon:'🔔', label:'Alarmas',       action:"mobileNav('alarmas',null)"},
+        {icon:'🛎️', label:'Notificaciones', action:'openNotifConfig()'},
         {icon:'🏆', label:'Completadas',   action:"mobileNav('completadas',null)"},
         {icon:'🌸', label:'Instinto',      action:"mobileNav('instinto',null)"},
       ];
@@ -3835,63 +3837,101 @@ function onProjTaskDragEnd(e) {
 
 async function requestNotifPermission() {
   if(!('Notification' in window)) {
-    toast('⚠️','Tu navegador no soporta notificaciones');
+    toast('⚠️','Este navegador no soporta notificaciones push');
     return false;
   }
   if(Notification.permission === 'granted') return true;
   if(Notification.permission === 'denied') {
-    toast('⚠️','Notificaciones bloqueadas — actívalas en la configuración del navegador');
+    toast('⚠️','Notificaciones bloqueadas. Ve a Configuración del navegador → Notificaciones → Permitir para esta página');
     return false;
   }
   const perm = await Notification.requestPermission();
-  return perm === 'granted';
+  if(perm === 'granted') { toast('🔔','¡Notificaciones activadas!'); return true; }
+  return false;
+}
+
+function sendPushNotif(title, body) {
+  if(Notification.permission !== 'granted') return;
+  try {
+    const n = new Notification(title, { body: body||'', tag:'hq-centro-control' });
+    n.onclick = () => { window.focus(); n.close(); };
+    setTimeout(() => n.close(), 10000);
+  } catch(e) { console.warn('Push notif error:', e); }
 }
 
 function sendDayNotif() {
-  const todayTasks = tasks.filter(t => !t.done && t.date === TODAY);
-  if(!todayTasks.length) {
-    toast('✅','Sin tareas para hoy — ¡día libre!');
-    return;
-  }
+  const todayTasks = tasks.filter(t => !t.done && taskMatchesToday(t));
   const high = todayTasks.filter(t => t.priority === 'high');
-  const body = (high.length ? '🔴 ' + high[0].title + '\n' : '') +
-    (todayTasks.length > 1 ? '+ ' + (todayTasks.length-1) + ' tarea(s) más hoy' : '');
-  new Notification('📋 HQ — Tareas de hoy (' + todayTasks.length + ')', {
-    body: body || todayTasks[0].title,
-    icon: 'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',
-    badge: '/favicon.ico',
-    tag: 'hq-daily'
-  });
+  if(!todayTasks.length) return;
+  const body = high.length
+    ? high.length + ' urgentes: ' + high.slice(0,2).map(t=>t.title).join(', ')
+    : todayTasks.length + ' pendientes para hoy';
+  sendPushNotif('📋 HQ Centro de Control', body);
 }
 
-async function scheduleDailyNotif() {
+let _notifTimer = null;
+async function scheduleDailyNotif(hour) {
   const ok = await requestNotifPermission();
   if(!ok) return;
-
-  // Calcular milisegundos hasta las 9:00 AM de hoy (o mañana si ya pasó)
+  const h = parseInt(hour) || parseInt(localStorage.getItem('hq_notif_hour')) || 9;
+  localStorage.setItem('hq_notif_hour', String(h));
+  if(_notifTimer) clearTimeout(_notifTimer);
   const now = new Date();
   const target = new Date(now);
-  target.setHours(9, 0, 0, 0);
+  target.setHours(h, 0, 0, 0);
   if(now >= target) target.setDate(target.getDate() + 1);
   const ms = target - now;
-
-  toast('🔔', 'Recordatorio diario programado para las 9:00 AM');
-  setTimeout(() => {
+  _notifTimer = setTimeout(() => {
     sendDayNotif();
-    // Repetir cada 24h
     setInterval(sendDayNotif, 24 * 60 * 60 * 1000);
   }, ms);
+  toast('🔔', 'Notificación diaria programada a las ' + String(h).padStart(2,'0') + ':00');
 }
 
-// Verificar notificaciones pendientes al cargar
 async function checkPendingNotifs() {
   if(Notification.permission !== 'granted') return;
-  const nowHour = new Date().getHours();
-  // Si es entre 9am y 10am y hay tareas de hoy, notificar
-  if(nowHour >= 9 && nowHour < 10) {
-    const todayTasks = tasks.filter(t => !t.done && t.date === TODAY);
-    if(todayTasks.length > 0) sendDayNotif();
-  }
+  const h = parseInt(localStorage.getItem('hq_notif_hour')) || 9;
+  const now = new Date();
+  if(now.getHours() === h && now.getMinutes() < 10) sendDayNotif();
+  if(localStorage.getItem('hq_notif_hour')) scheduleDailyNotif(h);
+}
+
+function openNotifConfig() {
+  const existing = document.getElementById('notifCfgModal');
+  if(existing) existing.remove();
+  const savedHour = localStorage.getItem('hq_notif_hour') || '9';
+  const perm = ('Notification' in window) ? Notification.permission : 'no-soportado';
+  const permColor = perm==='granted'?'#22a566':perm==='denied'?'#e05252':'#c9732a';
+  const permLabel = perm==='granted'?'✅ Activadas':perm==='denied'?'❌ Bloqueadas':'⚠️ Sin configurar';
+  const m = document.createElement('div');
+  m.id = 'notifCfgModal';
+  m.className = 'overlay open';
+  m.onclick = e => { if(e.target===m) m.remove(); };
+  m.innerHTML = '<div class="modal" style="max-width:420px">'
+    +'<div class="modal-hdr"><span class="modal-ttl">🔔 Notificaciones Push</span>'
+    +'<button class="btn-icon" onclick="document.getElementById(&quot;notifCfgModal&quot;).remove()">✕</button></div>'
+    +'<div style="background:var(--c-bg3);border-radius:8px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px">'
+    +'<span style="font-size:20px">🔔</span><div>'
+    +'<div style="font-size:12px;font-weight:600;color:var(--c-text)">Estado actual</div>'
+    +'<div style="font-size:11px;color:'+permColor+';font-weight:600">'+permLabel+'</div></div></div>'
+    +(perm==='denied'?'<div style="background:#e0525222;border:1px solid #e05252;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#e05252">Bloqueadas en el navegador. Haz clic en 🔒 en la barra de URL → Notificaciones → Permitir</div>':'')
+    +'<div class="form-grp"><label class="form-lbl">Hora del resumen diario</label>'
+    +'<select class="form-inp" id="notifHour">'
+    +[6,7,8,9,10,11,12].map(h=>'<option value="'+h+'"'+(h==savedHour?' selected':'')+'>'+String(h).padStart(2,'0')+':00 '+(h<12?'AM':'PM')+'</option>').join('')
+    +'</select></div>'
+    +'<div style="font-size:11px;color:var(--c-text3);margin-bottom:16px;line-height:1.6">'
+    +'Recibirás un resumen push cada día a la hora elegida. <b>La app debe estar abierta en el navegador.</b></div>'
+    +'<div class="modal-footer">'
+    +'<button class="btn-sec" onclick="document.getElementById(&quot;notifCfgModal&quot;).remove()">Cancelar</button>'
+    +'<button class="btn-primary" onclick="activarNotifs()">🔔 Activar</button></div></div>';
+  document.body.appendChild(m);
+}
+
+async function activarNotifs() {
+  const h = document.getElementById('notifHour').value;
+  await scheduleDailyNotif(h);
+  const m = document.getElementById('notifCfgModal');
+  if(m) m.remove();
 }
 
 
@@ -4989,7 +5029,19 @@ window.debugFirebase = async function() {
 
 // Config guardada en localStorage
 function getEmailConfig() {
-  try { return JSON.parse(localStorage.getItem('hq_email_cfg')||'{}'); } catch(e){ return {}; }
+  // Credenciales base hardcodeadas — se pueden sobreescribir desde el panel
+  const defaults = {
+    publicKey:  'KPpwENKdPFEgbvdFk',
+    serviceId:  'service_abc1234',
+    templateId: 'template_rfr1tvw',
+    toEmail:    'ezquerrahector@gmail.com',
+    toName:     'Héctor',
+    summaryHour: '8',
+  };
+  try {
+    const saved = JSON.parse(localStorage.getItem('hq_email_cfg')||'{}');
+    return Object.assign({}, defaults, saved); // saved sobreescribe defaults
+  } catch(e) { return defaults; }
 }
 function saveEmailConfig(cfg) {
   localStorage.setItem('hq_email_cfg', JSON.stringify(cfg));
@@ -5039,29 +5091,33 @@ async function sendTaskReminderEmail(task) {
 // Enviar resumen diario de tareas pendientes
 async function sendDailySummaryEmail() {
   const cfg = getEmailConfig();
-  if(!cfg.publicKey || !cfg.serviceId || !cfg.summaryTemplateId || !cfg.toEmail) {
-    toast('⚙️','Configura el correo para recibir el resumen diario');
-    openEmailConfig();
-    return;
-  }
-  if(!initEmailJS()) return;
-  const pending = tasks.filter(t=>!t.done);
-  const todayTasks = pending.filter(t=>t.date===TODAY);
-  const highPri = pending.filter(t=>t.priority==='high');
-  const taskList = todayTasks.slice(0,10).map(t=>`• ${t.title} (${t.time||'sin hora'})`).join('\n');
+  if(!initEmailJS()) { toast('❌','EmailJS no disponible'); return; }
+  const pending  = tasks.filter(t=>!t.done);
+  const todayT   = pending.filter(t => taskMatchesToday(t));
+  const highPri  = todayT.filter(t=>t.priority==='high');
+  const d = new Date();
+  const dateStr = d.toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long'});
+  const taskList = todayT.length
+    ? todayT.slice(0,10).map(t=>{
+        const prio = t.priority==='high'?'🔴':t.priority==='medium'?'🟡':'🟢';
+        const ctx  = (contexts.find(c=>c.id===t.ctx)||{}).name || t.ctx;
+        return prio+' '+t.title+(t.time?' ('+t.time+')':'')+' — '+ctx;
+      }).join('\n')
+    : '🎉 ¡Sin pendientes para hoy!';
   try {
-    await emailjs.send(cfg.serviceId, cfg.summaryTemplateId||cfg.templateId, {
-      to_email:      cfg.toEmail,
-      to_name:       cfg.toName || 'Héctor',
-      total_pending: pending.length,
-      today_count:   todayTasks.length,
-      high_priority: highPri.length,
-      task_list:     taskList || 'Sin tareas para hoy 🎉',
-      app_url:       'https://ezquerrahector.github.io/hq-centro-control/'
+    await emailjs.send(cfg.serviceId, cfg.templateId, {
+      to_email:   cfg.toEmail,
+      to_name:    cfg.toName || 'Héctor',
+      today_date: dateStr,
+      task_count: String(todayT.length),
+      high_count: String(highPri.length),
+      task_list:  taskList,
+      app_url:    'https://ezquerrahector.github.io/hq-centro-control/'
     });
-    toast('📧','Resumen diario enviado');
+    toast('📧','Resumen enviado a '+cfg.toEmail);
   } catch(err) {
-    toast('❌','Error: '+err.text);
+    console.error('EmailJS send error:', err);
+    toast('❌','Error al enviar: '+(err.text||err.message||JSON.stringify(err)));
   }
 }
 
@@ -5373,6 +5429,16 @@ setTimeout(() => {
   fbListenAll();
   fbListenEvents(); // Sincronizar eventos del calendario
 }, 500);
+
+// Verificar y re-programar notificaciones al cargar
+setTimeout(() => {
+  checkPendingNotifs();
+  // Activar resumen por correo automáticamente
+  const cfg = getEmailConfig();
+  if(cfg.publicKey && cfg.serviceId && cfg.templateId) {
+    scheduleEmailSummary();
+  }
+}, 3000);
 </script>
 
 <!-- ── BOTTOM NAV MÓVIL ── -->
