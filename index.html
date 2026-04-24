@@ -1121,7 +1121,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v2.9</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v3.0</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -5104,20 +5104,24 @@ async function sendDailySummaryEmail() {
         return prio+' '+t.title+(t.time?' ('+t.time+')':'')+' — '+ctx;
       }).join('\n')
     : '🎉 ¡Sin pendientes para hoy!';
+  const payload = {
+    to_email:   cfg.toEmail,
+    to_name:    cfg.toName || 'Héctor',
+    today_date: dateStr,
+    task_count: String(todayT.length),
+    high_count: String(highPri.length),
+    task_list:  taskList,
+    app_url:    'https://ezquerrahector.github.io/hq-centro-control/'
+  };
+  console.log('EmailJS payload:', payload);
+  console.log('EmailJS config:', {serviceId: cfg.serviceId, templateId: cfg.templateId, publicKey: cfg.publicKey});
   try {
-    await emailjs.send(cfg.serviceId, cfg.templateId, {
-      to_email:   cfg.toEmail,
-      to_name:    cfg.toName || 'Héctor',
-      today_date: dateStr,
-      task_count: String(todayT.length),
-      high_count: String(highPri.length),
-      task_list:  taskList,
-      app_url:    'https://ezquerrahector.github.io/hq-centro-control/'
-    });
-    toast('📧','Resumen enviado a '+cfg.toEmail);
+    const resp = await emailjs.send(cfg.serviceId, cfg.templateId, payload);
+    console.log('EmailJS response:', resp);
+    toast('📧','Resumen enviado a '+cfg.toEmail+' ('+todayT.length+' tareas)');
   } catch(err) {
     console.error('EmailJS send error:', err);
-    toast('❌','Error al enviar: '+(err.text||err.message||JSON.stringify(err)));
+    toast('❌','Error: '+(err.text||err.message||JSON.stringify(err)));
   }
 }
 
@@ -5222,19 +5226,21 @@ function saveEmailCfg() {
 }
 
 async function testEmailCfg() {
-  const cfg = {
-    toEmail:    document.getElementById('ecfg-email').value.trim(),
-    publicKey:  document.getElementById('ecfg-pk').value.trim(),
-    serviceId:  document.getElementById('ecfg-svc').value.trim(),
-    templateId: document.getElementById('ecfg-tpl').value.trim(),
-  };
-  if(!cfg.publicKey||!cfg.serviceId||!cfg.templateId||!cfg.toEmail){
-    toast('⚠️','Completa todos los campos primero'); return;
+  // Guardar lo que haya en el formulario si está abierto
+  const emailEl = document.getElementById('ecfg-email');
+  if(emailEl && emailEl.value.trim()) {
+    saveEmailConfig({
+      ...getEmailConfig(),
+      toEmail:    emailEl.value.trim(),
+      publicKey:  (document.getElementById('ecfg-pk')||{}).value || getEmailConfig().publicKey,
+      serviceId:  (document.getElementById('ecfg-svc')||{}).value || getEmailConfig().serviceId,
+      templateId: (document.getElementById('ecfg-tpl')||{}).value || getEmailConfig().templateId,
+    });
   }
-  saveEmailConfig({...getEmailConfig(),...cfg});
   initEmailJS();
-  const fakeTask = {title:'✅ Prueba de HQ Centro de Control',date:TODAY,time:'09:00',ctx:'personal',notes:'Si recibes este correo, ¡los recordatorios funcionan!',priority:'medium'};
-  await sendTaskReminderEmail(fakeTask);
+  toast('📧','Enviando correo de prueba...');
+  // Usar sendDailySummaryEmail que ya tiene las variables correctas
+  await sendDailySummaryEmail();
 }
 
 // ══════════════════════════════════════════════════════
