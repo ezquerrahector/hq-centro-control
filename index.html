@@ -1121,7 +1121,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v2.8</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v2.9</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -5124,17 +5124,20 @@ async function sendDailySummaryEmail() {
 // Programar resumen diario automático
 function scheduleEmailSummary() {
   const cfg = getEmailConfig();
-  if(!cfg.summaryHour || !cfg.toEmail) return;
+  if(!cfg.toEmail) return;
+  const h = parseInt(cfg.summaryHour) || 8;
   const now = new Date();
   const target = new Date(now);
-  target.setHours(parseInt(cfg.summaryHour)||8, 0, 0, 0);
+  target.setHours(h, 0, 0, 0);
   if(now >= target) target.setDate(target.getDate()+1);
   const ms = target - now;
+  const hhmm = String(h).padStart(2,'0') + ':00';
+  const hoursUntil = Math.round(ms / 3600000 * 10) / 10;
   setTimeout(()=>{
     sendDailySummaryEmail();
-    setInterval(sendDailySummaryEmail, 24*60*60*1000); // repetir cada 24h
+    setInterval(sendDailySummaryEmail, 24*60*60*1000);
   }, ms);
-  toast('📧','Resumen diario programado a las '+(cfg.summaryHour||8)+':00');
+  console.log('Resumen diario por correo programado a las ' + hhmm + ' (en ' + hoursUntil + 'h)');
 }
 
 // Abrir modal de configuración de correo
@@ -5379,11 +5382,11 @@ function fbListenAll() {
     const isFirstLoad = !_appLoaded;
     // SIEMPRE actualizar con datos de Firebase (nunca ignorar aunque sean pocos)
     tasks = arr;
-    console.log('Firebase tasks cargadas:', arr.length);
 
     if(isFirstLoad) {
       _appLoaded = true;
       hideLoadingScreen();
+      setTimeout(onFirstLoad, 500); // tareas ya cargadas, ahora programar notifs
       setSyncStatus('synced', '✓ ' + arr.length + ' tarea' + (arr.length!==1?'s':'') + ' cargada' + (arr.length!==1?'s':''));
     } else {
       // Cambio en tiempo real desde otro dispositivo
@@ -5430,15 +5433,16 @@ setTimeout(() => {
   fbListenEvents(); // Sincronizar eventos del calendario
 }, 500);
 
-// Verificar y re-programar notificaciones al cargar
-setTimeout(() => {
+// Verificar notificaciones push y programar correo DESPUÉS de que Firebase cargue
+// Se llama desde el listener de Firebase cuando llega el primer snapshot
+function onFirstLoad() {
   checkPendingNotifs();
-  // Activar resumen por correo automáticamente
+  // Programar resumen diario por correo (no enviar ahora, solo agendar)
   const cfg = getEmailConfig();
   if(cfg.publicKey && cfg.serviceId && cfg.templateId) {
     scheduleEmailSummary();
   }
-}, 3000);
+}
 </script>
 
 <!-- ── BOTTOM NAV MÓVIL ── -->
