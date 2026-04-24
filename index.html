@@ -1121,7 +1121,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v3.1</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v3.2</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -4951,18 +4951,78 @@ function deleteEvent() {
 }
 
 // ── RECORDATORIO DE EVENTO ──
+// Timers activos de recordatorios (para evitar duplicados)
+const _eventRemindTimers = {};
+
 function scheduleEventReminder(ev) {
-  if(ev.remind === 'none' || Notification.permission !== 'granted') return;
-  const evDateTime = new Date(ev.date + 'T' + ev.start);
-  const remindMs   = evDateTime.getTime() - (parseInt(ev.remind) * 60000) - Date.now();
-  if(remindMs < 0) return; // Ya pasó
-  setTimeout(() => {
-    new Notification('📅 ' + ev.title, {
-      body: 'En ' + ev.remind + ' min · ' + ev.start + ' - ' + ev.end,
-      tag:  'event-' + ev.id
-    });
-  }, remindMs);
-  toast('🔔', 'Recordatorio programado para ' + ev.title);
+  if(!ev.remind || ev.remind === 'none') return;
+  if(Notification.permission !== 'granted') return;
+  if(!ev.date || !ev.start) return;
+
+  // Cancelar timer previo si existe
+  if(_eventRemindTimers[ev.id]) {
+    clearTimeout(_eventRemindTimers[ev.id]);
+    delete _eventRemindTimers[ev.id];
+  }
+
+  const evDateTime = new Date(ev.date + 'T' + ev.start + ':00');
+  const remindMins = parseInt(ev.remind) || 0;
+  const fireAt     = evDateTime.getTime() - (remindMins * 60000);
+  const msUntil    = fireAt - Date.now();
+
+  if(msUntil < -60000) return; // Ya pasó hace más de 1 minuto — ignorar
+
+  const label = remindMins === 0 ? 'Ahora'
+    : remindMins < 60 ? 'En ' + remindMins + ' min'
+    : 'En ' + (remindMins/60) + 'h';
+  const body = label + ' · ' + ev.start + (ev.end ? '–'+ev.end : '');
+
+  const fireNotif = () => {
+    // Usar SW si disponible (funciona en segundo plano)
+    if(window._swReg && window._swReg.active) {
+      window._swReg.active.postMessage({
+        type:  'SEND_NOTIF_NOW',
+        title: '📅 ' + ev.title,
+        body:  body
+      });
+    } else {
+      sendPushNotif('📅 ' + ev.title, body);
+    }
+  };
+
+  if(msUntil <= 0) {
+    // El momento ya llegó — notificar de inmediato
+    fireNotif();
+  } else {
+    _eventRemindTimers[ev.id] = setTimeout(fireNotif, msUntil);
+    const mins = Math.round(msUntil / 60000);
+    console.log('[Recordatorio] "' + ev.title + '" en ' + mins + ' min');
+  }
+}
+
+// Programar recordatorios para TODOS los eventos de hoy y mañana
+function scheduleAllEventReminders() {
+  if(Notification.permission !== 'granted') return;
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowStr = tomorrow.toISOString().slice(0,10);
+
+  // Filtrar eventos de hoy y mañana
+  const upcoming = events.filter(ev => {
+    if(!ev.remind || ev.remind === 'none') return false;
+    return eventOccursOnDate(ev, TODAY) || eventOccursOnDate(ev, tomorrowStr);
+  });
+
+  upcoming.forEach(ev => {
+    // Si es recurrente, usar la fecha correcta
+    const dateToUse = eventOccursOnDate(ev, TODAY) ? TODAY : tomorrowStr;
+    const evCopy = Object.assign({}, ev, { date: dateToUse });
+    scheduleEventReminder(evCopy);
+  });
+
+  if(upcoming.length > 0) {
+    console.log('[SW] ' + upcoming.length + ' recordatorios programados para hoy/mañana');
+  }
 }
 
 // ── HELPERS DE FECHA ──
@@ -5482,7 +5542,9 @@ setTimeout(() => {
 // Se llama desde el listener de Firebase cuando llega el primer snapshot
 function onFirstLoad() {
   checkPendingNotifs();
-  // Programar resumen diario por correo (no enviar ahora, solo agendar)
+  // Programar recordatorios de eventos del día
+  setTimeout(scheduleAllEventReminders, 1000);
+  // Programar resumen diario por correo
   const cfg = getEmailConfig();
   if(cfg.publicKey && cfg.serviceId && cfg.templateId) {
     scheduleEmailSummary();
