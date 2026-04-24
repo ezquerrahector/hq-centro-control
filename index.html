@@ -1121,7 +1121,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v2.4</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v2.5</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -1517,18 +1517,34 @@ function switchTab(tab,el){
 // ══════════════════════════════════════════════════════
 // FILTERED TASKS (by context)
 // ══════════════════════════════════════════════════════
+function taskMatchesToday(t){
+  // Verifica si una tarea aplica para hoy (considera recurrencia)
+  if(!t.date) return false;
+  const rec = t.recurring || 'none';
+  if(rec === 'none') return t.date === TODAY;
+  if(t.date > TODAY) return false;
+  const d    = new Date(TODAY + 'T00:00:00');
+  const orig = new Date(t.date + 'T00:00:00');
+  const dow  = d.getDay();
+  if(rec === 'daily')    return true;
+  if(rec === 'weekdays') return dow >= 1 && dow <= 5;
+  if(rec === 'weekly')   return dow === orig.getDay();
+  if(rec === 'monthly')  return d.getDate() === orig.getDate();
+  return t.date === TODAY;
+}
+
 function getFiltered(todayOnly){
-  let list=tasks.filter(t=>!t.done);
-  if(curCtxFilter!=='all') list=list.filter(t=>t.ctx===curCtxFilter);
-  if(todayOnly || curTab==='hoy') list=list.filter(t=>t.date===TODAY);
-  else if(curTab==='semana'){
-    // Esta semana = desde hoy hasta 7 días
-    const d=new Date(TODAY);
-    const d7=new Date(d);d7.setDate(d7.getDate()+7);
-    const d7s=d7.toISOString().slice(0,10);
-    list=list.filter(t=>t.date&&t.date>=TODAY&&t.date<=d7s);
+  let list = tasks.filter(t=>!t.done);
+  if(curCtxFilter !== 'all') list = list.filter(t=>t.ctx===curCtxFilter);
+  if(todayOnly || curTab==='hoy'){
+    list = list.filter(t => taskMatchesToday(t));
+  } else if(curTab==='semana'){
+    const d7 = new Date(TODAY);
+    d7.setDate(d7.getDate()+7);
+    const d7s = d7.toISOString().slice(0,10);
+    list = list.filter(t => t.date && t.date >= TODAY && t.date <= d7s);
   } else if(curTab==='sin-fecha'){
-    list=list.filter(t=>!t.date||t.date==='');
+    list = list.filter(t => !t.date || t.date === '');
   }
   return list;
 }
@@ -1555,18 +1571,7 @@ function renderView(){
 // ══════════════════════════════════════════════════════
 function buildDash(){
   const pending = tasks.filter(t=>!t.done&&(curCtxFilter==='all'||t.ctx===curCtxFilter));
-  const todayT  = pending.filter(t=>{
-    if(!t.date) return false;
-    const rec = t.recurring||'none';
-    if(rec==='none') return t.date===TODAY;
-    if(t.date>TODAY) return false;
-    const d=new Date(TODAY+'T00:00:00'), orig=new Date(t.date+'T00:00:00'), dow=d.getDay();
-    if(rec==='daily') return true;
-    if(rec==='weekdays') return dow>=1&&dow<=5;
-    if(rec==='weekly') return dow===orig.getDay();
-    if(rec==='monthly') return d.getDate()===orig.getDate();
-    return t.date===TODAY;
-  });
+  const todayT = pending.filter(t => taskMatchesToday(t));
   const done    = tasks.filter(t=>t.done&&(curCtxFilter==='all'||t.ctx===curCtxFilter));
   const pct     = tasks.length ? Math.round(done.length/tasks.length*100) : 0;
   const bbP     = tasks.filter(t=>!t.done&&t.ctx==='banbajio').length;
@@ -1580,21 +1585,7 @@ function buildDash(){
   // Tareas de hoy — con O sin hora asignada
   // Tareas de hoy: sin filtro de contexto para mostrar todas en el dashboard
   const todayTasksH = tasks
-    .filter(t => {
-      if(t.done) return false;
-      if(!t.date) return false;
-      const rec = t.recurring || 'none';
-      if(rec === 'none') return t.date === TODAY;
-      if(t.date > TODAY) return false;
-      const d = new Date(TODAY + 'T00:00:00');
-      const orig = new Date(t.date + 'T00:00:00');
-      const dow = d.getDay();
-      if(rec === 'daily')    return true;
-      if(rec === 'weekdays') return dow >= 1 && dow <= 5;
-      if(rec === 'weekly')   return dow === orig.getDay();
-      if(rec === 'monthly')  return d.getDate() === orig.getDate();
-      return t.date === TODAY;
-    })
+    .filter(t => !t.done && taskMatchesToday(t))
     .sort((a,b)=>(a.time||'99:99').localeCompare(b.time||'99:99'));
   const agenda = [
     ...todayEvs.map(e=>({time:e.start,title:e.title,sub:e.start+'-'+e.end,color:e.color||'var(--accent)',type:'event',id:e.id})),
@@ -2725,13 +2716,14 @@ async function saveTask(){
     ctx:         ctxVal,
     tags:        [...(mTags||[])],
     projId:      get('mProj'),
-    done:        isEdit ? (prevTask.done || false) : false,  // preservar estado done
+    done:        isEdit ? (prevTask.done || false) : false,
     recurring:   get('remRecurTop') || 'none',
     attachments: [...(mAttach||[])],
     subtasks:    isEdit ? (prevTask.subtasks||[]) : [],
     subsubtasks: isEdit ? (prevTask.subsubtasks||[]) : [],
     order:       isEdit ? (prevTask.order||0) : tasks.length,
     list:        isEdit ? (prevTask.list||'inbox') : 'inbox',
+    _fbId:       isEdit ? prevTask._fbId : undefined,
     _fbId:       isEdit ? prevTask._fbId : undefined,  // clave: preservar _fbId
   };
 
