@@ -167,7 +167,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--c-bg);color:var(--c-text)
 .kanban-card-meta{display:flex;align-items:center;justify-content:space-between;}
 
 /* ── CALENDAR ── */
-.cal-wrap{background:var(--c-bg2);border:1px solid var(--c-border);border-radius:var(--radius);overflow:hidden;margin-bottom:18px;}
+.cal-wrap{background:var(--c-bg2);border:1px solid var(--c-border);border-radius:var(--radius);overflow:visible;margin-bottom:18px;}
 .cal-hdr{display:flex;align-items:center;justify-content:space-between;padding:13px 17px;border-bottom:1px solid var(--c-border);}
 .cal-month-lbl{font-family:'Syne',sans-serif;font-weight:700;font-size:15px;}
 .cal-wds{display:grid;grid-template-columns:repeat(7,1fr);border-bottom:1px solid var(--c-border);}
@@ -546,7 +546,7 @@ textarea.form-inp{resize:vertical;min-height:65px;}
   .ctx-filter-chip{font-size:11px;padding:4px 10px;white-space:nowrap;flex-shrink:0;}
 
   /* Contenido con espacio para bottom nav */
-  .content{padding:14px 12px 100px;overflow-y:auto;flex:1;min-height:0;-webkit-overflow-scrolling:touch;}
+  .content{padding:14px 12px 20px;overflow-y:auto;flex:1;min-height:0;-webkit-overflow-scrolling:touch;}
   /* Asegurar scroll en todos los contenedores internos */
   .content > *{max-width:100%;}
   .kanban-board{overflow-x:auto;padding-bottom:20px;}
@@ -687,11 +687,11 @@ textarea.form-inp{resize:vertical;min-height:65px;}
 /* FAB — botón nueva tarea en móvil */
 .mob-fab{
   display:none;
-  position:fixed;bottom:76px;right:16px;
+  position:fixed;bottom:20px;right:16px;
   width:56px;height:56px;border-radius:50%;
   background:var(--accent);color:#fff;
   border:none;cursor:pointer;
-  font-size:26px;line-height:1;
+  font-size:22px;line-height:1;
   box-shadow:0 4px 20px rgba(0,0,0,.35);
   z-index:9990;align-items:center;justify-content:center;
   transition:transform .15s,box-shadow .15s;
@@ -701,7 +701,7 @@ textarea.form-inp{resize:vertical;min-height:65px;}
 .mob-fab *{pointer-events:none;}
 @media(max-width:600px){
   .mob-fab{display:flex !important;}
-  .mobile-bottom-nav{display:flex !important;}
+  .mobile-bottom-nav{display:none !important;}
 }
 
 /* ── PULL TO REFRESH ── */
@@ -1121,7 +1121,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v2.5</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v2.6</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -1263,20 +1263,71 @@ document.addEventListener('DOMContentLoaded',()=>{
       if(existing) { existing.remove(); return; }
       const menu = document.createElement('div');
       menu.id = 'fabMenu';
-      menu.style.cssText = 'position:fixed;bottom:140px;right:16px;background:var(--c-bg2);border:1px solid var(--c-border);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.4);z-index:9995;overflow:hidden;animation:slideUp .2s ease';
-      menu.innerHTML = `
-        <button onclick="openTaskModal();document.getElementById('fabMenu').remove()" style="display:flex;align-items:center;gap:10px;width:100%;padding:12px 18px;border:none;background:transparent;color:var(--c-text);cursor:pointer;font-size:14px;white-space:nowrap" onmouseover="this.style.background='var(--c-bg3)'" onmouseout="this.style.background='transparent'">
-          <span>✅</span> Nueva tarea
-        </button>
-        <div style="height:1px;background:var(--c-border);margin:0 12px"></div>
-        <button onclick="openEventModal(null,TODAY);document.getElementById('fabMenu').remove()" style="display:flex;align-items:center;gap:10px;width:100%;padding:12px 18px;border:none;background:transparent;color:var(--c-text);cursor:pointer;font-size:14px;white-space:nowrap" onmouseover="this.style.background='var(--c-bg3)'" onmouseout="this.style.background='transparent'">
-          <span>📅</span> Nuevo evento
-        </button>`;
+      menu.style.cssText = 'position:fixed;bottom:80px;right:16px;background:var(--c-bg2);border:1px solid var(--c-border);border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.5);z-index:9995;overflow:hidden;animation:slideUp .2s ease;min-width:200px;max-height:85vh;overflow-y:auto';
+
+      const navItems = [
+        {icon:'📊', label:'Dashboard',    action:"mobileNav('dashboard',null)"},
+        {icon:'☀️', label:'Mi Día',       action:"mobileNav('midia',null)"},
+        {icon:'✅', label:'Tareas',        action:"mobileNav('tareas',null)"},
+        {icon:'📁', label:'Proyectos',     action:"mobileNav('proyectos',null)"},
+        {icon:'🗂️', label:'Kanban',       action:"mobileNav('kanban',null)"},
+        {icon:'📅', label:'Calendario',    action:"mobileNav('calendario',null)"},
+        {icon:'🔔', label:'Alarmas',       action:"mobileNav('alarmas',null)"},
+        {icon:'🏆', label:'Completadas',   action:"mobileNav('completadas',null)"},
+        {icon:'🌸', label:'Instinto',      action:"mobileNav('instinto',null)"},
+      ];
+
+      const createItems = [
+        {icon:'✅', label:'Nueva tarea',   action:'openTaskModal()'},
+        {icon:'📅', label:'Nuevo evento',  action:'openEventModal(null,TODAY)'},
+        {icon:'📁', label:'Nuevo proyecto',action:"document.getElementById('projModal').classList.add('open');buildProjSelects()"},
+      ];
+
+      const utilItems = [
+        {icon:'⚙️', label:'Contextos',    action:'openCtxMgmt()'},
+        {icon:'📧', label:'Correo',        action:'openEmailConfig()'},
+        {icon:'🔄', label:'Recargar',      action:'reloadFromFirebase()'},
+        {icon:'📊', label:'Exportar Excel',action:'exportToExcel()'},
+      ];
+
+      function makeSection(title, items) {
+        const wrap = document.createElement('div');
+        const lbl = document.createElement('div');
+        lbl.style.cssText = 'padding:8px 14px 4px;font-size:10px;font-weight:700;color:var(--c-text3);text-transform:uppercase;letter-spacing:.5px';
+        lbl.textContent = title;
+        wrap.appendChild(lbl);
+        items.forEach(it => {
+          const btn = document.createElement('button');
+          btn.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;padding:11px 16px;border:none;background:transparent;color:var(--c-text);cursor:pointer;font-size:13px;text-align:left';
+          btn.onmouseover = ()=>btn.style.background='var(--c-bg3)';
+          btn.onmouseout  = ()=>btn.style.background='transparent';
+          btn.onclick = ()=>{ eval(it.action); const m=document.getElementById('fabMenu'); if(m)m.remove(); };
+          const ico = document.createElement('span');
+          ico.style.cssText = 'font-size:16px;width:22px;text-align:center';
+          ico.textContent = it.icon;
+          const lbl2 = document.createElement('span');
+          lbl2.textContent = it.label;
+          btn.appendChild(ico);
+          btn.appendChild(lbl2);
+          wrap.appendChild(btn);
+        });
+        return wrap;
+      }
+
+      const makeSep = () => { const d=document.createElement('div'); d.style.cssText='height:1px;background:var(--c-border);margin:4px 0'; return d; };
+      menu.appendChild(makeSection('Vistas', navItems));
+      menu.appendChild(makeSep());
+      menu.appendChild(makeSection('Crear', createItems));
+      menu.appendChild(makeSep());
+      menu.appendChild(makeSection('Opciones', utilItems));
+
       document.body.appendChild(menu);
-      // Cerrar al tocar fuera
       setTimeout(() => {
         document.addEventListener('click', function closeFab(ev) {
-          if(!menu.contains(ev.target) && ev.target !== fabBtn) { menu.remove(); document.removeEventListener('click', closeFab); }
+          if(!menu.contains(ev.target) && ev.target !== fabBtn) {
+            menu.remove();
+            document.removeEventListener('click', closeFab);
+          }
         });
       }, 100);
     }
@@ -5325,29 +5376,7 @@ setTimeout(() => {
 </script>
 
 <!-- ── BOTTOM NAV MÓVIL ── -->
-<nav class="mobile-bottom-nav" id="mobileNav">
-  <button class="mob-nav-btn active" id="mnv-dashboard" onclick="mobileNav('dashboard',this)">
-    <span class="mob-nav-icon">📊</span>
-    <span class="mob-nav-label">Inicio</span>
-  </button>
-  <button class="mob-nav-btn" id="mnv-tareas" onclick="mobileNav('tareas',this)">
-    <span class="mob-nav-icon">✅</span>
-    <span class="mob-nav-label">Tareas</span>
-    <span class="mob-nav-badge" id="mobBdg">0</span>
-  </button>
-  <button class="mob-nav-btn" id="mnv-proyectos" onclick="mobileNav('proyectos',this)">
-    <span class="mob-nav-icon">📁</span>
-    <span class="mob-nav-label">Proyectos</span>
-  </button>
-  <button class="mob-nav-btn" id="mnv-calendario" onclick="mobileNav('calendario',this)">
-    <span class="mob-nav-icon">📅</span>
-    <span class="mob-nav-label">Agenda</span>
-  </button>
-  <button class="mob-nav-btn" id="mnv-menu" onclick="toggleMobileMenu()">
-    <span class="mob-nav-icon">☰</span>
-    <span class="mob-nav-label">Más</span>
-  </button>
-</nav>
+<!-- Bottom nav eliminado — reemplazado por FAB hamburguesa -->
 
 <!-- ── MENÚ "MÁS" MÓVIL ── -->
 <div id="mobileMenuOverlay" style="display:none;position:fixed;inset:0;z-index:9980;background:rgba(0,0,0,.5)" onclick="toggleMobileMenu()">
@@ -5398,8 +5427,9 @@ setTimeout(() => {
 </div>
 
 <!-- ── FAB NUEVA TAREA ── -->
-<button class="mob-fab" id="mobFab" title="Nueva tarea" aria-label="Nueva tarea">
-  <span style="display:block;line-height:1;pointer-events:none">＋</span>
+<!-- FAB Hamburguesa — menú completo de navegación móvil -->
+<button class="mob-fab" id="mobFab" title="Menú" aria-label="Menú">
+  <span style="display:block;line-height:1;pointer-events:none;font-size:22px">☰</span>
 </button>
 
 
