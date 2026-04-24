@@ -1,0 +1,43 @@
+{
+  "name": "HQ Centro de Control",
+  "short_name": "HQ Centro",
+  "description": "Tu centro de control personal — tareas, proyectos y calendario",
+  "start_url": "/hq-centro-control/",
+  "scope": "/hq-centro-control/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#1a1625",
+  "theme_color": "#5c27ac",
+  "lang": "es-MX",
+  "icons": [
+    {
+      "src": "https://via.placeholder.com/192x192/5c27ac/ffffff?text=HQ",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://via.placeholder.com/512x512/5c27ac/ffffff?text=HQ",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "utilities"],
+  "shortcuts": [
+    {
+      "name": "Nueva tarea",
+      "short_name": "Tarea",
+      "description": "Crear una nueva tarea rápida",
+      "url": "/hq-centro-control/?action=new-task",
+      "icons": [{ "src": "https://via.placeholder.com/96x96/5c27ac/ffffff?text=+", "sizes": "96x96" }]
+    },
+    {
+      "name": "Mi Día",
+      "short_name": "Hoy",
+      "description": "Ver tareas de hoy",
+      "url": "/hq-centro-control/?view=midia",
+      "icons": [{ "src": "https://via.placeholder.com/96x96/5c27ac/ffffff?text=☀", "sizes": "96x96" }]
+    }
+  ]
+}

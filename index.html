@@ -1121,7 +1121,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v3.0</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v3.1</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -3852,11 +3852,25 @@ async function requestNotifPermission() {
 
 function sendPushNotif(title, body) {
   if(Notification.permission !== 'granted') return;
-  try {
-    const n = new Notification(title, { body: body||'', tag:'hq-centro-control' });
-    n.onclick = () => { window.focus(); n.close(); };
-    setTimeout(() => n.close(), 10000);
-  } catch(e) { console.warn('Push notif error:', e); }
+  // Usar Service Worker si está disponible (funciona en segundo plano)
+  if(window._swReg && window._swReg.active) {
+    window._swReg.showNotification(title, {
+      body:    body || '',
+      icon:    'https://ezquerrahector.github.io/hq-centro-control/icon.png',
+      badge:   'https://ezquerrahector.github.io/hq-centro-control/icon.png',
+      tag:     'hq-centro-control',
+      vibrate: [200, 100, 200],
+      data:    { url: 'https://ezquerrahector.github.io/hq-centro-control/' },
+      actions: [{ action:'open', title:'Abrir app' }]
+    });
+  } else {
+    // Fallback: notificación simple del navegador
+    try {
+      const n = new Notification(title, { body: body||'', tag:'hq-centro-control' });
+      n.onclick = () => { window.focus(); n.close(); };
+      setTimeout(() => n.close(), 10000);
+    } catch(e) { console.warn('Push notif error:', e); }
+  }
 }
 
 function sendDayNotif() {
@@ -3882,7 +3896,22 @@ async function scheduleDailyNotif(hour) {
   if(now >= target) target.setDate(target.getDate() + 1);
   const ms = target - now;
   _notifTimer = setTimeout(() => {
-    sendDayNotif();
+    // Enviar via SW si está disponible (funciona aunque la app esté minimizada)
+    if(window._swReg && window._swReg.active) {
+      const todayTasks = tasks.filter(t => !t.done && taskMatchesToday(t));
+      const high = todayTasks.filter(t => t.priority === 'high');
+      const body = todayTasks.length
+        ? (high.length ? high.length+' urgentes: '+high.slice(0,2).map(t=>t.title).join(', ')
+          : todayTasks.length+' pendientes para hoy')
+        : '¡Sin pendientes hoy! 🎉';
+      window._swReg.active.postMessage({
+        type: 'SEND_NOTIF_NOW',
+        title: '📋 HQ Centro de Control',
+        body:  body
+      });
+    } else {
+      sendDayNotif();
+    }
     setInterval(sendDayNotif, 24 * 60 * 60 * 1000);
   }, ms);
   toast('🔔', 'Notificación diaria programada a las ' + String(h).padStart(2,'0') + ':00');
@@ -5433,6 +5462,16 @@ function fbListenAll() {
 // Para restaurar datos de ejemplo, ejecutar manualmente: fbSeedIfEmpty()
 // Cargar alarmas guardadas localmente
 loadAlarmsLocal();
+
+// Registrar Service Worker para notificaciones en segundo plano
+if('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/hq-centro-control/sw.js')
+    .then(reg => {
+      console.log('SW registrado:', reg.scope);
+      window._swReg = reg;
+    })
+    .catch(err => console.warn('SW error:', err));
+}
 
 setTimeout(() => {
   fbListenAll();
