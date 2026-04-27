@@ -1135,7 +1135,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v4.4</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v4.5</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -5586,7 +5586,7 @@ async function sendDailySummaryEmail() {
   try {
     const resp = await emailjs.send(cfg.serviceId, cfg.templateId, payload);
     console.log('EmailJS response:', resp);
-    toast('📧','Resumen enviado a '+cfg.toEmail+' ('+todayT.length+' tareas)');
+    toast('📧','Resumen enviado a '+cfg.toEmail+' ('+(todayExact.length+enCurso.length)+' tareas)');
   } catch(err) {
     console.error('EmailJS send error:', err);
     toast('❌','Error: '+(err.text||err.message||JSON.stringify(err)));
