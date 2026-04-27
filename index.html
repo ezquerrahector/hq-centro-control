@@ -1135,7 +1135,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v5.4</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v5.5</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -1986,10 +1986,7 @@ function getTreeState(taskId, subId) {
 
 function treeExpandAll() {
   // En Mi Día incluir tanto las tareas de "Hoy" como las de "En curso"
-  const base = curView === 'midia'
-    ? tasks.filter(t => !t.done && (curCtxFilter==='all'||t.ctx===curCtxFilter))
-        .filter(t => t.date===TODAY || (t.recurring&&t.recurring!=='none'&&taskMatchesToday(t)))
-    : getFiltered(false);
+  const base = curView === 'midia' ? getMiDiaTasks() : getFiltered(false);
   base.forEach(t => {
     treeState[t.id] = {open: true, subs: {}};
     (t.subtasks||[]).forEach(s => {
@@ -2002,10 +1999,7 @@ function treeExpandAll() {
 
 function treeCollapseAll() {
   // En Mi Día incluir tanto las tareas de "Hoy" como las de "En curso"
-  const base = curView === 'midia'
-    ? tasks.filter(t => !t.done && (curCtxFilter==='all'||t.ctx===curCtxFilter))
-        .filter(t => t.date===TODAY || (t.recurring&&t.recurring!=='none'&&taskMatchesToday(t)))
-    : getFiltered(false);
+  const base = curView === 'midia' ? getMiDiaTasks() : getFiltered(false);
   base.forEach(t => {
     treeState[t.id] = {open: false, subs: {}};
     (t.subtasks||[]).forEach(s => {
@@ -2017,10 +2011,7 @@ function treeCollapseAll() {
 }
 
 function treeCollapseSubsOnly() {
-  const base = curView === 'midia'
-    ? tasks.filter(t => !t.done && (curCtxFilter==='all'||t.ctx===curCtxFilter))
-        .filter(t => t.date===TODAY || (t.recurring&&t.recurring!=='none'&&taskMatchesToday(t)))
-    : getFiltered(false);
+  const base = curView === 'midia' ? getMiDiaTasks() : getFiltered(false);
   base.forEach(t => {
     if(!treeState[t.id]) treeState[t.id] = {open: true, subs: {}};
     treeState[t.id].open = true;
@@ -2071,35 +2062,10 @@ function buildList(todayOnly){
 
   // Si es "Mi Día" (todayOnly), separar en dos secciones
   if(todayOnly) {
-    const ctxFilter = t => curCtxFilter === 'all' || t.ctx === curCtxFilter;
-    const pending   = tasks.filter(t => !t.done && ctxFilter(t));
-
-    // SECCIÓN 1: HOY — tareas con fecha exacta hoy (con o sin recurrencia)
-    const hoy = pending.filter(t => t.date === TODAY);
-
-    // SECCIÓN 2: EN CURSO — tareas recurrentes que aplican hoy
-    // La fecha en una tarea recurrente = fecha LÍMITE (vencimiento)
-    // Si la fecha es hoy o futura y tiene recurrencia → aplica hoy
-    // Si ya venció (fecha < hoy) → ya no aplica
-    const enCursoTareas = pending.filter(t => {
-      if(!t.recurring || t.recurring === 'none') return false;
-      if(t.date === TODAY) return false; // ya está en "Hoy"
-      if(t.date && t.date < TODAY) return false; // ya venció, no mostrar
-      // Fecha futura o sin fecha + recurrencia → verificar si aplica hoy
-      const d   = new Date(TODAY + 'T00:00:00');
-      const dow = d.getDay();
-      const rec = t.recurring;
-      // Necesitamos una fecha de referencia para weekly/monthly
-      // Usamos la fecha original o TODAY si no hay
-      const refDate = t.date ? new Date(t.date + 'T00:00:00') : d;
-      if(rec === 'daily')    return true;
-      if(rec === 'weekdays') return dow >= 1 && dow <= 5;
-      if(rec === 'weekly')   return dow === refDate.getDay();
-      if(rec === 'monthly')  return d.getDate() === refDate.getDate();
-      return false;
-    });
-
-    const enCurso = enCursoTareas; // solo tareas recurrentes, sin alarmas
+    // Usar función centralizada para consistencia con expand/colapsar
+    const allMiDia = getMiDiaTasks();
+    const hoy      = allMiDia.filter(t => t.date === TODAY);
+    const enCurso  = allMiDia.filter(t => t.date !== TODAY);
 
     const emptyHoy = '<div style="text-align:center;padding:20px;color:var(--c-text3);font-size:13px">Sin tareas con vencimiento hoy 🎉</div>';
 
@@ -3527,6 +3493,28 @@ async function permDelete(id){
 function toggleSub(tid,sid){
   const t=tasks.find(x=>x.id===tid);if(!t)return;
   const s=t.subtasks.find(x=>x.id===sid);if(s){s.done=!s.done;renderView();}
+}
+
+// ── TAREAS DE MI DÍA (función centralizada) ──
+function getMiDiaTasks() {
+  const ctxOk = t => curCtxFilter === 'all' || t.ctx === curCtxFilter;
+  const pending = tasks.filter(t => !t.done && ctxOk(t));
+  const hoy = pending.filter(t => t.date === TODAY);
+  const enCurso = pending.filter(t => {
+    if(!t.recurring || t.recurring === 'none') return false;
+    if(t.date === TODAY) return false;
+    if(t.date && t.date < TODAY) return false;
+    const d = new Date(TODAY + 'T00:00:00');
+    const dow = d.getDay();
+    const rec = t.recurring;
+    const refDate = t.date ? new Date(t.date + 'T00:00:00') : d;
+    if(rec === 'daily')    return true;
+    if(rec === 'weekdays') return dow >= 1 && dow <= 5;
+    if(rec === 'weekly')   return dow === refDate.getDay();
+    if(rec === 'monthly')  return d.getDate() === refDate.getDate();
+    return false;
+  });
+  return [...hoy, ...enCurso];
 }
 
 // ── PEGADO MÚLTIPLES LÍNEAS ──
