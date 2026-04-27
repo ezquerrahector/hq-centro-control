@@ -487,6 +487,9 @@ textarea.form-inp{resize:vertical;min-height:65px;}
 .task-item.dragging{opacity:.4;transform:scale(.98);box-shadow:0 8px 24px rgba(0,0,0,.15);}
 .sub-drag-over{border:2px dashed var(--accent) !important;border-radius:var(--radius-sm);}
 .subsub-drag-over{border-left:3px solid var(--accent) !important;background:var(--c-bg3) !important;}
+.sub-drag-handle{display:flex;align-items:center;justify-content:center;width:16px;color:var(--c-text3);cursor:grab;font-size:13px;opacity:0;transition:opacity .15s;flex-shrink:0;}
+.tree-sub-item:hover .sub-drag-handle,.tree-subsub-item:hover .sub-drag-handle{opacity:1;}
+.sub-drag-handle:active{cursor:grabbing;}
 .drag-handle{display:flex;align-items:center;justify-content:center;width:18px;color:var(--c-text3);cursor:grab;font-size:14px;flex-shrink:0;opacity:0;transition:opacity .15s;}
 .task-item:hover .drag-handle{opacity:1;}
 .drag-handle:active{cursor:grabbing;}
@@ -1132,7 +1135,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v3.8</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v4.0</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -1967,12 +1970,20 @@ function buildTreeSubs(task, taskOpen) {
         style="font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--c-border);background:var(--c-bg3);color:var(--c-text2);cursor:pointer">+ Detalle</button>
     </div>`;
 
-    return `<div class="tree-sub-item p-${prio}" id="treesubparent-${task.id}-${s.id}">
+    return `<div class="tree-sub-item p-${prio}" id="treesubparent-${task.id}-${s.id}"
+      ondragover="onSubDragOver(event,${task.id},'${s.id}')"
+      ondragleave="onSubDragLeave(event)"
+      ondrop="onSubDrop(event,${task.id},'${s.id}')">
       <button id="treesubexp-${task.id}-${s.id}" class="tree-expand ${isOpen&&hasSubsub?'open':''}"
         onclick="event.stopPropagation();toggleTreeSub(${task.id},'${s.id}')"
         style="visibility:${hasSubsub?'visible':'hidden'}">
         <span class="arr">▶</span>
       </button>
+      <span class="sub-drag-handle" title="Arrastra para reordenar"
+        draggable="true"
+        ondragstart="onSubDragStart(event,${task.id},'${s.id}')"
+        ondragend="onSubDragEnd(event)"
+        onclick="event.stopPropagation()">⠿</span>
       <div class="sub-check-sm ${s.done?'checked':''}"
         onclick="event.stopPropagation();toggleSubDone(${task.id},'${s.id}')">${s.done?'✓':''}</div>
       <div class="tree-sub-info">
@@ -2000,11 +2011,13 @@ function buildTreeSubsubs(taskId, sub, subOpen) {
     const doneCls = ss.done ? 'done' : '';
     const pMark   = {high:'🔴',medium:'🟡',low:'🔵',none:''}[ss.priority||'none']||'';
     return `<div class="tree-subsub-item" id="treesubsub-${taskId}-${sub.id}-${ss.id}"
-      draggable="true"
-      ondragstart="onSubSubDragStart(event,${taskId},'${sub.id}','${ss.id}')"
       ondragover="onSubSubDragOver(event,${taskId},'${sub.id}','${ss.id}')"
-      ondrop="onSubSubDrop(event,${taskId},'${sub.id}','${ss.id}')"
-      ondragend="onSubSubDragEnd(event)">
+      ondrop="onSubSubDrop(event,${taskId},'${sub.id}','${ss.id}')">
+      <span class="sub-drag-handle" title="Arrastra para reordenar"
+        draggable="true"
+        ondragstart="onSubSubDragStart(event,${taskId},'${sub.id}','${ss.id}')"
+        ondragend="onSubSubDragEnd(event)"
+        onclick="event.stopPropagation()">⠿</span>
       <div class="subsub-check ${ss.done?'checked':''}"
         onclick="event.stopPropagation();toggleSubSubDone(${taskId},'${sub.id}','${ss.id}')">${ss.done?'✓':''}</div>
       <span class="tree-subsub-title ${doneCls}"
