@@ -1135,7 +1135,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v5.2</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v5.4</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -1690,16 +1690,24 @@ function renderView(){
 function buildCtxStatCards() {
   const wrap = document.createElement('div');
   wrap.style.display = 'contents';
-  // Si no hay contextos aún, retornar placeholder vacío
   if(!contexts || !contexts.length) return '';
   contexts.forEach(ctx => {
     const ctxP     = tasks.filter(t=>!t.done&&t.ctx===ctx.id).length;
-    const ctxProjs = projects.filter(p=>p.ctx===ctx.id).length;
     const ctxToday = tasks.filter(t=>!t.done&&t.ctx===ctx.id&&taskMatchesToday(t)).length;
     const card = document.createElement('div');
     card.className = 'stat-card';
     card.style.cssText = 'cursor:pointer;border-top:3px solid '+ctx.color;
-    card.onclick = () => { filterByCtx(ctx.id); gotoView('tareas', null); };
+    card.onclick = () => {
+      // Primero ir a Tareas, luego filtrar por contexto
+      curCtxFilter = ctx.id;
+      const c = contexts.find(x=>x.id===ctx.id);
+      if(c) {
+        document.documentElement.style.setProperty('--accent', c.color);
+        document.documentElement.style.setProperty('--accent-light', c.color+'1a');
+      }
+      gotoView('tareas', null);
+      updateBadges();
+    };
     card.innerHTML = '<div class="stat-icon">'+ctx.icon+'</div>'
       +'<div class="stat-lbl">'+ctx.name+'</div>'
       +'<div class="stat-val">'+ctxP+'</div>'
@@ -1977,8 +1985,12 @@ function getTreeState(taskId, subId) {
 }
 
 function treeExpandAll() {
-  const list = getFiltered(curView==='midia');
-  list.forEach(t => {
+  // En Mi Día incluir tanto las tareas de "Hoy" como las de "En curso"
+  const base = curView === 'midia'
+    ? tasks.filter(t => !t.done && (curCtxFilter==='all'||t.ctx===curCtxFilter))
+        .filter(t => t.date===TODAY || (t.recurring&&t.recurring!=='none'&&taskMatchesToday(t)))
+    : getFiltered(false);
+  base.forEach(t => {
     treeState[t.id] = {open: true, subs: {}};
     (t.subtasks||[]).forEach(s => {
       treeState[t.id].subs[s.id] = {open: true};
@@ -1989,8 +2001,12 @@ function treeExpandAll() {
 }
 
 function treeCollapseAll() {
-  const list = getFiltered(curView==='midia');
-  list.forEach(t => {
+  // En Mi Día incluir tanto las tareas de "Hoy" como las de "En curso"
+  const base = curView === 'midia'
+    ? tasks.filter(t => !t.done && (curCtxFilter==='all'||t.ctx===curCtxFilter))
+        .filter(t => t.date===TODAY || (t.recurring&&t.recurring!=='none'&&taskMatchesToday(t)))
+    : getFiltered(false);
+  base.forEach(t => {
     treeState[t.id] = {open: false, subs: {}};
     (t.subtasks||[]).forEach(s => {
       treeState[t.id].subs[s.id] = {open: false};
@@ -2001,12 +2017,15 @@ function treeCollapseAll() {
 }
 
 function treeCollapseSubsOnly() {
-  const list = getFiltered(curView==='midia');
-  list.forEach(t => {
+  const base = curView === 'midia'
+    ? tasks.filter(t => !t.done && (curCtxFilter==='all'||t.ctx===curCtxFilter))
+        .filter(t => t.date===TODAY || (t.recurring&&t.recurring!=='none'&&taskMatchesToday(t)))
+    : getFiltered(false);
+  base.forEach(t => {
     if(!treeState[t.id]) treeState[t.id] = {open: true, subs: {}};
-    treeState[t.id].open = true; // tareas abiertas
+    treeState[t.id].open = true;
     (t.subtasks||[]).forEach(s => {
-      treeState[t.id].subs[s.id] = {open: false}; // sub-subtareas cerradas
+      treeState[t.id].subs[s.id] = {open: false};
     });
   });
   renderView();
@@ -2080,24 +2099,7 @@ function buildList(todayOnly){
       return false;
     });
 
-    // Alarmas activas hoy — convertidas a items visibles
-    const today_dow = new Date(TODAY+'T00:00:00').getDay(); // 0=Dom...6=Sab
-    const dowNames  = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
-    const alarmasHoy = (typeof alarms !== 'undefined' ? alarms : []).filter(a => {
-      if(!a.on) return false;
-      const r = (a.repeat||'').toLowerCase();
-      if(r === 'cada día' || r === 'cada dia') return true;
-      if(r === 'lunes a viernes' && today_dow >= 1 && today_dow <= 5) return true;
-      if(r === 'fines de semana' && (today_dow === 0 || today_dow === 6)) return true;
-      if(r === 'cada semana' || r === 'cada semana') return true;
-      if(r === 'lunes y miércoles' && (today_dow === 1 || today_dow === 3)) return true;
-      if(r === 'cada viernes' && today_dow === 5) return true;
-      // Verificar si el día de la semana coincide
-      if(r.includes(dowNames[today_dow])) return true;
-      return false;
-    });
-
-    const enCurso = enCursoTareas; // tareas recurrentes
+    const enCurso = enCursoTareas; // solo tareas recurrentes, sin alarmas
 
     const emptyHoy = '<div style="text-align:center;padding:20px;color:var(--c-text3);font-size:13px">Sin tareas con vencimiento hoy 🎉</div>';
 
@@ -2107,21 +2109,7 @@ function buildList(todayOnly){
       +'</div>'
       +(hoy.length ? hoy.map(t => buildTreeTask(t)).join('') : emptyHoy);
 
-    // Renderizar alarmas como cards simples
-    const alarmCards = alarmasHoy.map(a => {
-      const ctx = contexts.find(c=>c.id===a.ctx);
-      const color = ctx ? ctx.color : 'var(--c-text3)';
-      return '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--c-bg2);border:1px solid var(--c-border);border-radius:var(--radius);margin-bottom:6px;border-left:3px solid '+color+'">'
-        +'<span style="font-size:18px">🔔</span>'
-        +'<div style="flex:1">'
-          +'<div style="font-size:13px;font-weight:500;color:var(--c-text)">'+a.name+'</div>'
-          +'<div style="font-size:11px;color:var(--c-text3)">⏰ '+a.time+' · 🔁 '+a.repeat+(ctx?' · '+ctx.icon+' '+ctx.name:'')+'</div>'
-        +'</div>'
-        +'<span style="font-size:10px;color:var(--c-text3);background:var(--c-bg3);padding:2px 7px;border-radius:8px">Alarma</span>'
-      +'</div>';
-    }).join('');
-
-    const totalCurso = enCurso.length + alarmasHoy.length;
+    const totalCurso = enCurso.length;
     const emptyCurso = '<div style="text-align:center;padding:16px;color:var(--c-text3);font-size:12px">'
       +'Sin recurrentes activos hoy.<br>'
       +'<span style="font-size:11px">Crea tareas con recurrencia diaria o activa alarmas para verlas aquí.</span>'
@@ -2133,7 +2121,7 @@ function buildList(todayOnly){
       +'<span style="font-size:11px;color:var(--c-text3)">Recurrentes activos hoy</span>'
       +'</div>'
       +(totalCurso
-        ? enCurso.map(t => buildTreeTask(t)).join('') + alarmCards
+        ? enCurso.map(t => buildTreeTask(t)).join('')
         : emptyCurso);
 
     if(!hoy.length && totalCurso === 0) {
