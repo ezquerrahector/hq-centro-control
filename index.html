@@ -1135,7 +1135,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v5.0</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v5.2</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -1607,6 +1607,8 @@ function addContext(){
 // ══════════════════════════════════════════════════════
 function gotoView(view,el){
   curView=view;
+  // Limpiar filtro de proyecto al cambiar de vista (excepto si venimos de gotoProject)
+  if(view !== 'tareas') { curProjFilter = null; }
   // Recordar la vista para restaurar al recargar
   try { localStorage.setItem('hq_last_view', view); } catch(e){}
   if(!el)el=document.querySelector(`[data-view="${view}"]`);
@@ -1651,6 +1653,7 @@ function taskMatchesToday(t){
 function getFiltered(todayOnly){
   let list = tasks.filter(t=>!t.done);
   if(curCtxFilter !== 'all') list = list.filter(t=>t.ctx===curCtxFilter);
+  if(curProjFilter) list = list.filter(t=>t.projId===curProjFilter);
   if(todayOnly || curTab==='hoy'){
     list = list.filter(t => taskMatchesToday(t));
   } else if(curTab==='semana'){
@@ -1687,6 +1690,8 @@ function renderView(){
 function buildCtxStatCards() {
   const wrap = document.createElement('div');
   wrap.style.display = 'contents';
+  // Si no hay contextos aún, retornar placeholder vacío
+  if(!contexts || !contexts.length) return '';
   contexts.forEach(ctx => {
     const ctxP     = tasks.filter(t=>!t.done&&t.ctx===ctx.id).length;
     const ctxProjs = projects.filter(p=>p.ctx===ctx.id).length;
@@ -2053,20 +2058,25 @@ function buildList(todayOnly){
     // SECCIÓN 1: HOY — tareas con fecha exacta hoy (con o sin recurrencia)
     const hoy = pending.filter(t => t.date === TODAY);
 
-    // SECCIÓN 2: EN CURSO — recurrentes cuya fecha de inicio ya pasó (antes de hoy)
-    // y según su tipo de recurrencia, aplican para hoy
+    // SECCIÓN 2: EN CURSO — tareas recurrentes que aplican hoy
+    // La fecha en una tarea recurrente = fecha LÍMITE (vencimiento)
+    // Si la fecha es hoy o futura y tiene recurrencia → aplica hoy
+    // Si ya venció (fecha < hoy) → ya no aplica
     const enCursoTareas = pending.filter(t => {
       if(!t.recurring || t.recurring === 'none') return false;
-      if(!t.date || t.date >= TODAY) return false; // solo las que empezaron ANTES de hoy
-      // Verificar si la recurrencia aplica para hoy
-      const d    = new Date(TODAY + 'T00:00:00');
-      const orig = new Date(t.date + 'T00:00:00');
-      const dow  = d.getDay();
-      const rec  = t.recurring;
+      if(t.date === TODAY) return false; // ya está en "Hoy"
+      if(t.date && t.date < TODAY) return false; // ya venció, no mostrar
+      // Fecha futura o sin fecha + recurrencia → verificar si aplica hoy
+      const d   = new Date(TODAY + 'T00:00:00');
+      const dow = d.getDay();
+      const rec = t.recurring;
+      // Necesitamos una fecha de referencia para weekly/monthly
+      // Usamos la fecha original o TODAY si no hay
+      const refDate = t.date ? new Date(t.date + 'T00:00:00') : d;
       if(rec === 'daily')    return true;
       if(rec === 'weekdays') return dow >= 1 && dow <= 5;
-      if(rec === 'weekly')   return dow === orig.getDay();
-      if(rec === 'monthly')  return d.getDate() === orig.getDate();
+      if(rec === 'weekly')   return dow === refDate.getDay();
+      if(rec === 'monthly')  return d.getDate() === refDate.getDate();
       return false;
     });
 
@@ -3668,17 +3678,25 @@ function doTagSearch(tag) {
 
 // Ir a proyectos con un proyecto específico seleccionado
 function gotoProject(projId) {
-  gotoView('proyectos', null);
-  setTimeout(() => {
-    // Seleccionar el proyecto en la vista
-    const btn = document.querySelector('[data-proj-id="'+projId+'"]');
-    if(btn) btn.click();
-    else {
-      // Scroll al proyecto si existe
-      const el = document.getElementById('proj-'+projId);
-      if(el) el.scrollIntoView({behavior:'smooth', block:'center'});
-    }
-  }, 200);
+  // Ir a vista de tareas filtradas por ese proyecto
+  curProjFilter = projId;
+  gotoView('tareas', null);
+  // Mostrar banner del proyecto activo
+  const proj = projects.find(p=>p.id===projId);
+  if(proj) {
+    setTimeout(() => {
+      const existing = document.getElementById('projFilterBanner');
+      if(existing) existing.remove();
+      const banner = document.createElement('div');
+      banner.id = 'projFilterBanner';
+      banner.style.cssText = 'display:flex;align-items:center;gap:8px;padding:7px 14px;background:var(--accent);color:#fff;font-size:12px;font-weight:600;border-radius:8px;margin-bottom:10px;cursor:pointer';
+      banner.innerHTML = '📁 Filtrando: '+proj.name
+        +'<span style="margin-left:auto;opacity:.8;font-size:11px">✕ Quitar filtro</span>';
+      banner.onclick = () => { curProjFilter=null; banner.remove(); renderView(); };
+      const content = document.getElementById('content');
+      if(content) content.prepend(banner);
+    }, 100);
+  }
 }
 
 // Ir al calendario con un día específico seleccionado
@@ -5342,6 +5360,8 @@ async function reloadFromFirebase() {
       const ctxArr = [];
       cSnap.forEach(d => ctxArr.push(Object.assign({}, d.data(), {_fbId: d.id})));
       contexts = ctxArr;
+    // Re-render dashboard para mostrar stat-cards de contexto
+    if(curView === 'dashboard') renderView();
     }
 
     // Recargar proyectos
@@ -6219,8 +6239,8 @@ function fbListenAll() {
     contexts = arr;
     renderSidebar();
     renderCtxFilterBar();
-    // Repoblar selects del modal con el nuevo orden
     buildProjSelects();
+    if(curView === 'dashboard') renderView();
   });
   db.collection('projects').onSnapshot(snap => {
     if(snap.empty) return;
