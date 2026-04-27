@@ -1135,7 +1135,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v5.5</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v5.6</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -1708,10 +1708,11 @@ function buildCtxStatCards() {
       gotoView('tareas', null);
       updateBadges();
     };
+    const ctxProjs = projects.filter(p=>p.ctx===ctx.id).length;
     card.innerHTML = '<div class="stat-icon">'+ctx.icon+'</div>'
       +'<div class="stat-lbl">'+ctx.name+'</div>'
       +'<div class="stat-val">'+ctxP+'</div>'
-      +'<div class="stat-sub">'+(ctxProjs?ctxProjs+' proyectos · ':'')+ctxToday+' hoy</div>';
+      +'<div class="stat-sub">'+(ctxProjs?ctxProjs+' proy. · ':'')+ctxToday+' hoy</div>';
     wrap.appendChild(card);
   });
   return wrap.innerHTML;
