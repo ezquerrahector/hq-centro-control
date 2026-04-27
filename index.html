@@ -1135,7 +1135,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v4.1</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v4.4</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -1848,8 +1848,6 @@ function toggleTreeSub(taskId, subId) {
 }
 
 function buildList(todayOnly){
-  const list = getFiltered(todayOnly);
-
   // Toolbar
   const toolbar = `<div class="tree-toolbar">
     <span class="tree-toolbar-label">Vista árbol:</span>
@@ -1867,10 +1865,48 @@ function buildList(todayOnly){
     <span style="font-size:16px;color:var(--c-text3)">＋</span>
     <input placeholder="Tarea rápida… presiona Enter para guardar" onkeydown="quickAdd(event,this)"/>
   </div>`;
-  if(!list.length) return toolbar + qa + `<div class="empty"><div class="empty-icon">✨</div><div class="empty-ttl">Sin pendientes</div><div class="empty-sub">Todo bajo control.</div></div>`;
 
-  const treeHTML = list.map(t => buildTreeTask(t)).join('');
-  return toolbar + qa + treeHTML;
+  // Si es "Mi Día" (todayOnly), separar en dos secciones
+  if(todayOnly) {
+    const ctxFilter = t => curCtxFilter === 'all' || t.ctx === curCtxFilter;
+    const pending   = tasks.filter(t => !t.done && ctxFilter(t));
+
+    // SECCIÓN 1: Tareas con fecha exacta hoy
+    const hoy = pending.filter(t => t.date === TODAY);
+
+    // SECCIÓN 2: En curso — recurrentes que aplican hoy pero fecha original != hoy
+    const enCurso = pending.filter(t => {
+      if(t.date === TODAY) return false; // ya está en "Hoy"
+      return taskMatchesToday(t);        // recurrente que aplica hoy
+    });
+
+    const emptyHoy = `<div style="text-align:center;padding:20px;color:var(--c-text3);font-size:13px">Sin tareas para hoy 🎉</div>`;
+
+    const sectionHoy = `
+      <div style="display:flex;align-items:center;gap:8px;margin:16px 0 8px">
+        <span style="font-size:15px;font-weight:700;color:var(--c-text)">📅 Hoy</span>
+        <span style="font-size:11px;background:var(--accent);color:#fff;border-radius:10px;padding:1px 8px">${hoy.length}</span>
+      </div>
+      ${hoy.length ? hoy.map(t => buildTreeTask(t)).join('') : emptyHoy}`;
+
+    const sectionCurso = enCurso.length ? `
+      <div style="display:flex;align-items:center;gap:8px;margin:20px 0 8px">
+        <span style="font-size:15px;font-weight:700;color:var(--c-text)">🔄 En curso</span>
+        <span style="font-size:11px;background:var(--c-text3);color:#fff;border-radius:10px;padding:1px 8px">${enCurso.length}</span>
+        <span style="font-size:11px;color:var(--c-text3)">Recurrentes activos hoy</span>
+      </div>
+      ${enCurso.map(t => buildTreeTask(t)).join('')}` : '';
+
+    if(!hoy.length && !enCurso.length) {
+      return toolbar + qa + `<div class="empty"><div class="empty-icon">✨</div><div class="empty-ttl">¡Todo al día!</div><div class="empty-sub">Sin tareas para hoy ni recurrentes activos.</div></div>`;
+    }
+    return toolbar + qa + sectionHoy + sectionCurso;
+  }
+
+  // Vista normal (Todas, Esta semana, Sin fecha)
+  const list = getFiltered(false);
+  if(!list.length) return toolbar + qa + `<div class="empty"><div class="empty-icon">✨</div><div class="empty-ttl">Sin pendientes</div><div class="empty-sub">Todo bajo control.</div></div>`;
+  return toolbar + qa + list.map(t => buildTreeTask(t)).join('');
 }
 
 // ── CONSTRUIR TAREA EN VISTA ÁRBOL ──
@@ -1884,11 +1920,12 @@ function buildTreeTask(t) {
   const prio    = t.priority||'none';
   const dc      = t.date===TODAY?'today':(t.date&&t.date<TODAY?'overdue':'');
   const dl      = t.date===TODAY?'🟢 Hoy':(t.date?'📅 '+t.date:'');
+  const dlClick = t.date?`onclick="event.stopPropagation();gotoCalendarDay('${t.date}')" style="cursor:pointer" title="Ver en calendario: ${t.date}"`:'';
   const ctxC    = contexts.find(c=>c.id===t.ctx);
   const ctxBadge= curCtxFilter==='all'&&ctxC?`<span style="font-size:9px;padding:1px 5px;border-radius:10px;background:${ctxC.color}22;color:${ctxC.color}">${ctxC.icon}</span>`:'';
-  const tagHTML = (t.tags||[]).map(tag=>{const c=tagColor(tag);return`<span class="tag-pill" style="background:${c}22;color:${c}">${tag}</span>`;}).join('');
+  const tagHTML = (t.tags||[]).map(tag=>{const c=tagColor(tag);return`<span class="tag-pill" style="background:${c}22;color:${c};cursor:pointer" title="Buscar: ${tag}" onclick="event.stopPropagation();doTagSearch('${tag}')">${tag}</span>`;}).join('');
   const pj      = t.projId?projects.find(p=>p.id===t.projId):null;
-  const pjl     = pj?`<span style="font-size:9px;color:var(--c-text3);background:var(--c-bg3);padding:1px 5px;border-radius:3px">📁${pj.name.slice(0,16)}</span>`:'';
+  const pjl     = pj?`<span style="font-size:9px;color:var(--c-text3);background:var(--c-bg3);padding:1px 5px;border-radius:3px;cursor:pointer" title="Ver proyecto: ${pj.name}" onclick="event.stopPropagation();gotoProject('${pj.id}')">📁${pj.name.slice(0,16)}</span>`:'';
   const recurBadge = t.recurring&&t.recurring!=='none'?`<span style="font-size:10px;color:var(--c-text3)">🔁</span>`:'';
   const attBadge   = t.attachments&&t.attachments.length?`<span style="font-size:10px;color:var(--c-text3)">📎${t.attachments.length}</span>`:'';
 
@@ -1930,7 +1967,7 @@ function buildTreeTask(t) {
         onclick="event.stopPropagation();toggleDone(${t.id})">${t.done?'✓':''}</div>
       <div class="tree-task-info">
         <div class="tree-task-title ${doneCls}">${t.title}</div>
-        <div class="tree-task-meta">${tagHTML}${pjl}${ctxBadge}${dl?`<span class="task-due ${dc}">${dl}</span>`:''}${recurBadge}${attBadge}${progBar}</div>
+        <div class="tree-task-meta">${tagHTML}${pjl}${ctxBadge}${dl?`<span class="task-due ${dc}" ${dlClick}>${dl}</span>`:''}${recurBadge}${attBadge}${progBar}</div>
       </div>
       <div class="tree-task-actions" onclick="event.stopPropagation()">
         <button class="tree-act" onclick="openSubModal('sub',${t.id},null,null)" title="Nueva subtarea">➕</button>
@@ -2282,6 +2319,7 @@ function buildCal(){
     ];
     const more = (dayTasks.length + dayEvents.length) > 3 ? `<div style="font-size:8px;color:var(--c-text3);padding:1px 3px">+${dayTasks.length+dayEvents.length-3} más</div>` : '';
     return `<div class="cal-day ${isToday?'today':''} ${isSel?'selected':''} ${(dayTasks.length||dayEvents.length)?'has-events':''}"
+      data-cal-date="${d.dateStr}"
       onclick="selectCalDay('${d.dateStr}')">
       <div class="day-n">${d.n}</div>
       ${pills.slice(0,3).join('')}${more}
@@ -3290,6 +3328,54 @@ function taskMatchesQuery(t, ql) {
     }
   }
   return false;
+}
+
+// Búsqueda por etiqueta desde clic en tag-pill
+function doTagSearch(tag) {
+  const searchEl = document.getElementById('searchInp');
+  if(searchEl) {
+    searchEl.value = tag;
+    searchEl.dispatchEvent(new Event('input'));
+  }
+  doSearch(tag);
+  // Highlight visual del buscador
+  if(searchEl) {
+    searchEl.style.borderColor = tagColor(tag);
+    setTimeout(() => { searchEl.style.borderColor = ''; }, 2000);
+  }
+}
+
+// Ir a proyectos con un proyecto específico seleccionado
+function gotoProject(projId) {
+  gotoView('proyectos', null);
+  setTimeout(() => {
+    // Seleccionar el proyecto en la vista
+    const btn = document.querySelector('[data-proj-id="'+projId+'"]');
+    if(btn) btn.click();
+    else {
+      // Scroll al proyecto si existe
+      const el = document.getElementById('proj-'+projId);
+      if(el) el.scrollIntoView({behavior:'smooth', block:'center'});
+    }
+  }, 200);
+}
+
+// Ir al calendario con un día específico seleccionado
+function gotoCalendarDay(dateStr) {
+  // Parsear la fecha para actualizar el mes del calendario
+  const d = new Date(dateStr + 'T00:00:00');
+  calCurrentMonth = d.getMonth();
+  calCurrentYear  = d.getFullYear();
+  calSelectedDate = dateStr;
+  gotoView('calendario', null);
+  // Mostrar el panel del día seleccionado
+  setTimeout(() => {
+    const dayEl = document.querySelector('[data-cal-date="'+dateStr+'"]');
+    if(dayEl) {
+      dayEl.click();
+      dayEl.scrollIntoView({behavior:'smooth', block:'center'});
+    }
+  }, 200);
 }
 
 function doSearch(q){
@@ -5459,22 +5545,38 @@ async function sendDailySummaryEmail() {
   const cfg = getEmailConfig();
   if(!initEmailJS()) { toast('❌','EmailJS no disponible'); return; }
   const pending  = tasks.filter(t=>!t.done);
-  const todayT   = pending.filter(t => taskMatchesToday(t));
-  const highPri  = todayT.filter(t=>t.priority==='high');
+
+  // SECCIÓN 1: Tareas con fecha exacta hoy
+  const todayExact = pending.filter(t => t.date === TODAY);
+  // SECCIÓN 2: En curso — recurrentes que aplican hoy pero fecha != hoy
+  const enCurso = pending.filter(t => t.date !== TODAY && taskMatchesToday(t));
+
+  const highPri = [...todayExact, ...enCurso].filter(t => t.priority === 'high');
   const d = new Date();
   const dateStr = d.toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long'});
-  const taskList = todayT.length
-    ? todayT.slice(0,10).map(t=>{
-        const prio = t.priority==='high'?'🔴':t.priority==='medium'?'🟡':'🟢';
-        const ctx  = (contexts.find(c=>c.id===t.ctx)||{}).name || t.ctx;
-        return prio+' '+t.title+(t.time?' ('+t.time+')':'')+' — '+ctx;
-      }).join('\n')
-    : '🎉 ¡Sin pendientes para hoy!';
+
+  const formatTask = t => {
+    const prio = t.priority==='high'?'🔴':t.priority==='medium'?'🟡':'🟢';
+    const ctx  = (contexts.find(c=>c.id===t.ctx)||{}).name || t.ctx;
+    return prio+' '+t.title+(t.time?' ('+t.time+')':'')+' — '+ctx;
+  };
+
+  let taskList = '';
+  if(todayExact.length) {
+    taskList += '📅 HOY ('+todayExact.length+')\n';
+    taskList += todayExact.slice(0,8).map(formatTask).join('\n');
+  }
+  if(enCurso.length) {
+    if(taskList) taskList += '\n\n';
+    taskList += '🔄 EN CURSO — Recurrentes activos hoy ('+enCurso.length+')\n';
+    taskList += enCurso.slice(0,5).map(formatTask).join('\n');
+  }
+  if(!taskList) taskList = '🎉 ¡Sin pendientes para hoy!';
   const payload = {
     to_email:   cfg.toEmail,
     to_name:    cfg.toName || 'Héctor',
     today_date: dateStr,
-    task_count: String(todayT.length),
+    task_count: String(todayExact.length + enCurso.length),
     high_count: String(highPri.length),
     task_list:  taskList,
     app_url:    'https://ezquerrahector.github.io/hq-centro-control/'
