@@ -1135,7 +1135,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v4.0</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v4.1</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -3272,11 +3272,30 @@ function quickAdd(e,inp){
   inp.value='';updateBadges();renderView();toast('➕','Tarea agregada');
 }
 
+function taskMatchesQuery(t, ql) {
+  // Buscar en título, notas y tags de la tarea
+  if(t.title.toLowerCase().includes(ql)) return true;
+  if((t.notes||'').toLowerCase().includes(ql)) return true;
+  if((t.tags||[]).some(tag => tag.toLowerCase().includes(ql))) return true;
+  // Buscar en subtareas
+  for(const s of (t.subtasks||[])) {
+    if((s.title||'').toLowerCase().includes(ql)) return true;
+    if((s.notes||'').toLowerCase().includes(ql)) return true;
+    if((s.tags||[]).some(tag => tag.toLowerCase().includes(ql))) return true;
+    // Buscar en sub-subtareas
+    for(const ss of (s.subsubtasks||[])) {
+      if((ss.title||'').toLowerCase().includes(ql)) return true;
+      if((ss.notes||'').toLowerCase().includes(ql)) return true;
+      if((ss.tags||[]).some(tag => tag.toLowerCase().includes(ql))) return true;
+    }
+  }
+  return false;
+}
+
 function doSearch(q){
   if(!q){renderView();return;}
-  const res=tasks.filter(t=>t.title.toLowerCase().includes(q.toLowerCase())||
-    t.tags.some(tag=>tag.includes(q.toLowerCase()))||
-    t.notes.toLowerCase().includes(q.toLowerCase()));
+  const ql = q.toLowerCase();
+  const res = tasks.filter(t => taskMatchesQuery(t, ql));
   document.getElementById('content').innerHTML=`
     <div class="sec-hdr"><div class="sec-ttl">🔍 "${q}" — ${res.length} resultados</div></div>
     <div class="task-list">${res.length?buildTaskCards(res):'<div class="empty"><div class="empty-icon">🔍</div><div class="empty-ttl">Sin resultados</div></div>'}</div>`;
