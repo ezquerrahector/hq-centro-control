@@ -1135,7 +1135,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v5.6</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v5.9</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -1540,7 +1540,11 @@ function buildCtxEditList(){
       'ondragend="onCtxDragEnd(event)">' +
       '<span class="ctx-edit-handle" title="Arrastra para reordenar">⠿</span>' +
       '<span class="ctx-edit-dot" style="background:' + c.color + '"></span>' +
-      '<span style="font-size:16px">' + c.icon + '</span>' +
+      '<span id="ctxico-' + c.id + '" style="font-size:18px;cursor:pointer;padding:2px 5px;border-radius:6px;transition:background .15s" ' +
+      'title="Cambiar ícono" ' +
+      'onclick="openIconPicker(\'' + c.id + '\')" ' +
+      'onmouseover="this.style.background=\'rgba(255,255,255,.1)\'" ' +
+      'onmouseout="this.style.background=\'transparent\'">' + c.icon + '</span>' +
       '<input class="ctx-edit-name" id="cni-' + c.id + '" data-id="' + c.id + '" ' +
       'style="background:transparent;border:none;border-bottom:1px solid transparent;' +
       'outline:none;cursor:text;width:100%;font-size:13px;font-weight:500;' +
@@ -1697,17 +1701,8 @@ function buildCtxStatCards() {
     const card = document.createElement('div');
     card.className = 'stat-card';
     card.style.cssText = 'cursor:pointer;border-top:3px solid '+ctx.color;
-    card.onclick = () => {
-      // Primero ir a Tareas, luego filtrar por contexto
-      curCtxFilter = ctx.id;
-      const c = contexts.find(x=>x.id===ctx.id);
-      if(c) {
-        document.documentElement.style.setProperty('--accent', c.color);
-        document.documentElement.style.setProperty('--accent-light', c.color+'1a');
-      }
-      gotoView('tareas', null);
-      updateBadges();
-    };
+    card.setAttribute('onclick', "filterByCtx('"+ctx.id+"');gotoView('tareas',null)");
+    card.style.cursor = 'pointer';
     const ctxProjs = projects.filter(p=>p.ctx===ctx.id).length;
     card.innerHTML = '<div class="stat-icon">'+ctx.icon+'</div>'
       +'<div class="stat-lbl">'+ctx.name+'</div>'
@@ -1785,7 +1780,7 @@ function buildDash(){
       <div style="background:var(--c-bg2);border:1px solid var(--c-border);border-radius:var(--radius);padding:14px">${tlH}</div>
     </div>
   </div>
-  ${buildDashProjects()}`;
+`;
 }
 
 function buildDashProjects() {
