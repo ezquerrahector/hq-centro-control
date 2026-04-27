@@ -1135,7 +1135,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v4.5</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v4.6</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -1875,30 +1875,69 @@ function buildList(todayOnly){
     const hoy = pending.filter(t => t.date === TODAY);
 
     // SECCIÓN 2: En curso — recurrentes que aplican hoy pero fecha original != hoy
-    const enCurso = pending.filter(t => {
-      if(t.date === TODAY) return false; // ya está en "Hoy"
-      return taskMatchesToday(t);        // recurrente que aplica hoy
+    const enCursoTareas = pending.filter(t => {
+      if(t.date === TODAY) return false;
+      return taskMatchesToday(t);
     });
 
-    const emptyHoy = `<div style="text-align:center;padding:20px;color:var(--c-text3);font-size:13px">Sin tareas para hoy 🎉</div>`;
+    // Alarmas activas hoy — convertidas a items visibles
+    const today_dow = new Date(TODAY+'T00:00:00').getDay(); // 0=Dom...6=Sab
+    const dowNames  = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+    const alarmasHoy = (typeof alarms !== 'undefined' ? alarms : []).filter(a => {
+      if(!a.on) return false;
+      const r = (a.repeat||'').toLowerCase();
+      if(r === 'cada día' || r === 'cada dia') return true;
+      if(r === 'lunes a viernes' && today_dow >= 1 && today_dow <= 5) return true;
+      if(r === 'fines de semana' && (today_dow === 0 || today_dow === 6)) return true;
+      if(r === 'cada semana' || r === 'cada semana') return true;
+      if(r === 'lunes y miércoles' && (today_dow === 1 || today_dow === 3)) return true;
+      if(r === 'cada viernes' && today_dow === 5) return true;
+      // Verificar si el día de la semana coincide
+      if(r.includes(dowNames[today_dow])) return true;
+      return false;
+    });
 
-    const sectionHoy = `
-      <div style="display:flex;align-items:center;gap:8px;margin:16px 0 8px">
-        <span style="font-size:15px;font-weight:700;color:var(--c-text)">📅 Hoy</span>
-        <span style="font-size:11px;background:var(--accent);color:#fff;border-radius:10px;padding:1px 8px">${hoy.length}</span>
-      </div>
-      ${hoy.length ? hoy.map(t => buildTreeTask(t)).join('') : emptyHoy}`;
+    const enCurso = enCursoTareas; // tareas recurrentes
 
-    const sectionCurso = enCurso.length ? `
-      <div style="display:flex;align-items:center;gap:8px;margin:20px 0 8px">
-        <span style="font-size:15px;font-weight:700;color:var(--c-text)">🔄 En curso</span>
-        <span style="font-size:11px;background:var(--c-text3);color:#fff;border-radius:10px;padding:1px 8px">${enCurso.length}</span>
-        <span style="font-size:11px;color:var(--c-text3)">Recurrentes activos hoy</span>
-      </div>
-      ${enCurso.map(t => buildTreeTask(t)).join('')}` : '';
+    const emptyHoy = '<div style="text-align:center;padding:20px;color:var(--c-text3);font-size:13px">Sin tareas con vencimiento hoy 🎉</div>';
 
-    if(!hoy.length && !enCurso.length) {
-      return toolbar + qa + `<div class="empty"><div class="empty-icon">✨</div><div class="empty-ttl">¡Todo al día!</div><div class="empty-sub">Sin tareas para hoy ni recurrentes activos.</div></div>`;
+    const sectionHoy = '<div style="display:flex;align-items:center;gap:8px;margin:16px 0 8px">'
+      +'<span style="font-size:15px;font-weight:700;color:var(--c-text)">📅 Hoy</span>'
+      +'<span style="font-size:11px;background:var(--accent);color:#fff;border-radius:10px;padding:1px 8px">'+hoy.length+'</span>'
+      +'</div>'
+      +(hoy.length ? hoy.map(t => buildTreeTask(t)).join('') : emptyHoy);
+
+    // Renderizar alarmas como cards simples
+    const alarmCards = alarmasHoy.map(a => {
+      const ctx = contexts.find(c=>c.id===a.ctx);
+      const color = ctx ? ctx.color : 'var(--c-text3)';
+      return '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--c-bg2);border:1px solid var(--c-border);border-radius:var(--radius);margin-bottom:6px;border-left:3px solid '+color+'">'
+        +'<span style="font-size:18px">🔔</span>'
+        +'<div style="flex:1">'
+          +'<div style="font-size:13px;font-weight:500;color:var(--c-text)">'+a.name+'</div>'
+          +'<div style="font-size:11px;color:var(--c-text3)">⏰ '+a.time+' · 🔁 '+a.repeat+(ctx?' · '+ctx.icon+' '+ctx.name:'')+'</div>'
+        +'</div>'
+        +'<span style="font-size:10px;color:var(--c-text3);background:var(--c-bg3);padding:2px 7px;border-radius:8px">Alarma</span>'
+      +'</div>';
+    }).join('');
+
+    const totalCurso = enCurso.length + alarmasHoy.length;
+    const emptyCurso = '<div style="text-align:center;padding:16px;color:var(--c-text3);font-size:12px">'
+      +'Sin recurrentes activos hoy.<br>'
+      +'<span style="font-size:11px">Crea tareas con recurrencia diaria o activa alarmas para verlas aquí.</span>'
+      +'</div>';
+
+    const sectionCurso = '<div style="display:flex;align-items:center;gap:8px;margin:20px 0 8px">'
+      +'<span style="font-size:15px;font-weight:700;color:var(--c-text)">🔄 En curso</span>'
+      +'<span style="font-size:11px;background:var(--c-text3);color:#fff;border-radius:10px;padding:1px 8px">'+totalCurso+'</span>'
+      +'<span style="font-size:11px;color:var(--c-text3)">Recurrentes activos hoy</span>'
+      +'</div>'
+      +(totalCurso
+        ? enCurso.map(t => buildTreeTask(t)).join('') + alarmCards
+        : emptyCurso);
+
+    if(!hoy.length && totalCurso === 0) {
+      return toolbar + qa + '<div class="empty"><div class="empty-icon">✨</div><div class="empty-ttl">¡Todo al día!</div><div class="empty-sub">Sin tareas para hoy ni recurrentes activos.</div></div>';
     }
     return toolbar + qa + sectionHoy + sectionCurso;
   }
