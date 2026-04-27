@@ -1135,7 +1135,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v4.8</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v5.0</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -1684,6 +1684,26 @@ function renderView(){
 // ══════════════════════════════════════════════════════
 // DASHBOARD
 // ══════════════════════════════════════════════════════
+function buildCtxStatCards() {
+  const wrap = document.createElement('div');
+  wrap.style.display = 'contents';
+  contexts.forEach(ctx => {
+    const ctxP     = tasks.filter(t=>!t.done&&t.ctx===ctx.id).length;
+    const ctxProjs = projects.filter(p=>p.ctx===ctx.id).length;
+    const ctxToday = tasks.filter(t=>!t.done&&t.ctx===ctx.id&&taskMatchesToday(t)).length;
+    const card = document.createElement('div');
+    card.className = 'stat-card';
+    card.style.cssText = 'cursor:pointer;border-top:3px solid '+ctx.color;
+    card.onclick = () => { filterByCtx(ctx.id); gotoView('tareas', null); };
+    card.innerHTML = '<div class="stat-icon">'+ctx.icon+'</div>'
+      +'<div class="stat-lbl">'+ctx.name+'</div>'
+      +'<div class="stat-val">'+ctxP+'</div>'
+      +'<div class="stat-sub">'+(ctxProjs?ctxProjs+' proyectos · ':'')+ctxToday+' hoy</div>';
+    wrap.appendChild(card);
+  });
+  return wrap.innerHTML;
+}
+
 function buildDash(){
   const pending = tasks.filter(t=>!t.done&&(curCtxFilter==='all'||t.ctx===curCtxFilter));
   const todayT = pending.filter(t => taskMatchesToday(t));
@@ -1728,7 +1748,7 @@ function buildDash(){
     </div>`;
 
   return`
-  <div class="dash-grid">
+  <div class="dash-grid" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr))">
     <div class="stat-card" onclick="gotoView('tareas',null)" style="cursor:pointer">
       <div class="stat-icon">✅</div>
       <div class="stat-lbl">Pendientes — ${ctxLabel}</div>
@@ -1736,18 +1756,7 @@ function buildDash(){
       <div class="stat-sub">${todayT.length} para hoy</div>
       <div class="stat-prog"><div class="stat-prog-fill" style="width:${pct}%"></div></div>
     </div>
-    <div class="stat-card bb" onclick="filterByCtx('banbajio');gotoView('tareas',null)" style="cursor:pointer">
-      <div class="stat-icon">🏦</div>
-      <div class="stat-lbl">BanBajío</div>
-      <div class="stat-val">${bbP}</div>
-      <div class="stat-sub">${projects.filter(p=>p.ctx==='banbajio').length} proyectos activos</div>
-    </div>
-    <div class="stat-card inst" onclick="filterByCtx('instinto');gotoView('tareas',null)" style="cursor:pointer">
-      <div class="stat-icon">🌸</div>
-      <div class="stat-lbl">Instinto Fragancias</div>
-      <div class="stat-val">${instP}</div>
-      <div class="stat-sub">Pendientes activos</div>
-    </div>
+    ${buildCtxStatCards()}
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:4px">
     <div>
@@ -2041,15 +2050,24 @@ function buildList(todayOnly){
     const ctxFilter = t => curCtxFilter === 'all' || t.ctx === curCtxFilter;
     const pending   = tasks.filter(t => !t.done && ctxFilter(t));
 
-    // SECCIÓN 1: Tareas con fecha exacta hoy SIN recurrencia
-    const hoy = pending.filter(t =>
-      t.date === TODAY && (!t.recurring || t.recurring === 'none')
-    );
+    // SECCIÓN 1: HOY — tareas con fecha exacta hoy (con o sin recurrencia)
+    const hoy = pending.filter(t => t.date === TODAY);
 
-    // SECCIÓN 2: En curso — tareas recurrentes que aplican hoy (cualquier fecha inicio <= hoy)
+    // SECCIÓN 2: EN CURSO — recurrentes cuya fecha de inicio ya pasó (antes de hoy)
+    // y según su tipo de recurrencia, aplican para hoy
     const enCursoTareas = pending.filter(t => {
-      if(!t.recurring || t.recurring === 'none') return false; // solo recurrentes
-      return taskMatchesToday(t); // aplica hoy según su tipo de recurrencia
+      if(!t.recurring || t.recurring === 'none') return false;
+      if(!t.date || t.date >= TODAY) return false; // solo las que empezaron ANTES de hoy
+      // Verificar si la recurrencia aplica para hoy
+      const d    = new Date(TODAY + 'T00:00:00');
+      const orig = new Date(t.date + 'T00:00:00');
+      const dow  = d.getDay();
+      const rec  = t.recurring;
+      if(rec === 'daily')    return true;
+      if(rec === 'weekdays') return dow >= 1 && dow <= 5;
+      if(rec === 'weekly')   return dow === orig.getDay();
+      if(rec === 'monthly')  return d.getDate() === orig.getDate();
+      return false;
     });
 
     // Alarmas activas hoy — convertidas a items visibles
