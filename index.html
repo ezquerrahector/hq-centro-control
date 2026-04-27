@@ -1121,7 +1121,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v3.3</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v3.4</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -5503,6 +5503,11 @@ function fbListenAll() {
 
     updateBadges();
     renderView();
+    // Refrescar panel de detalle si estaba abierto
+    if(_detailOpenId !== null) {
+      const stillExists = tasks.find(x=>Number(x.id)===Number(_detailOpenId));
+      if(stillExists) openDetail(_detailOpenId);
+    }
 
   }, function(err) {
     setSyncStatus('error', '✗ Sin conexión a Firebase');
