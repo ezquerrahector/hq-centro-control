@@ -1121,7 +1121,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v3.2</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v3.3</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -4228,37 +4228,50 @@ function saveSubTask() {
     done:     false,
   };
 
-  if(addType === 'subsub') {
-    // ── Agregar O editar sub-subtarea ──
-    const sub = task.subtasks ? task.subtasks.find(s=>String(s.id)===String(subId)) : null;
-    if(!sub) { toast('⚠️','Subtarea padre no encontrada'); return; }
+  // Buscar subtarea padre (flexible: por string o número)
+  const findSub = (list, id) => list ? list.find(s => String(s.id) === String(id)) : null;
+  const findSubIdx = (list, id) => list ? list.findIndex(s => String(s.id) === String(id)) : -1;
+
+  if(type === 'subsub' && subId) {
+    // ── Sub-subtarea (nueva o editar) ──
+    const sub = findSub(task.subtasks, subId);
+    if(!sub) { toast('⚠️','Subtarea padre no encontrada (id: '+subId+')'); return; }
     sub.subsubtasks = sub.subsubtasks || [];
     if(editId) {
       // Editar sub-subtarea existente
-      const idx = sub.subsubtasks.findIndex(ss=>String(ss.id)===String(editId));
-      if(idx>=0) {
+      const idx = findSubIdx(sub.subsubtasks, editId);
+      if(idx >= 0) {
         sub.subsubtasks[idx] = Object.assign({}, sub.subsubtasks[idx], itemData);
+      } else {
+        // No encontrada por id — puede ser que el id cambió de formato, buscar por título
+        console.warn('sub-subtarea no encontrada por id, buscando por título...');
+        const idxByTitle = sub.subsubtasks.findIndex(ss => ss.title === document.getElementById('subTitle').value.trim());
+        if(idxByTitle >= 0) {
+          sub.subsubtasks[idxByTitle] = Object.assign({}, sub.subsubtasks[idxByTitle], itemData);
+        } else {
+          // Agregar como nueva si no se encuentra
+          sub.subsubtasks.push({id:'ss_'+Date.now(), order: sub.subsubtasks.length, ...itemData});
+        }
       }
     } else {
       // Nueva sub-subtarea
       sub.subsubtasks.push({id:'ss_'+Date.now(), order: sub.subsubtasks.length, ...itemData});
     }
-  } else if(editId) {
+  } else if(editId && type === 'sub') {
     // ── Editar subtarea existente ──
-    const idx = task.subtasks ? task.subtasks.findIndex(s=>String(s.id)===String(editId)) : -1;
-    if(idx>=0) {
-      // Preservar subsubtasks y attachments al editar
+    const idx = findSubIdx(task.subtasks, editId);
+    if(idx >= 0) {
       const existing = task.subtasks[idx];
       task.subtasks[idx] = Object.assign({}, existing, itemData, {
         subsubtasks: existing.subsubtasks || [],
         attachments: existing.attachments || [],
-        id: existing.id  // nunca cambiar el id
+        id: existing.id
       });
     } else {
-      toast('⚠️','Subtarea no encontrada');
+      toast('⚠️','Subtarea no encontrada (id: '+editId+')');
       return;
     }
-  } else {
+  } else if(!editId) {
     // ── Nueva subtarea ──
     task.subtasks = task.subtasks || [];
     task.subtasks.push({
