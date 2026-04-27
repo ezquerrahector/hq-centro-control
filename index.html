@@ -804,7 +804,7 @@ console.log("Firebase compat cargado OK");
     </div>
     <div class="form-grp">
       <label class="form-lbl">Título *</label>
-      <input class="form-inp" id="mTitle" placeholder="¿Qué necesitas hacer?"/>
+      <input class="form-inp" id="mTitle" placeholder="¿Qué necesitas hacer?" onpaste="handlePasteMultiline(event,'task')"/>
     </div>
     <div class="form-row">
       <div class="form-grp">
@@ -1135,7 +1135,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v4.6</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v4.8</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -1469,6 +1469,52 @@ function openCtxMgmt(focusId){
 }
 function closeCtxMgmt(){document.getElementById('ctxMgmtModal').classList.remove('open');}
 
+const CTX_EMOJI_LIST = ['👤','🏦','🌸','📚','💼','🏠','🏋️','🎯','💡','🔬','🎨','🚀','⚡','🌍','🎵','📱','🛒','✈️','🔧','🎓','💰','🏥','🤝','📊','🗂️','⭐','🔔','📝','🌟','🦁','🐬','🦋','🌴','⛰️','🏆','🎪','🧪','🔑','🛡️','💎','🌙'];
+
+function openIconPicker(ctxId) {
+  const existing = document.getElementById('iconPickerPop');
+  if(existing) { existing.remove(); return; }
+  const anchor = document.getElementById('ctxico-'+ctxId);
+  if(!anchor) return;
+  const rect = anchor.getBoundingClientRect();
+  const pop = document.createElement('div');
+  pop.id = 'iconPickerPop';
+  pop.style.cssText = 'position:fixed;top:'+(rect.bottom+6)+'px;left:'+rect.left+'px;background:var(--c-bg2);border:1px solid var(--c-border);border-radius:12px;padding:10px;z-index:9999;box-shadow:0 8px 32px rgba(0,0,0,.4);display:grid;grid-template-columns:repeat(8,32px);gap:4px;max-width:300px';
+  CTX_EMOJI_LIST.forEach(emoji => {
+    const btn = document.createElement('button');
+    btn.textContent = emoji;
+    btn.style.cssText = 'width:32px;height:32px;border:none;background:transparent;cursor:pointer;font-size:18px;border-radius:6px;transition:background .1s';
+    btn.onmouseover = () => btn.style.background = 'var(--c-bg3)';
+    btn.onmouseout  = () => btn.style.background = 'transparent';
+    btn.onclick = () => {
+      changeCtxIcon(ctxId, emoji);
+      pop.remove();
+    };
+    pop.appendChild(btn);
+  });
+  document.body.appendChild(pop);
+  // Cerrar al hacer clic fuera
+  setTimeout(() => {
+    document.addEventListener('click', function closeIconPicker(e) {
+      if(!pop.contains(e.target) && e.target !== anchor) {
+        pop.remove();
+        document.removeEventListener('click', closeIconPicker);
+      }
+    });
+  }, 100);
+}
+
+function changeCtxIcon(id, newIcon) {
+  const ctx = contexts.find(c=>c.id===id);
+  if(!ctx) return;
+  ctx.icon = newIcon;
+  fbSaveContexts();
+  renderSidebar();
+  renderCtxFilterBar();
+  buildCtxEditList(); // refrescar el modal
+  toast('✅', 'Ícono actualizado');
+}
+
 function renameCtx(id, newName) {
   newName = (newName||'').trim();
   if(!newName) return;
@@ -1561,6 +1607,8 @@ function addContext(){
 // ══════════════════════════════════════════════════════
 function gotoView(view,el){
   curView=view;
+  // Recordar la vista para restaurar al recargar
+  try { localStorage.setItem('hq_last_view', view); } catch(e){}
   if(!el)el=document.querySelector(`[data-view="${view}"]`);
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   if(el)el.classList.add('active');
@@ -1713,7 +1761,129 @@ function buildDash(){
       <div class="sec-hdr"><div class="sec-ttl">📅 Agenda de hoy</div></div>
       <div style="background:var(--c-bg2);border:1px solid var(--c-border);border-radius:var(--radius);padding:14px">${tlH}</div>
     </div>
-  </div>`;
+  </div>
+  ${buildDashProjects()}`;
+}
+
+function buildDashProjects() {
+  let hidden = [];
+  try { hidden = JSON.parse(localStorage.getItem('hq_dash_hidden_projs')||'[]'); } catch(e){}
+  const visibleProjs = projects.filter(p => !hidden.includes(p.id));
+  const hiddenProjs  = projects.filter(p =>  hidden.includes(p.id));
+  if(!projects.length) return '';
+
+  const wrap = document.createElement('div');
+  wrap.style.marginTop = '16px';
+
+  // Header
+  const hdr = document.createElement('div');
+  hdr.className = 'sec-hdr';
+  hdr.innerHTML = '<div class="sec-ttl">📁 Proyectos ('+visibleProjs.length+'/'+projects.length+')</div>';
+  const verBtn = document.createElement('button');
+  verBtn.className = 'btn-sec';
+  verBtn.style.cssText = 'font-size:11px;padding:4px 10px';
+  verBtn.textContent = 'Ver todos';
+  verBtn.onclick = () => gotoView('proyectos', null);
+  hdr.appendChild(verBtn);
+  wrap.appendChild(hdr);
+
+  // Grid de proyectos
+  const grid = document.createElement('div');
+  grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px';
+
+  visibleProjs.forEach(p => {
+    const ctx    = contexts.find(c=>c.id===p.ctx);
+    const pTasks = tasks.filter(t=>!t.done && t.projId===p.id);
+    const pDone  = tasks.filter(t=>t.done  && t.projId===p.id).length;
+    const pTotal = pTasks.length + pDone;
+    const pct    = pTotal ? Math.round(pDone/pTotal*100) : 0;
+    const color  = ctx ? ctx.color : 'var(--accent)';
+
+    const card = document.createElement('div');
+    card.style.cssText = 'background:var(--c-bg2);border:1px solid var(--c-border);border-radius:var(--radius);padding:12px 14px;cursor:pointer;position:relative;border-left:3px solid '+color;
+    card.onclick = () => gotoProject(p.id);
+
+    const cardHdr = document.createElement('div');
+    cardHdr.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:6px';
+
+    const name = document.createElement('div');
+    name.style.cssText = 'font-size:13px;font-weight:600;color:var(--c-text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+    name.textContent = p.name;
+
+    const hideBtn = document.createElement('button');
+    hideBtn.title = 'Ocultar del dashboard';
+    hideBtn.style.cssText = 'width:20px;height:20px;border:none;background:transparent;color:var(--c-text3);cursor:pointer;border-radius:4px;font-size:12px;flex-shrink:0';
+    hideBtn.textContent = '✕';
+    hideBtn.onmouseover = () => hideBtn.style.background = 'var(--c-bg3)';
+    hideBtn.onmouseout  = () => hideBtn.style.background = 'transparent';
+    hideBtn.onclick = e => { e.stopPropagation(); hideDashProject(p.id); };
+
+    cardHdr.appendChild(name);
+    cardHdr.appendChild(hideBtn);
+    card.appendChild(cardHdr);
+
+    const meta = document.createElement('div');
+    meta.style.cssText = 'font-size:11px;color:var(--c-text3);margin-bottom:8px';
+    meta.textContent = (ctx?ctx.icon+' '+ctx.name:'')+' · '+pTasks.length+' pendientes';
+    card.appendChild(meta);
+
+    const bar = document.createElement('div');
+    bar.style.cssText = 'height:3px;background:var(--c-border);border-radius:2px;overflow:hidden';
+    const fill = document.createElement('div');
+    fill.style.cssText = 'height:100%;width:'+pct+'%;background:'+color+';border-radius:2px;transition:width .4s';
+    bar.appendChild(fill);
+    card.appendChild(bar);
+
+    const pctLbl = document.createElement('div');
+    pctLbl.style.cssText = 'font-size:10px;color:var(--c-text3);margin-top:3px';
+    pctLbl.textContent = pct+'% completado';
+    card.appendChild(pctLbl);
+
+    grid.appendChild(card);
+  });
+  wrap.appendChild(grid);
+
+  // Proyectos ocultos
+  if(hiddenProjs.length) {
+    const hiddenRow = document.createElement('div');
+    hiddenRow.style.cssText = 'margin-top:8px;font-size:11px;color:var(--c-text3)';
+    hiddenProjs.forEach(p => {
+      const lnk = document.createElement('span');
+      lnk.style.cssText = 'cursor:pointer;margin-right:8px;text-decoration:underline';
+      lnk.title = 'Mostrar en dashboard';
+      lnk.textContent = p.name;
+      lnk.onclick = () => showDashProject(p.id);
+      hiddenRow.appendChild(lnk);
+    });
+    const hint = document.createElement('span');
+    hint.style.opacity = '0.6';
+    hint.textContent = '↑ Proyectos ocultos (clic para mostrar)';
+    hiddenRow.appendChild(hint);
+    wrap.appendChild(hiddenRow);
+  }
+
+  return wrap.outerHTML;
+}
+
+function _PLACEHOLDER_buildDashProjects() {
+  const visibleProjs = [];
+  return '';
+}
+
+function hideDashProject(projId) {
+  let hidden = [];
+  try { hidden = JSON.parse(localStorage.getItem('hq_dash_hidden_projs')||'[]'); } catch(e){}
+  if(!hidden.includes(projId)) hidden.push(projId);
+  localStorage.setItem('hq_dash_hidden_projs', JSON.stringify(hidden));
+  renderView();
+}
+
+function showDashProject(projId) {
+  let hidden = [];
+  try { hidden = JSON.parse(localStorage.getItem('hq_dash_hidden_projs')||'[]'); } catch(e){}
+  hidden = hidden.filter(id => id !== projId);
+  localStorage.setItem('hq_dash_hidden_projs', JSON.stringify(hidden));
+  renderView();
 }
 
 function buildDashTodayRows(list){
@@ -1863,7 +2033,7 @@ function buildList(todayOnly){
   // Quick add
   const qa = `<div class="quick-add-wrap" style="margin-bottom:12px">
     <span style="font-size:16px;color:var(--c-text3)">＋</span>
-    <input placeholder="Tarea rápida… presiona Enter para guardar" onkeydown="quickAdd(event,this)"/>
+    <input placeholder="Tarea rápida… presiona Enter para guardar" onkeydown="quickAdd(event,this)" onpaste="handlePasteMultiline(event,'task')"/>
   </div>`;
 
   // Si es "Mi Día" (todayOnly), separar en dos secciones
@@ -1871,13 +2041,15 @@ function buildList(todayOnly){
     const ctxFilter = t => curCtxFilter === 'all' || t.ctx === curCtxFilter;
     const pending   = tasks.filter(t => !t.done && ctxFilter(t));
 
-    // SECCIÓN 1: Tareas con fecha exacta hoy
-    const hoy = pending.filter(t => t.date === TODAY);
+    // SECCIÓN 1: Tareas con fecha exacta hoy SIN recurrencia
+    const hoy = pending.filter(t =>
+      t.date === TODAY && (!t.recurring || t.recurring === 'none')
+    );
 
-    // SECCIÓN 2: En curso — recurrentes que aplican hoy pero fecha original != hoy
+    // SECCIÓN 2: En curso — tareas recurrentes que aplican hoy (cualquier fecha inicio <= hoy)
     const enCursoTareas = pending.filter(t => {
-      if(t.date === TODAY) return false;
-      return taskMatchesToday(t);
+      if(!t.recurring || t.recurring === 'none') return false; // solo recurrentes
+      return taskMatchesToday(t); // aplica hoy según su tipo de recurrencia
     });
 
     // Alarmas activas hoy — convertidas a items visibles
@@ -3341,6 +3513,98 @@ function toggleSub(tid,sid){
   const s=t.subtasks.find(x=>x.id===sid);if(s){s.done=!s.done;renderView();}
 }
 
+// ── PEGADO MÚLTIPLES LÍNEAS ──
+function handlePasteMultiline(e, context) {
+  const text = (e.clipboardData || window.clipboardData).getData('text');
+  const lines = text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  if(lines.length <= 1) return;
+  e.preventDefault();
+  e.target.value = lines[0];
+  const existing = document.getElementById('pasteModal');
+  if(existing) existing.remove();
+
+  const m = document.createElement('div');
+  m.id = 'pasteModal';
+  m.className = 'overlay open';
+  m.onclick = ev => { if(ev.target===m) m.remove(); };
+
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.style.maxWidth = '460px';
+
+  // Header
+  const hdr = document.createElement('div');
+  hdr.className = 'modal-hdr';
+  hdr.innerHTML = '<span class="modal-ttl">📋 Detecté '+lines.length+' líneas</span>';
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'btn-icon';
+  closeBtn.textContent = '✕';
+  closeBtn.onclick = () => m.remove();
+  hdr.appendChild(closeBtn);
+  modal.appendChild(hdr);
+
+  // Descripción
+  const desc = document.createElement('div');
+  desc.style.cssText = 'font-size:12px;color:var(--c-text3);margin-bottom:12px';
+  const label = context==='subtask'?'subtareas':context==='subsubtask'?'sub-subtareas':'tareas';
+  desc.innerHTML = '¿Qué hacer con las <strong>'+lines.length+' líneas</strong> pegadas?';
+  modal.appendChild(desc);
+
+  // Preview
+  const preview = document.createElement('div');
+  preview.style.cssText = 'background:var(--c-bg3);border-radius:8px;padding:10px 12px;margin-bottom:14px;max-height:140px;overflow-y:auto';
+  lines.forEach((l,i) => {
+    const row = document.createElement('div');
+    row.style.cssText = 'font-size:12px;padding:3px 0;border-bottom:1px solid var(--c-border)';
+    row.textContent = (i+1)+'. '+l;
+    preview.appendChild(row);
+  });
+  modal.appendChild(preview);
+
+  // Botones
+  const btns = document.createElement('div');
+  btns.style.cssText = 'display:flex;flex-direction:column;gap:8px';
+  const btnCreate = document.createElement('button');
+  btnCreate.className = 'btn-primary';
+  btnCreate.textContent = '✅ Crear '+lines.length+' '+label+' separadas';
+  btnCreate.onclick = () => createMultipleTasks(lines, context);
+  const btnCancel = document.createElement('button');
+  btnCancel.className = 'btn-sec';
+  btnCancel.textContent = '📝 Solo usar la primera línea';
+  btnCancel.onclick = () => m.remove();
+  btns.appendChild(btnCreate);
+  btns.appendChild(btnCancel);
+  modal.appendChild(btns);
+
+  m.appendChild(modal);
+  document.body.appendChild(m);
+}
+
+async function createMultipleTasks(lines, context) {
+  const m = document.getElementById('pasteModal');
+  if(m) m.remove();
+  let created = 0;
+  for(const line of lines) {
+    if(!line.trim()) continue;
+    const t = {
+      id: Date.now() + created,
+      title: line.trim(), notes: '', date: TODAY, time: '',
+      priority: 'medium',
+      ctx: curCtxFilter !== 'all' ? curCtxFilter : 'personal',
+      tags: [], projId: '', done: false, recurring: 'none',
+      attachments: [], subtasks: [], subsubtasks: [],
+      order: tasks.length + created, list: 'inbox'
+    };
+    tasks.unshift(t);
+    await fbSaveTask(t);
+    created++;
+    await new Promise(r => setTimeout(r, 80));
+  }
+  renderView();
+  toast('✅', created+' tareas creadas');
+}
+
+
 function quickAdd(e,inp){
   if(e.key!=='Enter'||!inp.value.trim())return;
   tasks.unshift({id:Date.now(),title:inp.value.trim(),notes:'',date:TODAY,time:'',priority:'medium',
@@ -3421,9 +3685,18 @@ function doSearch(q){
   if(!q){renderView();return;}
   const ql = q.toLowerCase();
   const res = tasks.filter(t => taskMatchesQuery(t, ql));
-  document.getElementById('content').innerHTML=`
-    <div class="sec-hdr"><div class="sec-ttl">🔍 "${q}" — ${res.length} resultados</div></div>
-    <div class="task-list">${res.length?buildTaskCards(res):'<div class="empty"><div class="empty-icon">🔍</div><div class="empty-ttl">Sin resultados</div></div>'}</div>`;
+  const toolbar = `<div class="tree-toolbar">
+    <span class="tree-toolbar-label">Vista árbol:</span>
+    <button class="tree-btn" onclick="treeExpandAll()">📂 Expandir todo</button>
+    <button class="tree-btn" onclick="treeCollapseSubsOnly()">📋 Colapsar sub-subtareas</button>
+    <button class="tree-btn" onclick="treeCollapseAll()">📁 Colapsar todo</button>
+  </div>`;
+  const resultHTML = res.length
+    ? res.map(t => buildTreeTask(t)).join('')
+    : '<div class="empty"><div class="empty-icon">🔍</div><div class="empty-ttl">Sin resultados para "'+q+'"</div></div>';
+  document.getElementById('content').innerHTML =
+    '<div class="sec-hdr"><div class="sec-ttl">🔍 "'+q+'" — '+res.length+' resultados</div></div>'
+    + toolbar + resultHTML;
 }
 
 function updateBadges(){
@@ -5972,6 +6245,13 @@ function onFirstLoad() {
   if(cfg.publicKey && cfg.serviceId && cfg.templateId) {
     scheduleEmailSummary();
   }
+  // Restaurar la última vista visitada
+  try {
+    const lastView = localStorage.getItem('hq_last_view');
+    if(lastView && lastView !== 'dashboard') {
+      gotoView(lastView, null);
+    }
+  } catch(e){}
 }
 </script>
 
