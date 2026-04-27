@@ -485,6 +485,8 @@ textarea.form-inp{resize:vertical;min-height:65px;}
 .task-item[draggable="true"]:active{cursor:grabbing;}
 .task-item.drag-over{border-color:var(--accent)!important;background:var(--accent-light)!important;transform:scale(1.01);}
 .task-item.dragging{opacity:.4;transform:scale(.98);box-shadow:0 8px 24px rgba(0,0,0,.15);}
+.sub-drag-over{border:2px dashed var(--accent) !important;border-radius:var(--radius-sm);}
+.subsub-drag-over{border-left:3px solid var(--accent) !important;background:var(--c-bg3) !important;}
 .drag-handle{display:flex;align-items:center;justify-content:center;width:18px;color:var(--c-text3);cursor:grab;font-size:14px;flex-shrink:0;opacity:0;transition:opacity .15s;}
 .task-item:hover .drag-handle{opacity:1;}
 .drag-handle:active{cursor:grabbing;}
@@ -1121,7 +1123,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v3.4</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v3.6</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -1988,7 +1990,12 @@ function buildTreeSubsubs(taskId, sub, subOpen) {
   return (sub.subsubtasks||[]).map(ss => {
     const doneCls = ss.done ? 'done' : '';
     const pMark   = {high:'🔴',medium:'🟡',low:'🔵',none:''}[ss.priority||'none']||'';
-    return `<div class="tree-subsub-item" id="treesubsub-${taskId}-${sub.id}-${ss.id}">
+    return `<div class="tree-subsub-item" id="treesubsub-${taskId}-${sub.id}-${ss.id}"
+      draggable="true"
+      ondragstart="onSubSubDragStart(event,${taskId},'${sub.id}','${ss.id}')"
+      ondragover="onSubSubDragOver(event,${taskId},'${sub.id}','${ss.id}')"
+      ondrop="onSubSubDrop(event,${taskId},'${sub.id}','${ss.id}')"
+      ondragend="onSubSubDragEnd(event)">
       <div class="subsub-check ${ss.done?'checked':''}"
         onclick="event.stopPropagation();toggleSubSubDone(${taskId},'${sub.id}','${ss.id}')">${ss.done?'✓':''}</div>
       <span class="tree-subsub-title ${doneCls}"
@@ -3336,6 +3343,117 @@ function buildSubRow(taskId, s, inDetail) {
 let dragTaskId = null;
 let dragOverTaskId = null;
 
+// ── Drag & Drop de SUBTAREAS ──
+let dragSubCtx = null; // {taskId, subId, type: 'sub'|'subsub', parentSubId?}
+
+function onSubDragStart(e, taskId, subId) {
+  dragSubCtx = {taskId: Number(taskId), subId: String(subId), type: 'sub'};
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', 'sub:'+taskId+':'+subId);
+  const el = document.getElementById('subrow-'+taskId+'-'+subId);
+  if(el) setTimeout(() => el.style.opacity = '0.4', 0);
+}
+
+function onSubDragOver(e, taskId, subId) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  if(!dragSubCtx || dragSubCtx.type !== 'sub') return;
+  document.querySelectorAll('.sub-drag-over').forEach(el => el.classList.remove('sub-drag-over'));
+  const el = document.getElementById('subrow-'+taskId+'-'+subId);
+  if(el && String(subId) !== dragSubCtx.subId) el.classList.add('sub-drag-over');
+}
+
+function onSubDragLeave(e) {
+  e.currentTarget.classList.remove('sub-drag-over');
+}
+
+function onSubDrop(e, taskId, targetSubId) {
+  e.preventDefault(); e.stopPropagation();
+  if(!dragSubCtx || dragSubCtx.type !== 'sub') return;
+  const task = tasks.find(t => Number(t.id) === Number(taskId));
+  if(!task || !task.subtasks) return;
+  const fromId = dragSubCtx.subId;
+  const toId   = String(targetSubId);
+  if(fromId === toId) return;
+
+  const fromIdx = task.subtasks.findIndex(s => String(s.id) === fromId);
+  const toIdx   = task.subtasks.findIndex(s => String(s.id) === toId);
+  if(fromIdx < 0 || toIdx < 0) return;
+
+  const [moved] = task.subtasks.splice(fromIdx, 1);
+  task.subtasks.splice(toIdx, 0, moved);
+  task.subtasks.forEach((s, i) => s.order = i);
+
+  fbSaveTask(task);
+  dragSubCtx = null;
+  document.querySelectorAll('.sub-drag-over').forEach(el => el.classList.remove('sub-drag-over'));
+  document.querySelectorAll('[id^="subrow-"]').forEach(el => el.style.opacity = '');
+  if(_detailOpenId !== null) openDetail(_detailOpenId);
+  renderView();
+  toast('↕️', 'Subtarea reordenada');
+}
+
+function onSubDragEnd(e) {
+  document.querySelectorAll('[id^="subrow-"]').forEach(el => {
+    el.style.opacity = '';
+    el.classList.remove('sub-drag-over');
+  });
+  dragSubCtx = null;
+}
+
+// ── Drag & Drop de SUB-SUBTAREAS ──
+function onSubSubDragStart(e, taskId, subId, ssId) {
+  dragSubCtx = {taskId: Number(taskId), subId: String(subId), ssId: String(ssId), type: 'subsub'};
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', 'subsub:'+taskId+':'+subId+':'+ssId);
+  const el = document.getElementById('ssrow-'+taskId+'-'+subId+'-'+ssId);
+  if(el) setTimeout(() => el.style.opacity = '0.4', 0);
+}
+
+function onSubSubDragOver(e, taskId, subId, ssId) {
+  e.preventDefault();
+  if(!dragSubCtx || dragSubCtx.type !== 'subsub') return;
+  document.querySelectorAll('.subsub-drag-over').forEach(el => el.classList.remove('subsub-drag-over'));
+  const el = document.getElementById('ssrow-'+taskId+'-'+subId+'-'+ssId);
+  if(el && String(ssId) !== dragSubCtx.ssId) el.classList.add('subsub-drag-over');
+}
+
+function onSubSubDrop(e, taskId, subId, targetSsId) {
+  e.preventDefault(); e.stopPropagation();
+  if(!dragSubCtx || dragSubCtx.type !== 'subsub') return;
+  const task = tasks.find(t => Number(t.id) === Number(taskId));
+  if(!task) return;
+  const sub = (task.subtasks||[]).find(s => String(s.id) === String(subId));
+  if(!sub || !sub.subsubtasks) return;
+  const fromId = dragSubCtx.ssId;
+  const toId   = String(targetSsId);
+  if(fromId === toId) return;
+
+  const fromIdx = sub.subsubtasks.findIndex(ss => String(ss.id) === fromId);
+  const toIdx   = sub.subsubtasks.findIndex(ss => String(ss.id) === toId);
+  if(fromIdx < 0 || toIdx < 0) return;
+
+  const [moved] = sub.subsubtasks.splice(fromIdx, 1);
+  sub.subsubtasks.splice(toIdx, 0, moved);
+  sub.subsubtasks.forEach((ss, i) => ss.order = i);
+
+  fbSaveTask(task);
+  dragSubCtx = null;
+  document.querySelectorAll('.subsub-drag-over').forEach(el => el.classList.remove('subsub-drag-over'));
+  document.querySelectorAll('[id^="ssrow-"]').forEach(el => el.style.opacity = '');
+  if(_detailOpenId !== null) openDetail(_detailOpenId);
+  renderView();
+  toast('↕️', 'Sub-subtarea reordenada');
+}
+
+function onSubSubDragEnd(e) {
+  document.querySelectorAll('[id^="ssrow-"]').forEach(el => {
+    el.style.opacity = '';
+    el.classList.remove('subsub-drag-over');
+  });
+  dragSubCtx = null;
+}
+
 function onTaskDragStart(e, id) {
   dragTaskId = Number(id);
   e.dataTransfer.effectAllowed = 'move';
@@ -4131,6 +4249,8 @@ function openSubModal(type, taskId, subId, editId, addType) {
   subModalCtx = {type, taskId: Number(taskId), subId: subId ? String(subId) : null, editId: editId ? String(editId) : null, addType};
   curSubPrio  = 'medium';
   subModalTags = [];
+  const subSugEl = document.getElementById('subTagSug');
+  if(subSugEl) subSugEl.innerHTML = '';
   
   // Limpiar campos
   document.getElementById('subTitle').value  = '';
@@ -4362,13 +4482,73 @@ function inlineEditSubsub(taskId, subId, ssId, spanEl) {
 
 // ── ETIQUETAS EN MODAL DE SUBTAREA ──
 function addSubTag(e) {
-  if(e.key!=='Enter') return;
+  if(e.key === 'Escape') {
+    document.getElementById('subTagSug').innerHTML = '';
+    return;
+  }
+  if(e.key !== 'Enter') return;
   const inp = document.getElementById('subTagInp');
   const v = (inp.value||'').trim().toLowerCase().replace(/\s+/g,'-');
-  if(!v || subModalTags.includes(v)) { inp.value=''; return; }
+  if(!v || subModalTags.includes(v)) { inp.value=''; renderSubTagAutocomplete(''); return; }
   subModalTags.push(v);
   inp.value='';
   renderSubTagPills();
+  renderSubTagAutocomplete('');
+}
+
+function addSubTagFromSug(tag) {
+  if(!subModalTags.includes(tag)) {
+    subModalTags.push(tag);
+    renderSubTagPills();
+  }
+  const inp = document.getElementById('subTagInp');
+  if(inp) inp.value = '';
+  renderSubTagAutocomplete('');
+}
+
+function renderSubTagAutocomplete(query) {
+  const el = document.getElementById('subTagSug');
+  if(!el) return;
+  query = (query||'').trim().toLowerCase();
+
+  // Recopilar todas las etiquetas existentes en tareas
+  const allTags = new Set();
+  tasks.forEach(t => {
+    (t.tags||[]).forEach(tag => allTags.add(tag));
+    (t.subtasks||[]).forEach(s => (s.tags||[]).forEach(tag => allTags.add(tag)));
+  });
+  // Agregar sugerencias estáticas
+  (typeof SUGGESTED !== 'undefined' ? SUGGESTED : []).forEach(t => allTags.add(t));
+
+  const available = [...allTags].filter(t => !subModalTags.includes(t));
+
+  // Filtrar por lo que escribe
+  const filtered = query
+    ? available.filter(t => t.includes(query)).sort((a,b) => {
+        // Priorizar las que empiezan con el query
+        const aStart = a.startsWith(query) ? 0 : 1;
+        const bStart = b.startsWith(query) ? 0 : 1;
+        return aStart - bStart || a.localeCompare(b);
+      })
+    : available.slice(0, 8);
+
+  if(!filtered.length) { el.innerHTML = ''; return; }
+
+  el.innerHTML = '';
+  filtered.slice(0,8).forEach(t => {
+    const col = tagColor(t);
+    const span = document.createElement('span');
+    span.className = 'tag-sug';
+    span.style.cssText = 'background:'+col+'22;color:'+col+';cursor:pointer;margin:2px';
+    if(query) {
+      const safe = query.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+      span.innerHTML = t.replace(new RegExp('('+safe+')','gi'),'<strong>$1</strong>');
+    } else {
+      span.textContent = t;
+    }
+    span.onclick = (function(tag){ return function(){ addSubTagFromSug(tag); }; })(t);
+    el.appendChild(span);
+  });
 }
 
 function removeSubTag(i) {
@@ -4377,18 +4557,35 @@ function removeSubTag(i) {
 }
 
 function renderSubTagPills() {
+  // Usar div separado si existe (nuevo layout), sino fallback al wrap
+  const pillsDiv = document.getElementById('subTagPills');
   const wrap = document.getElementById('subTagsWrap');
   const inp  = document.getElementById('subTagInp');
   if(!wrap || !inp) return;
-  [...wrap.querySelectorAll('.tag-pill-rm')].forEach(e=>e.remove());
-  subModalTags.forEach((tag,i)=>{
-    const col = tagColor(tag);
-    const pill = document.createElement('span');
-    pill.className = 'tag-pill-rm';
-    pill.style = 'background:'+col+'22;color:'+col;
-    pill.innerHTML = tag+'<span class="rm" onclick="removeSubTag('+i+')">✕</span>';
-    wrap.insertBefore(pill, inp);
-  });
+
+  if(pillsDiv) {
+    // Nuevo layout: pills en div separado
+    pillsDiv.innerHTML = '';
+    subModalTags.forEach((tag,i)=>{
+      const col = tagColor(tag);
+      const pill = document.createElement('span');
+      pill.className = 'tag-pill-rm';
+      pill.style.cssText = 'background:'+col+'22;color:'+col;
+      pill.innerHTML = tag+'<span class="rm" onclick="removeSubTag('+i+')">✕</span>';
+      pillsDiv.appendChild(pill);
+    });
+  } else {
+    // Fallback: pills inline en el wrap
+    [...wrap.querySelectorAll('.tag-pill-rm')].forEach(e=>e.remove());
+    subModalTags.forEach((tag,i)=>{
+      const col = tagColor(tag);
+      const pill = document.createElement('span');
+      pill.className = 'tag-pill-rm';
+      pill.style.cssText = 'background:'+col+'22;color:'+col;
+      pill.innerHTML = tag+'<span class="rm" onclick="removeSubTag('+i+')">✕</span>';
+      wrap.insertBefore(pill, inp);
+    });
+  }
 }
 
 // ── AGREGAR SUB-SUBTAREA RÁPIDA (inline) ──
@@ -4569,8 +4766,15 @@ function buildDetailSubRow(task, s) {
     const ssCls = ss.done ? 'checked' : '';
     const ssDoneCls = ss.done ? 'done' : '';
     const ssPMark = {high:'🔴',medium:'🟡',low:'🔵',none:''}[ss.priority||'none']||'';
-    return `<div style="display:flex;align-items:center;gap:7px;padding:6px 10px 6px 20px;border-top:1px solid var(--c-border);background:${ss.done?'var(--c-bg3)':'var(--c-bg2)'};position:relative">
-      <span style="position:absolute;left:8px;color:var(--c-text3);font-size:10px">└</span>
+    return `<div id="ssrow-${task.id}-${s.id}-${ss.id}"
+      draggable="true"
+      ondragstart="onSubSubDragStart(event,${task.id},'${s.id}','${ss.id}')"
+      ondragover="onSubSubDragOver(event,${task.id},'${s.id}','${ss.id}')"
+      ondrop="onSubSubDrop(event,${task.id},'${s.id}','${ss.id}')"
+      ondragend="onSubSubDragEnd(event)"
+      style="display:flex;align-items:center;gap:7px;padding:6px 10px 6px 20px;border-top:1px solid var(--c-border);background:${ss.done?'var(--c-bg3)':'var(--c-bg2)'};position:relative;transition:opacity .2s">
+      <span style="position:absolute;left:2px;color:var(--c-text3);font-size:10px;cursor:grab" title="Reordenar">⠿</span>
+      <span style="position:absolute;left:14px;color:var(--c-text3);font-size:10px">└</span>
       <div class="sub-check-sm ${ssCls}" onclick="toggleSubSubDone(${task.id},'${s.id}','${ss.id}');openDetail(${task.id})">${ss.done?'✓':''}</div>
       <span style="font-size:11px;color:var(--c-text)!important;flex:1;${ss.done?'text-decoration:line-through;color:var(--c-text3)!important':''}"
         ondblclick="inlineEditSubsub(${task.id},'${s.id}','${ss.id}',this)"
@@ -4600,9 +4804,17 @@ function buildDetailSubRow(task, s) {
       style="font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--c-border);background:var(--c-bg2);color:var(--c-text2);cursor:pointer;white-space:nowrap">+ Detalle</button>
   </div>`;
 
-  return `<div style="background:var(--c-bg2);border:1px solid var(--c-border);border-radius:var(--radius-sm);margin-bottom:6px;overflow:hidden">
+  return `<div id="subrow-${task.id}-${s.id}"
+    draggable="true"
+    ondragstart="onSubDragStart(event,${task.id},'${s.id}')"
+    ondragover="onSubDragOver(event,${task.id},'${s.id}')"
+    ondragleave="onSubDragLeave(event)"
+    ondrop="onSubDrop(event,${task.id},'${s.id}')"
+    ondragend="onSubDragEnd(event)"
+    style="background:var(--c-bg2);border:1px solid var(--c-border);border-radius:var(--radius-sm);margin-bottom:6px;overflow:hidden;transition:opacity .2s">
     <!-- Fila de la subtarea -->
     <div style="display:flex;align-items:flex-start;gap:9px;padding:10px 12px;position:relative;border-left:3px solid ${s.priority==='high'?'#e05252':s.priority==='medium'?'#e0a752':s.priority==='low'?'#52a8e0':'transparent'}">
+      <span style="color:var(--c-text3);font-size:13px;cursor:grab;padding:2px 2px 0 0;flex-shrink:0" title="Arrastra para reordenar">⠿</span>
       <div class="sub-check-sm ${checkedCls}" onclick="toggleSubDone(${task.id},'${s.id}');openDetail(${task.id})">${s.done?'✓':''}</div>
       <div style="flex:1;min-width:0">
         <div style="font-size:13px;font-weight:500;color:var(--c-text)!important;${s.done?'text-decoration:line-through;color:var(--c-text3)!important':''};margin-bottom:3px"
