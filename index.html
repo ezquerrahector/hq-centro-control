@@ -1135,7 +1135,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v5.9</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v6.0</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -1442,6 +1442,20 @@ function renderCtxFilterBar(){
       </div>`).join('')}`;
 }
 
+function gotoCtxTareas(ctxId) {
+  // Cambiar vista primero, luego filtrar para evitar re-render del dashboard
+  curView = 'tareas';
+  try { localStorage.setItem('hq_last_view','tareas'); } catch(e){}
+  filterByCtx(ctxId);
+  // Actualizar nav activo
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  const navEl = document.querySelector('[data-view="tareas"]');
+  if(navEl) navEl.classList.add('active');
+  // Actualizar título
+  const titleEl = document.querySelector('.topbar-title');
+  if(titleEl) titleEl.textContent = '✅ Tareas';
+}
+
 function filterByCtx(id){
   curCtxFilter=id;
   // update accent CSS variable
@@ -1701,7 +1715,7 @@ function buildCtxStatCards() {
     const card = document.createElement('div');
     card.className = 'stat-card';
     card.style.cssText = 'cursor:pointer;border-top:3px solid '+ctx.color;
-    card.setAttribute('onclick', "filterByCtx('"+ctx.id+"');gotoView('tareas',null)");
+    card.setAttribute('onclick', "gotoCtxTareas('"+ctx.id+"')");
     card.style.cursor = 'pointer';
     const ctxProjs = projects.filter(p=>p.ctx===ctx.id).length;
     card.innerHTML = '<div class="stat-icon">'+ctx.icon+'</div>'
