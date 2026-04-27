@@ -861,7 +861,10 @@ console.log("Firebase compat cargado OK");
     <div class="form-grp">
       <label class="form-lbl">Etiquetas</label>
       <div class="tags-wrap" id="tagsWrap" onclick="document.getElementById('tagInp').focus()">
-        <input class="tag-input" id="tagInp" placeholder="Escribe y presiona Enter..." onkeydown="addTagKey(event)"/>
+        <input class="tag-input" id="tagInp" placeholder="Escribe y presiona Enter..." onkeydown="addTagKey(event)"
+          oninput="renderTagSug(this.value)"
+          onfocus="renderTagSug(this.value)"
+          onblur="setTimeout(()=>{const el=document.getElementById('tagSug');if(el)el.innerHTML=''},200)"/>
       </div>
       <div class="tag-suggest" id="tagSug"></div>
     </div>
@@ -1129,7 +1132,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v3.7</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v3.8</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -3018,6 +3021,50 @@ function saveProject(){
 // ══════════════════════════════════════════════════════
 const SUGGESTED=['urgente','trabajo','reunión','MBA','banco','instinto','diseño','automatización','lectura','salud','MTU','estrategia'];
 
+// Recopilar todas las etiquetas usadas en la app (tareas + subtareas + sub-subtareas)
+function getAllUsedTags() {
+  const set = new Set(SUGGESTED);
+  (typeof tasks !== 'undefined' ? tasks : []).forEach(t => {
+    (t.tags||[]).forEach(tag => set.add(tag));
+    (t.subtasks||[]).forEach(s => {
+      (s.tags||[]).forEach(tag => set.add(tag));
+      (s.subsubtasks||[]).forEach(ss => (ss.tags||[]).forEach(tag => set.add(tag)));
+    });
+  });
+  return [...set].filter(Boolean).sort();
+}
+
+// Filtrar y renderizar sugerencias en cualquier contenedor
+function renderTagSugInEl(elId, query, currentTags, onClickFn) {
+  const el = document.getElementById(elId);
+  if(!el) return;
+  query = (query||'').trim().toLowerCase();
+  const all = getAllUsedTags().filter(t => !(currentTags||[]).includes(t));
+  const filtered = query
+    ? all.filter(t => t.toLowerCase().includes(query))
+        .sort((a,b) => {
+          const aS = a.toLowerCase().startsWith(query) ? 0 : 1;
+          const bS = b.toLowerCase().startsWith(query) ? 0 : 1;
+          return aS - bS || a.localeCompare(b);
+        })
+    : all;
+  el.innerHTML = '';
+  filtered.slice(0,10).forEach(tag => {
+    const col = typeof tagColor === 'function' ? tagColor(tag) : '#7c5cbf';
+    const span = document.createElement('span');
+    span.className = 'tag-sug';
+    span.style.cssText = 'background:'+col+'22;color:'+col+';cursor:pointer;margin:2px';
+    if(query) {
+      const safe = query.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+      span.innerHTML = tag.replace(new RegExp('('+safe+')','gi'),'<strong>$1</strong>');
+    } else {
+      span.textContent = tag;
+    }
+    span.onmousedown = e => { e.preventDefault(); onClickFn(tag); };
+    el.appendChild(span);
+  });
+}
+
 function addTagKey(e){
   if(e.key!=='Enter')return;
   const inp=document.getElementById('tagInp');
@@ -3043,9 +3090,13 @@ function renderTagPills(){
   });
 }
 
-function renderTagSug(){
-  const el=document.getElementById('tagSug');if(!el)return;
-  el.innerHTML=SUGGESTED.filter(t=>!mTags.includes(t)).slice(0,8).map(t=>`<span class="tag-sug" onclick="addTagSug('${t}')">${t}</span>`).join('');
+function renderTagSug(query){
+  renderTagSugInEl('tagSug', query||'', mTags, tag => {
+    if(!mTags.includes(tag)){ mTags.push(tag); renderTagPills(); }
+    const inp = document.getElementById('tagInp');
+    if(inp){ inp.value=''; inp.focus(); }
+    renderTagSug('');
+  });
 }
 
 // ══════════════════════════════════════════════════════
@@ -4513,47 +4564,10 @@ function addSubTagFromSug(tag) {
 }
 
 function renderSubTagAutocomplete(query) {
-  const el = document.getElementById('subTagSug');
-  if(!el) return;
-  query = (query||'').trim().toLowerCase();
-
-  // Recopilar todas las etiquetas existentes en tareas
-  const allTags = new Set();
-  tasks.forEach(t => {
-    (t.tags||[]).forEach(tag => allTags.add(tag));
-    (t.subtasks||[]).forEach(s => (s.tags||[]).forEach(tag => allTags.add(tag)));
-  });
-  // Agregar sugerencias estáticas
-  (typeof SUGGESTED !== 'undefined' ? SUGGESTED : []).forEach(t => allTags.add(t));
-
-  const available = [...allTags].filter(t => !subModalTags.includes(t));
-
-  // Filtrar por lo que escribe
-  const filtered = query
-    ? available.filter(t => t.includes(query)).sort((a,b) => {
-        // Priorizar las que empiezan con el query
-        const aStart = a.startsWith(query) ? 0 : 1;
-        const bStart = b.startsWith(query) ? 0 : 1;
-        return aStart - bStart || a.localeCompare(b);
-      })
-    : available.slice(0, 8);
-
-  if(!filtered.length) { el.innerHTML = ''; return; }
-
-  el.innerHTML = '';
-  filtered.slice(0,8).forEach(t => {
-    const col = tagColor(t);
-    const span = document.createElement('span');
-    span.className = 'tag-sug';
-    span.style.cssText = 'background:'+col+'22;color:'+col+';cursor:pointer;margin:2px';
-    if(query) {
-      const safe = query.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
-      span.innerHTML = t.replace(new RegExp('('+safe+')','gi'),'<strong>$1</strong>');
-    } else {
-      span.textContent = t;
-    }
-    span.onclick = (function(tag){ return function(){ addSubTagFromSug(tag); }; })(t);
-    el.appendChild(span);
+  renderTagSugInEl('subTagSug', query||'', subModalTags, tag => {
+    addSubTagFromSug(tag);
+    const inp = document.getElementById('subTagInp');
+    if(inp){ inp.value=''; inp.focus(); }
   });
 }
 
