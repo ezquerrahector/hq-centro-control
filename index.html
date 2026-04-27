@@ -998,8 +998,14 @@ console.log("Firebase compat cargado OK");
     <div class="form-grp">
       <label class="form-lbl">Etiquetas (Enter para agregar)</label>
       <div class="tags-wrap" id="subTagsWrap" onclick="document.getElementById('subTagInp').focus()">
-        <input class="tag-input" id="subTagInp" placeholder="Escribe y Enter..." onkeydown="addSubTag(event)"/>
+        <div id="subTagPills" style="display:flex;flex-wrap:wrap;gap:3px;margin-bottom:2px"></div>
+        <input class="tag-input" id="subTagInp" placeholder="Escribe y Enter..."
+          onkeydown="addSubTag(event)"
+          oninput="renderSubTagAutocomplete(this.value)"
+          onfocus="renderSubTagAutocomplete(this.value)"
+          onblur="setTimeout(()=>{const el=document.getElementById('subTagSug');if(el)el.innerHTML=''},200)"/>
       </div>
+      <div id="subTagSug" class="tag-suggest" style="margin-top:4px;min-height:0"></div>
     </div>
     <div class="modal-footer">
       <button class="btn-sec" onclick="closeSubModal()">Cancelar</button>
@@ -1123,7 +1129,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v3.6</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v3.7</span></div></div>
     </div>
 
     <div class="ctx-section">
