@@ -1135,7 +1135,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v6.0</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v6.1</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -1443,17 +1443,19 @@ function renderCtxFilterBar(){
 }
 
 function gotoCtxTareas(ctxId) {
-  // Cambiar vista primero, luego filtrar para evitar re-render del dashboard
-  curView = 'tareas';
-  try { localStorage.setItem('hq_last_view','tareas'); } catch(e){}
-  filterByCtx(ctxId);
-  // Actualizar nav activo
-  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
-  const navEl = document.querySelector('[data-view="tareas"]');
-  if(navEl) navEl.classList.add('active');
-  // Actualizar título
-  const titleEl = document.querySelector('.topbar-title');
-  if(titleEl) titleEl.textContent = '✅ Tareas';
+  // Cambiar contexto sin renderizar
+  curCtxFilter = ctxId;
+  const c = contexts.find(x=>x.id===ctxId);
+  if(c) {
+    document.documentElement.style.setProperty('--accent', c.color);
+    document.documentElement.style.setProperty('--accent-light', c.color+'1a');
+  }
+  // Navegar a tareas (esto renderiza la vista correcta)
+  gotoView('tareas', null);
+  updateBadges();
+  // Actualizar el sidebar para reflejar el contexto activo
+  renderSidebar();
+  renderCtxFilterBar();
 }
 
 function filterByCtx(id){
