@@ -1149,7 +1149,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v7.2</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v7.4</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -3191,18 +3191,13 @@ function buildCompleted(){
   return`
     <div class="sec-hdr">
       <div class="sec-ttl">🏆 Completadas — ${done.length}</div>
-      <span style="font-size:11px;color:var(--c-text3)">Clic para ver detalle · ↩️ para recuperar · ✓ en el círculo para recuperar directo</span>
+      <span style="font-size:11px;color:var(--c-text3)">Clic para ver detalle · ✓ en el círculo para recuperar</span>
     </div>
     ${done.length?done.map(t=>`
-      <div class="task-item p-none" style="opacity:.6;cursor:pointer"
-        onclick="openDetail(${t.id})">
+      <div class="task-item p-none" style="opacity:.65;cursor:pointer" onclick="openDetail(${t.id})">
         <div class="task-check checked" onclick="event.stopPropagation();restoreTask(${t.id})">✓</div>
         <div class="task-body">
-          <div style="display:flex;align-items:center;justify-content:space-between">
-            <div class="task-title" style="text-decoration:line-through;color:var(--c-text2)">${t.title}</div>
-            <button onclick="event.stopPropagation();archiveTask(${t.id})" title="Archivar"
-              style="font-size:11px;padding:2px 8px;border:1px solid var(--c-border);background:var(--c-bg3);color:var(--c-text3);border-radius:6px;cursor:pointer;flex-shrink:0;margin-left:8px">📦 Archivar</button>
-          </div>
+          <div class="task-title" style="text-decoration:line-through;color:var(--c-text2)">${t.title}</div>
           <div class="task-meta">
             ${t.tags.map(tag=>`<span class="tag-pill" style="background:${tagColor(tag)}22;color:${tagColor(tag)}">${tag}</span>`).join('')}
             ${t.date?`<span class="task-due">📅 ${t.date}</span>`:''}
@@ -3210,13 +3205,9 @@ function buildCompleted(){
           </div>
         </div>
         <div class="task-actions" style="opacity:1" onclick="event.stopPropagation()">
-          <button class="tact" onclick="restoreTask(${t.id})" title="Recuperar tarea" style="font-size:14px">↩️</button>
-          <button class="tact" onclick="archiveTask(${t.id})" title="Archivar" style="font-size:14px">📦</button>
+          <button class="tact" onclick="restoreTask(${t.id})" title="Recuperar" style="font-size:14px">↩️</button>
+          <button class="tact" onclick="archiveTask(${t.id})" title="Archivar — ocultar de completadas" style="font-size:14px">📦</button>
           <button class="tact del" onclick="permDelete(${t.id})" title="Eliminar definitivamente">🗑️</button>
-          <button onclick="event.stopPropagation();archiveTask(${t.id})" title="Archivar (ocultar de completadas)"
-            style="padding:5px 8px;border:1px solid var(--c-border);background:var(--c-bg3);border-radius:var(--radius-sm);cursor:pointer;font-size:11px;color:var(--c-text3)">
-            📦 Archivar
-          </button>
         </div>
       </div>`).join('')
     :`<div class="empty"><div class="empty-icon">🎯</div><div class="empty-ttl">Sin completadas aún</div><div class="empty-sub">Cuando marques tareas como hechas aparecerán aquí.</div></div>`}`;
@@ -3892,10 +3883,18 @@ function completeTask(id){
 }
 
 async function deleteTask(id){
-  const i=tasks.findIndex(x=>x.id===id);
-  if(i<0) return;
-  await fbDeleteTask(tasks[i]);
-  tasks.splice(i,1);
+  const idx = tasks.findIndex(x => Number(x.id)===Number(id) || String(x.id)===String(id));
+  if(idx < 0) return;
+  const t = tasks[idx];
+  // Guardar en colección 'deleted' antes de eliminar
+  try {
+    const delData = Object.assign({}, t, {deletedAt: new Date().toISOString()});
+    delete delData._fbId;
+    await db.collection('deleted').add(delData);
+  } catch(e){ console.warn('softDelete error:', e); }
+  // Eliminar de Firebase y del array local
+  await fbDeleteTask(t);
+  tasks.splice(idx, 1);
   updateBadges();
   renderView();
   toast('🗑️','Tarea eliminada');
