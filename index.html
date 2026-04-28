@@ -1149,7 +1149,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v6.7</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v6.9</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -1171,8 +1171,12 @@ console.log("Firebase compat cargado OK");
       <div class="nav-item" data-view="kanban" onclick="gotoView('kanban',this)"><span class="nav-icon">🗂️</span><span>Kanban</span></div>
       <div class="nav-item" data-view="calendario" onclick="gotoView('calendario',this)"><span class="nav-icon">📅</span><span>Calendario</span></div>
       <div class="nav-item" data-view="alarmas" onclick="gotoView('alarmas',this)"><span class="nav-icon">🔔</span><span>Alarmas</span></div>
-      <div class="nav-item" data-view="instinto" onclick="gotoView('instinto',this)"><span class="nav-icon">🌸</span><span>Instinto</span></div>
+      
       <div class="nav-item" data-view="completadas" onclick="gotoView('completadas',this)"><span class="nav-icon">🏆</span><span>Completadas</span></div>
+      <div class="nav-item" data-view="archivadas" onclick="gotoView('archivadas',this)"><span class="nav-icon">📦</span><span>Archivadas</span></div>
+      <div class="nav-item" data-view="eliminadas" onclick="gotoView('eliminadas',this)"><span class="nav-icon">🗑️</span><span>Eliminadas</span></div>
+      <div class="nav-item" data-view="archivadas" onclick="gotoView('archivadas',this)"><span class="nav-icon">📦</span><span>Archivadas</span></div>
+      <div class="nav-item" data-view="papelera" onclick="gotoView('papelera',this)"><span class="nav-icon">🗑️</span><span>Papelera</span></div>
     </div>
 
     <div class="sb-projects">
@@ -1260,6 +1264,22 @@ let alarms=[
 // STATE
 // ══════════════════════════════════════════════════════
 let curView='dashboard', curTab='todas', curCtxFilter='all';
+let curProjFilter = null;
+let curSortOrder  = 'order';
+
+function sortTasks(list) {
+  const copy = [...list];
+  if(curSortOrder === 'order') return copy;
+  if(curSortOrder === 'date') return copy.sort((a,b)=>{
+    if(!a.date&&!b.date)return 0; if(!a.date)return 1; if(!b.date)return -1;
+    return a.date.localeCompare(b.date);
+  });
+  if(curSortOrder === 'alpha')    return copy.sort((a,b)=>(a.title||'').localeCompare(b.title||''));
+  if(curSortOrder === 'proj')     return copy.sort((a,b)=>(a.projId||'').localeCompare(b.projId||''));
+  if(curSortOrder === 'reg')      return copy.sort((a,b)=>Number(a.id)-Number(b.id));
+  if(curSortOrder === 'priority'){const p={high:0,medium:1,low:2,none:3};return copy.sort((a,b)=>(p[a.priority]||3)-(p[b.priority]||3));}
+  return copy;
+}
 let curPrio='medium', _selCtxColorVal='#7c5cbf', _selCtxIconVal='👤';
 let editingId=null, mTags=[], mAttach=[], remOpen=false, focusProjId=null;
 
@@ -1468,7 +1488,7 @@ function gotoCtxTareas(ctxId) {
     updateBadges();
     renderSidebar();
     renderCtxFilterBar();
-  }, 0);
+  }, 50);
 }
 
 function filterByCtx(id){
@@ -1602,13 +1622,19 @@ function moveCtx(id,dir){
   const j=i+dir;
   if(j<0||j>=contexts.length) return;
   [contexts[i],contexts[j]]=[contexts[j],contexts[i]];
-  // Guardar orden en Firebase → sincroniza todos los dispositivos
   contexts.forEach((c,idx)=>{ c.order=idx; });
-  fbSaveContexts();
+  // Debug: verificar que todos tienen _fbId
+  const sinFbId = contexts.filter(c=>!c._fbId);
+  if(sinFbId.length > 0) {
+    console.warn('Contextos sin _fbId:', sinFbId.map(c=>c.name));
+    toast('⚠️','Algunos contextos no tienen ID en Firebase');
+  }
+  fbSaveContexts().then(()=>{
+    toast('↕️','Orden guardado ☁️');
+  });
   renderSidebar();
   renderCtxFilterBar();
   if(typeof buildCtxEditList==='function') buildCtxEditList();
-  toast('↕️','Contexto reordenado ☁️');
 }
 
 function deleteCtx(id){
@@ -1683,6 +1709,33 @@ function taskMatchesToday(t){
   return t.date === TODAY;
 }
 
+function setSortOrder(val) {
+  curSortOrder = val;
+  renderView();
+}
+
+function applySortOrder(list) {
+  const sorted = [...list];
+  switch(curSortOrder) {
+    case 'date':
+      sorted.sort((a,b) => {
+        if(!a.date && !b.date) return 0;
+        if(!a.date) return 1;
+        if(!b.date) return -1;
+        return a.date.localeCompare(b.date);
+      }); break;
+    case 'alpha':
+      sorted.sort((a,b) => (a.title||'').localeCompare(b.title||'')); break;
+    case 'proj':
+      sorted.sort((a,b) => (a.projId||'').localeCompare(b.projId||'')); break;
+    case 'reg':
+      sorted.sort((a,b) => Number(b.id) - Number(a.id)); break;
+    default: // 'order' — mantener orden manual
+      break;
+  }
+  return sorted;
+}
+
 function getFiltered(todayOnly){
   let list = tasks.filter(t=>!t.done);
   if(curCtxFilter !== 'all') list = list.filter(t=>t.ctx===curCtxFilter);
@@ -1690,14 +1743,23 @@ function getFiltered(todayOnly){
   if(todayOnly || curTab==='hoy'){
     list = list.filter(t => taskMatchesToday(t));
   } else if(curTab==='semana'){
-    const d7 = new Date(TODAY);
-    d7.setDate(d7.getDate()+7);
-    const d7s = d7.toISOString().slice(0,10);
-    list = list.filter(t => t.date && t.date >= TODAY && t.date <= d7s);
+    // Semana actual (lunes a domingo)
+    const d = new Date(TODAY+'T00:00:00');
+    const dow = d.getDay();
+    const monday = new Date(d); monday.setDate(d.getDate() - (dow===0?6:dow-1));
+    const sunday = new Date(monday); sunday.setDate(monday.getDate()+6);
+    const monStr = monday.toISOString().slice(0,10);
+    const sunStr = sunday.toISOString().slice(0,10);
+    list = list.filter(t => t.date && t.date >= monStr && t.date <= sunStr);
+  } else if(curTab==='mes'){
+    const mesStart = TODAY.slice(0,7)+'-01';
+    const lastDay = new Date(Number(TODAY.slice(0,4)), Number(TODAY.slice(5,7)), 0).getDate();
+    const mesEnd = TODAY.slice(0,7)+'-'+String(lastDay).padStart(2,'0');
+    list = list.filter(t => t.date && t.date >= mesStart && t.date <= mesEnd);
   } else if(curTab==='sin-fecha'){
     list = list.filter(t => !t.date || t.date === '');
   }
-  return list;
+  return sortTasks(list);
 }
 // ══════════════════════════════════════════════════════
 // RENDER VIEW
@@ -1712,8 +1774,12 @@ function renderView(){
     case 'kanban':     c.innerHTML=buildKanban();break;
     case 'calendario': c.innerHTML=buildCal();break;
     case 'alarmas':    c.innerHTML=buildAlarms();break;
-    case 'instinto':   c.innerHTML=buildInstinto();break;
+
     case 'completadas':c.innerHTML=buildCompleted();break;
+    case 'archivadas': c.innerHTML=buildArchived();break;
+    case 'eliminadas':  buildDeletedView().then(html=>{c.innerHTML=html});break;
+    case 'archivadas': c.innerHTML=buildArchivadas();break;
+    case 'papelera':   buildPapelera();break;
   }
 }
 
@@ -1727,11 +1793,10 @@ function buildCtxStatCards() {
   contexts.forEach(ctx => {
     const ctxP     = tasks.filter(t=>!t.done&&t.ctx===ctx.id).length;
     const ctxToday = tasks.filter(t=>!t.done&&t.ctx===ctx.id&&taskMatchesToday(t)).length;
-    const card = document.createElement('div');
+    const card = document.createElement('button');
     card.className = 'stat-card';
-    card.style.cssText = 'cursor:pointer;border-top:3px solid '+ctx.color;
-    card.setAttribute('onclick', "gotoCtxTareas('"+ctx.id+"')");
-    card.style.cursor = 'pointer';
+    card.style.cssText = 'cursor:pointer;border-top:3px solid '+ctx.color+';width:100%;text-align:left;border-left:none;border-right:none;border-bottom:none;background:var(--c-bg2)';
+    card.onclick = function(){ gotoCtxTareas(''+ctx.id+''); };
     const ctxProjs = projects.filter(p=>p.ctx===ctx.id).length;
     card.innerHTML = '<div class="stat-icon">'+ctx.icon+'</div>'
       +'<div class="stat-lbl">'+ctx.name+'</div>'
@@ -2074,6 +2139,13 @@ function buildList(todayOnly){
     <button class="tree-btn" onclick="treeCollapseSubsOnly()">📋 Colapsar sub-subtareas</button>
     <button class="tree-btn" onclick="treeCollapseAll()">📁 Colapsar todo</button>
     <div style="flex:1"></div>
+    <select onchange="setSortOrder(this.value)" style="font-size:11px;padding:4px 8px;border:1px solid var(--c-border);border-radius:6px;background:var(--c-bg2);color:var(--c-text);cursor:pointer">
+      <option value="order" ${curSortOrder==='order'?'selected':''}>↕ Orden manual</option>
+      <option value="date"  ${curSortOrder==='date'?'selected':''}>📅 Por fecha</option>
+      <option value="alpha" ${curSortOrder==='alpha'?'selected':''}>🔤 Alfabético</option>
+      <option value="proj"  ${curSortOrder==='proj'?'selected':''}>📁 Por proyecto</option>
+      <option value="reg"   ${curSortOrder==='reg'?'selected':''}>🕐 Por registro</option>
+    </select>
     <button onclick="exportToExcel()" class="tree-btn">📊 Excel</button>
     <button onclick="document.getElementById('importFileInp').click()" class="tree-btn">📥 Importar</button>
     <button onclick="openTaskModal()" class="btn-primary" style="font-size:12px;padding:6px 14px">＋ Nueva tarea</button>
@@ -2508,7 +2580,125 @@ function buildKanban(){
 // ══════════════════════════════════════════════════════
 // CALENDAR
 // ══════════════════════════════════════════════════════
+function buildCalHeader(title) {
+  return `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:13px">
+    <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:16px">${title}</div>
+    <div style="display:flex;gap:4px;align-items:center">
+      <button class="btn-icon" onclick="prevCal()">◀</button>
+      <button class="btn-icon" onclick="nextCal()">▶</button>
+      <button class="btn-icon" onclick="goToToday()" style="font-size:11px;width:auto;padding:0 10px">Hoy</button>
+      <button class="btn-sec" onclick="calView='day';renderView()" style="font-size:11px;padding:4px 8px;${calView==='day'?'background:var(--accent);color:#fff':''}">Día</button>
+      <button class="btn-sec" onclick="calView='week';renderView()" style="font-size:11px;padding:4px 8px;${calView==='week'?'background:var(--accent);color:#fff':''}">Semana</button>
+      <button class="btn-sec" onclick="calView='month';renderView()" style="font-size:11px;padding:4px 8px;${calView==='month'?'background:var(--accent);color:#fff':''}">Mes</button>
+      <button class="btn-primary" style="font-size:12px;padding:6px 13px" onclick="openAddTypeModal(calSelectedDate||TODAY)">＋ Agregar</button>
+    </div>
+  </div>`;
+}
+
+function buildCalDay() {
+  const dateStr = calSelectedDate || TODAY;
+  const d = new Date(dateStr + 'T00:00:00');
+  const DAYS_ES = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+  const MONTHS_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const title = DAYS_ES[d.getDay()] + ', ' + d.getDate() + ' de ' + MONTHS_ES[d.getMonth()] + ' ' + d.getFullYear();
+
+  const dayTasks  = getTasksForDate(dateStr);
+  const dayEvents = getEventsForDate(dateStr);
+  const allItems  = [
+    ...dayEvents.map(e => ({time: e.time||'00:00', label: e.title, color: e.color||'var(--accent)', type:'event', id:e.id})),
+    ...dayTasks.map(t => ({time: t.time||'', label: t.title, color: 'var(--accent)', type:'task', id:t.id}))
+  ].sort((a,b) => (a.time||'99:99').localeCompare(b.time||'99:99'));
+
+  const hours = [];
+  for(let h=0; h<24; h++) {
+    const hStr = String(h).padStart(2,'0') + ':00';
+    const slotItems = allItems.filter(i => i.time && i.time.startsWith(String(h).padStart(2,'0')));
+    hours.push({h, hStr, items: slotItems});
+  }
+
+  const hoursHTML = hours.map(({h, hStr, items}) =>
+    '<div style="display:flex;gap:8px;border-top:1px solid var(--c-border);min-height:' + (items.length?'50':'36') + 'px">'
+    + '<div style="width:45px;font-size:11px;color:var(--c-text3);padding:6px 4px;flex-shrink:0">' + hStr + '</div>'
+    + '<div style="flex:1;padding:3px 0">'
+    + items.map(i =>
+        '<div onclick="' + (i.type==='task'?('openDetail('+i.id+')'):'openEventModal('+JSON.stringify(i.id)+','+JSON.stringify(dateStr)+')') + '"'
+        +' style="background:' + i.color + '22;color:' + i.color + ';border-radius:6px;padding:3px 8px;font-size:12px;margin-bottom:2px;cursor:pointer;border-left:3px solid ' + i.color + '">'
+        + i.label + (i.time?' · <strong>' + i.time + '</strong>':'') + '</div>'
+      ).join('')
+    + '</div></div>'
+  ).join('');
+
+  return buildCalHeader(title) + '<div style="overflow-y:auto;max-height:70vh;border:1px solid var(--c-border);border-radius:var(--radius)">' + hoursHTML + '</div>';
+}
+
+function buildCalWeek() {
+  const baseDate = calSelectedDate || TODAY;
+  const d = new Date(baseDate + 'T00:00:00');
+  const dow = d.getDay();
+  const monday = new Date(d); monday.setDate(d.getDate() - (dow===0?6:dow-1));
+  const DAYS_ES = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+  const MONTHS_ES2 = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+  const days = [];
+  for(let i=0; i<7; i++) {
+    const day = new Date(monday); day.setDate(monday.getDate()+i);
+    const ds = day.toISOString().slice(0,10);
+    days.push({
+      label: DAYS_ES[day.getDay()] + ' ' + day.getDate(),
+      dateStr: ds,
+      isToday: ds === TODAY,
+      tasks: getTasksForDate(ds),
+      events: getEventsForDate(ds)
+    });
+  }
+
+  const sundayDate = new Date(monday.getTime()+6*86400000);
+  const weekLabel = MONTHS_ES2[monday.getMonth()] + ' ' + monday.getDate() + ' – ' + MONTHS_ES2[sundayDate.getMonth()] + ' ' + sundayDate.getDate() + ', ' + monday.getFullYear();
+
+  // Construir columnas usando DOM para evitar problemas de comillas
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'display:flex;border:1px solid var(--c-border);border-radius:var(--radius);overflow:hidden';
+
+  days.forEach(day => {
+    const col = document.createElement('div');
+    col.style.cssText = 'flex:1;min-width:0;border-left:1px solid var(--c-border)';
+
+    const hdr = document.createElement('div');
+    hdr.style.cssText = 'padding:6px 4px;text-align:center;font-size:11px;font-weight:600;cursor:pointer;background:'+(day.isToday?'var(--accent)':'var(--c-bg3)')+';color:'+(day.isToday?'#fff':'var(--c-text)');
+    hdr.textContent = day.label;
+    hdr.onclick = () => { calView='day'; calSelectedDate=day.dateStr; renderView(); };
+    col.appendChild(hdr);
+
+    const body = document.createElement('div');
+    body.style.cssText = 'padding:4px 3px;min-height:80px';
+
+    day.events.forEach(e => {
+      const el = document.createElement('div');
+      el.style.cssText = 'background:'+(e.color||'var(--accent)')+'22;color:'+(e.color||'var(--accent)')+';border-radius:4px;padding:2px 5px;font-size:10px;margin-bottom:2px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+      el.textContent = '📅 ' + e.title;
+      el.onclick = () => openEventModal(e.id, day.dateStr);
+      body.appendChild(el);
+    });
+
+    day.tasks.forEach(t => {
+      const el = document.createElement('div');
+      el.style.cssText = 'background:var(--accent-light);color:var(--accent);border-radius:4px;padding:2px 5px;font-size:10px;margin-bottom:2px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+      el.textContent = '✅ ' + t.title;
+      el.onclick = () => openDetail(t.id);
+      body.appendChild(el);
+    });
+
+    col.appendChild(body);
+    wrap.appendChild(col);
+  });
+
+  return buildCalHeader(weekLabel) + wrap.outerHTML;
+}
+
+
 function buildCal(){
+  if(calView === 'day') return buildCalDay();
+  if(calView === 'week') return buildCalWeek();
   const MONTHS_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   const daysInMonth = new Date(calCurrentYear, calCurrentMonth+1, 0).getDate();
   const firstDay    = new Date(calCurrentYear, calCurrentMonth, 1).getDay();
@@ -2578,9 +2768,12 @@ function buildCal(){
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:13px">
       <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:16px">${MONTHS_ES[calCurrentMonth]} ${calCurrentYear}</div>
       <div style="display:flex;gap:6px;align-items:center">
-        <button class="btn-icon" onclick="prevMonth()" title="Mes anterior">◀</button>
-        <button class="btn-icon" onclick="nextMonth()" title="Mes siguiente">▶</button>
+        <button class="btn-icon" onclick="prevCal()" title="Anterior">◀</button>
+        <button class="btn-icon" onclick="nextCal()" title="Siguiente">▶</button>
         <button class="btn-icon" onclick="goToToday()" title="Hoy" style="font-size:11px;width:auto;padding:0 10px">Hoy</button>
+        <button class="btn-sec" onclick="calView='day';renderView()" style="font-size:11px;padding:4px 8px;${calView==='day'?'background:var(--accent);color:#fff':''}" >Día</button>
+        <button class="btn-sec" onclick="calView='week';renderView()" style="font-size:11px;padding:4px 8px;${calView==='week'?'background:var(--accent);color:#fff':''}" >Semana</button>
+        <button class="btn-sec" onclick="calView='month';renderView()" style="font-size:11px;padding:4px 8px;${calView==='month'?'background:var(--accent);color:#fff':''}" >Mes</button>
         <button class="btn-primary" style="font-size:12px;padding:6px 13px" onclick="openAddTypeModal(calSelectedDate||TODAY)">＋ Agregar</button>
       </div>
     </div>
@@ -2607,6 +2800,34 @@ function nextMonth() {
   calCurrentMonth++;
   if(calCurrentMonth > 11) { calCurrentMonth = 0; calCurrentYear++; }
   calSelectedDate = null;
+  renderView();
+}
+function prevCal(){
+  if(calView==='day'){
+    const d=new Date((calSelectedDate||TODAY)+'T00:00:00');
+    d.setDate(d.getDate()-1);
+    calSelectedDate=d.toISOString().slice(0,10);
+    calCurrentMonth=d.getMonth(); calCurrentYear=d.getFullYear();
+  } else if(calView==='week'){
+    const d=new Date((calSelectedDate||TODAY)+'T00:00:00');
+    d.setDate(d.getDate()-7);
+    calSelectedDate=d.toISOString().slice(0,10);
+    calCurrentMonth=d.getMonth(); calCurrentYear=d.getFullYear();
+  } else { prevMonth(); return; }
+  renderView();
+}
+function nextCal(){
+  if(calView==='day'){
+    const d=new Date((calSelectedDate||TODAY)+'T00:00:00');
+    d.setDate(d.getDate()+1);
+    calSelectedDate=d.toISOString().slice(0,10);
+    calCurrentMonth=d.getMonth(); calCurrentYear=d.getFullYear();
+  } else if(calView==='week'){
+    const d=new Date((calSelectedDate||TODAY)+'T00:00:00');
+    d.setDate(d.getDate()+7);
+    calSelectedDate=d.toISOString().slice(0,10);
+    calCurrentMonth=d.getMonth(); calCurrentYear=d.getFullYear();
+  } else { nextMonth(); return; }
   renderView();
 }
 
@@ -2868,8 +3089,20 @@ function buildInstinto(){
 // ══════════════════════════════════════════════════════
 // COMPLETED — con recuperación funcional
 // ══════════════════════════════════════════════════════
+function buildArchived(){
+  const archived = tasks.filter(t=>t.archived&&(curCtxFilter==='all'||t.ctx===curCtxFilter));
+  if(!archived.length) return '<div class="empty"><div class="empty-icon">📦</div><div class="empty-ttl">Sin archivadas</div></div>';
+  return '<div class="sec-hdr"><div class="sec-ttl">📦 Archivadas — '+archived.length+'</div>'
+    +'<button class="btn-sec" style="font-size:11px" onclick="tasks.forEach(t=>{if(t.archived)t.archived=false;});tasks.forEach(t=>fbSaveTask(t));renderView()">↩️ Restaurar todas</button></div>'
+    +archived.map(t=>'<div class="task-item p-none" style="opacity:.5">'
+      +'<div class="task-check checked">✓</div>'
+      +'<div class="task-body"><div class="task-title" style="text-decoration:line-through">'+t.title+'</div></div>'
+      +'<button onclick="event.stopPropagation();restoreTask('+t.id+')" style="font-size:11px;padding:2px 8px;border:1px solid var(--c-border);background:transparent;color:var(--c-text3);border-radius:6px;cursor:pointer">↩️</button>'
+    +'</div>').join('');
+}
+
 function buildCompleted(){
-  const done=tasks.filter(t=>t.done&&(curCtxFilter==='all'||t.ctx===curCtxFilter));
+  const done=tasks.filter(t=>t.done&&!t.archived&&(curCtxFilter==='all'||t.ctx===curCtxFilter));
   return`
     <div class="sec-hdr">
       <div class="sec-ttl">🏆 Completadas — ${done.length}</div>
@@ -2880,7 +3113,11 @@ function buildCompleted(){
         onclick="openDetail(${t.id})">
         <div class="task-check checked" onclick="event.stopPropagation();restoreTask(${t.id})">✓</div>
         <div class="task-body">
-          <div class="task-title" style="text-decoration:line-through;color:var(--c-text2)">${t.title}</div>
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div class="task-title" style="text-decoration:line-through;color:var(--c-text2)">${t.title}</div>
+            <button onclick="event.stopPropagation();archiveTask(${t.id})" title="Archivar"
+              style="font-size:11px;padding:2px 8px;border:1px solid var(--c-border);background:var(--c-bg3);color:var(--c-text3);border-radius:6px;cursor:pointer;flex-shrink:0;margin-left:8px">📦 Archivar</button>
+          </div>
           <div class="task-meta">
             ${t.tags.map(tag=>`<span class="tag-pill" style="background:${tagColor(tag)}22;color:${tagColor(tag)}">${tag}</span>`).join('')}
             ${t.date?`<span class="task-due">📅 ${t.date}</span>`:''}
@@ -2889,10 +3126,91 @@ function buildCompleted(){
         </div>
         <div class="task-actions" style="opacity:1" onclick="event.stopPropagation()">
           <button class="tact" onclick="restoreTask(${t.id})" title="Recuperar tarea" style="font-size:14px">↩️</button>
+          <button class="tact" onclick="archiveTask(${t.id})" title="Archivar" style="font-size:14px">📦</button>
           <button class="tact del" onclick="permDelete(${t.id})" title="Eliminar definitivamente">🗑️</button>
+          <button onclick="event.stopPropagation();archiveTask(${t.id})" title="Archivar (ocultar de completadas)"
+            style="padding:5px 8px;border:1px solid var(--c-border);background:var(--c-bg3);border-radius:var(--radius-sm);cursor:pointer;font-size:11px;color:var(--c-text3)">
+            📦 Archivar
+          </button>
         </div>
       </div>`).join('')
     :`<div class="empty"><div class="empty-icon">🎯</div><div class="empty-ttl">Sin completadas aún</div><div class="empty-sub">Cuando marques tareas como hechas aparecerán aquí.</div></div>`}`;
+}
+
+function buildArchivadas() {
+  const archived = tasks.filter(t=>t.archived&&(curCtxFilter==='all'||t.ctx===curCtxFilter));
+  const rows = archived.length ? archived.map(t=>`
+    <div class="task-item p-none" style="opacity:.6">
+      <div class="task-body">
+        <div class="task-title" style="text-decoration:line-through">${t.title}</div>
+        <div class="task-meta">${t.archivedAt?'📅 '+t.archivedAt.slice(0,10):''}</div>
+      </div>
+      <div class="task-actions" style="opacity:1" onclick="event.stopPropagation()">
+        <button class="tact" onclick="restoreTask(${t.id})" title="Desarchivar">↩️</button>
+        <button class="tact del" onclick="permDelete(${t.id})" title="Eliminar">🗑️</button>
+      </div>
+    </div>`).join('') : '<div class="empty"><div class="empty-icon">📦</div><div class="empty-ttl">Sin archivadas</div></div>';
+  return `<div class="sec-hdr"><div class="sec-ttl">📦 Archivadas — ${archived.length}</div></div>${rows}`;
+}
+
+function buildPapelera() {
+  // Cargar de Firebase colección 'deleted'
+  const el = document.getElementById('content');
+  el.innerHTML = '<div class="sec-hdr"><div class="sec-ttl">🗑️ Papelera</div></div><div style="padding:20px;color:var(--c-text3)">Cargando...</div>';
+  db.collection('deleted').orderBy('deletedAt','desc').limit(50).get().then(snap => {
+    if(snap.empty) {
+      el.innerHTML = '<div class="sec-hdr"><div class="sec-ttl">🗑️ Papelera</div></div><div class="empty"><div class="empty-icon">🗑️</div><div class="empty-ttl">Papelera vacía</div></div>';
+      return;
+    }
+    const rows = [];
+    snap.forEach(d => {
+      const t = d.data();
+      rows.push(`<div class="task-item p-none" style="opacity:.6">
+        <div class="task-body">
+          <div class="task-title" style="text-decoration:line-through">${t.title||'Sin título'}</div>
+          <div class="task-meta" style="font-size:11px;color:var(--c-text3)">Eliminada: ${(t.deletedAt||'').slice(0,10)}</div>
+        </div>
+        <div class="task-actions" style="opacity:1" onclick="event.stopPropagation()">
+          <button class="tact" title="Restaurar" onclick="restoreFromTrash('${d.id}')">↩️</button>
+          <button class="tact del" title="Eliminar para siempre" onclick="emptyTrashItem('${d.id}')">🗑️</button>
+        </div>
+      </div>`);
+    });
+    el.innerHTML = '<div class="sec-hdr"><div class="sec-ttl">🗑️ Papelera — '+rows.length+' elementos</div><button class="btn-sec" onclick="emptyTrashAll()" style="font-size:11px;color:#e05252">Vaciar todo</button></div>'+rows.join('');
+  }).catch(e => {
+    el.innerHTML = '<div class="sec-hdr"><div class="sec-ttl">🗑️ Papelera</div></div><div style="padding:20px;color:#e05252">Error al cargar: '+e.message+'</div>';
+  });
+  return ''; // retorna vacío, se llena async
+}
+
+async function restoreFromTrash(fbId) {
+  try {
+    const doc = await db.collection('deleted').doc(fbId).get();
+    if(!doc.exists) return;
+    const t = doc.data();
+    delete t.deletedAt;
+    t.id = t.id || Date.now();
+    const ref = await db.collection('tasks').add(t);
+    await db.collection('deleted').doc(fbId).delete();
+    toast('↩️','Tarea restaurada');
+    gotoView('papelera', null);
+  } catch(e){ toast('❌','Error al restaurar: '+e.message); }
+}
+
+async function emptyTrashItem(fbId) {
+  await db.collection('deleted').doc(fbId).delete();
+  toast('🗑️','Eliminado para siempre');
+  gotoView('papelera', null);
+}
+
+async function emptyTrashAll() {
+  if(!confirm('¿Vaciar toda la papelera? Esta acción no se puede deshacer.')) return;
+  const snap = await db.collection('deleted').get();
+  const batch = db.batch();
+  snap.forEach(d => batch.delete(d.ref));
+  await batch.commit();
+  toast('🗑️','Papelera vaciada');
+  gotoView('papelera', null);
 }
 
 // ══════════════════════════════════════════════════════
@@ -2923,16 +3241,16 @@ function openDetail(id){
 
     <div style="margin-bottom:16px">
       <div class="detail-sec-lbl">Detalles</div>
-      ${proj?`<div class="detail-meta-row">📁 <strong>Proyecto:</strong>&nbsp;${proj.name}</div>`:''}
-      <div class="detail-meta-row">🎯 <strong>Contexto:</strong>&nbsp;${ctxC?ctxC.icon+' '+ctxC.name:t.ctx}</div>
+      ${proj?`<div class="detail-meta-row">📁 <strong>Proyecto:</strong>&nbsp;<span style="color:var(--accent);cursor:pointer;text-decoration:underline" onclick="closeDetail();gotoProject('${proj.id}')">${proj.name}</span></div>`:''}
+      <div class="detail-meta-row">🎯 <strong>Contexto:</strong>&nbsp;<span style="cursor:pointer;color:var(--accent);text-decoration:underline" onclick="closeDetail();gotoCtxTareas('${t.ctx}')">${ctxC?ctxC.icon+' '+ctxC.name:t.ctx}</span></div>
       <div class="detail-meta-row">⚡ <strong>Prioridad:</strong>&nbsp;${prioLbl[t.priority]||'Media'}</div>
-      ${t.date?`<div class="detail-meta-row">📅 <strong>Fecha:</strong>&nbsp;${t.date}${t.time?' · '+t.time:''}</div>`:''}
+      ${t.date?`<div class="detail-meta-row">📅 <strong>Fecha:</strong>&nbsp;<span style="cursor:pointer;color:var(--accent);text-decoration:underline" onclick="closeDetail();gotoCalendarDay('${t.date}')" title="Ver en calendario">${t.date}${t.time?' · '+t.time:''}</span></div>`:''}
       ${t.recurring!=='none'?`<div class="detail-meta-row">🔁 <strong>Recurrencia:</strong>&nbsp;${t.recurring}</div>`:''}
     </div>
 
     ${t.tags.length?`<div style="margin-bottom:16px">
       <div class="detail-sec-lbl">Etiquetas</div>
-      <div style="display:flex;flex-wrap:wrap;gap:5px">${t.tags.map(tag=>`<span class="tag-pill" style="background:${tagColor(tag)}22;color:${tagColor(tag)}">${tag}</span>`).join('')}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px">${t.tags.map(tag=>`<span class="tag-pill" style="background:${tagColor(tag)}22;color:${tagColor(tag)};cursor:pointer" onclick="closeDetail();doTagSearch('${tag}')" title="Buscar: ${tag}">${tag}</span>`).join('')}</div>
     </div>`:''}
 
     <div style="margin-bottom:16px">
@@ -5480,6 +5798,7 @@ let events = []; // Se llena desde Firebase
 let selEvColorVal = '#2d7dd2';
 let editingEventId = null;
 let calSelectedDate = null;
+let calView = 'month'; // month | week | day
 let calCurrentMonth = (function(){ const d=new Date(TODAY); return d.getMonth(); })();
 let calCurrentYear  = (function(){ const d=new Date(TODAY); return d.getFullYear(); })();
 
@@ -5726,6 +6045,61 @@ function scheduleEventReminder(ev) {
 }
 
 // Programar recordatorios para TODOS los eventos de hoy y mañana
+function scheduleAlarm(alarm) {
+  // Programa una alarma para disparar a su hora cada día
+  if(!alarm.on || !alarm.time) return;
+  const [hh, mm] = alarm.time.split(':').map(Number);
+  const now = new Date();
+  const target = new Date(now);
+  target.setHours(hh, mm, 0, 0);
+  if(now >= target) target.setDate(target.getDate() + 1); // mañana si ya pasó
+  const ms = target - now;
+
+  setTimeout(() => {
+    // Verificar si la alarma aplica hoy
+    const d = new Date();
+    const dow = d.getDay();
+    const r = (alarm.repeat||'').toLowerCase();
+    let aplica = false;
+    if(r === 'sin repetir' || r === '') aplica = true;
+    else if(r === 'cada día' || r === 'cada dia') aplica = true;
+    else if(r === 'lunes a viernes') aplica = dow>=1 && dow<=5;
+    else if(r === 'fines de semana') aplica = dow===0 || dow===6;
+    else aplica = true; // otros: disparar siempre
+
+    if(aplica) {
+      if(window._swReg && window._swReg.active) {
+        window._swReg.active.postMessage({
+          type: 'SEND_NOTIF_NOW',
+          title: '⏰ ' + alarm.name,
+          body: alarm.time + (alarm.repeat && alarm.repeat!=='Sin repetir' ? ' · ' + alarm.repeat : '')
+        });
+      } else if(Notification.permission === 'granted') {
+        new Notification('⏰ ' + alarm.name, {
+          body: alarm.time,
+          icon: '/hq-centro-control/icon-192.png'
+        });
+      }
+    }
+
+    // Re-programar para mañana si es recurrente
+    if(r !== 'sin repetir' && r !== '') scheduleAlarm(alarm);
+  }, ms);
+}
+
+function scheduleAllAlarms() {
+  if(Notification.permission !== 'granted') {
+    requestNotifPermission().then(ok => {
+      if(ok) (alarms||[]).filter(a=>a.on).forEach(scheduleAlarm);
+    });
+    return;
+  }
+  (alarms||[]).filter(a=>a.on).forEach(scheduleAlarm);
+  if((alarms||[]).filter(a=>a.on).length) {
+    console.log('[HQ] ' + (alarms||[]).filter(a=>a.on).length + ' alarmas programadas');
+  }
+}
+
 function scheduleAllEventReminders() {
   if(Notification.permission !== 'granted') return;
   const tomorrow = new Date();
@@ -5791,8 +6165,9 @@ function taskOccursOnDate(t, dateStr) {
   if(!t.date) return false;
   const rec = t.recurring || 'none';
   if(rec === 'none') return t.date === dateStr;
-  // Para recurrentes, la fecha de la tarea debe ser <= dateStr (no mostrar antes de creada)
-  if(t.date > dateStr) return false;
+  // La fecha de la tarea ES su fecha límite — no mostrar después de ella
+  if(t.date < dateStr) return false; // ya venció
+  if(t.date > dateStr) return false; // aún no empieza (no tiene sentido para recurrentes sin startDate)
   const d = new Date(dateStr + 'T00:00:00');
   const dow = d.getDay(); // 0=Dom, 1=Lun ... 6=Sab
   const orig = new Date(t.date + 'T00:00:00');
@@ -6134,21 +6509,91 @@ async function fbDeleteTask(t) {
   }
 }
 
+async function archiveTask(id){
+  const t = tasks.find(x=>Number(x.id)===Number(id));
+  if(!t) return;
+  t.archived = true;
+  t.archivedAt = new Date().toISOString();
+  await fbSaveTask(t);
+  renderView();
+  toast('📦','Tarea archivada');
+}
+
+async function unarchiveTask(id){
+  const t = tasks.find(x=>Number(x.id)===Number(id));
+  if(!t) return;
+  t.archived = false;
+  delete t.archivedAt;
+  await fbSaveTask(t);
+  renderView();
+  toast('↩️','Tarea desarchivada');
+}
+
+// Vista de tareas ELIMINADAS (desde colección 'deleted' de Firestore)
+let deletedTasks = [];
+async function buildDeletedView() {
+  try {
+    const snap = await db.collection('deleted').orderBy('deletedAt','desc').limit(50).get();
+    deletedTasks = [];
+    snap.forEach(d => deletedTasks.push(Object.assign({},d.data(),{_fbId:d.id})));
+  } catch(e) { console.warn('deleted fetch:', e); }
+
+  const ctxFilter = t => curCtxFilter==='all' || t.ctx===curCtxFilter;
+  const filtered = deletedTasks.filter(ctxFilter);
+
+  const rows = filtered.map(t => {
+    const col = (contexts.find(c=>c.id===t.ctx)||{}).color || 'var(--c-border)';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--c-bg2);border:1px solid var(--c-border);border-left:3px solid ${col};border-radius:var(--radius);margin-bottom:6px;opacity:.7">
+      <span style="flex:1;font-size:13px;color:var(--c-text);text-decoration:line-through">${t.title}</span>
+      <span style="font-size:10px;color:var(--c-text3)">${(t.deletedAt||'').slice(0,10)}</span>
+      <button onclick="restoreDeletedTask('${t._fbId}')" title="Restaurar"
+        style="padding:4px 8px;border:1px solid var(--accent);background:transparent;color:var(--accent);border-radius:var(--radius-sm);cursor:pointer;font-size:11px">↩️</button>
+    </div>`;
+  }).join('');
+
+  return `<div class="sec-hdr"><div class="sec-ttl">🗑️ Eliminadas — ${filtered.length}</div></div>`
+    + (rows || '<div class="empty"><div class="empty-icon">🗑️</div><div class="empty-ttl">Sin eliminadas</div></div>');
+}
+
+async function restoreDeletedTask(fbId) {
+  const t = deletedTasks.find(x=>x._fbId===fbId);
+  if(!t) return;
+  const restored = Object.assign({}, t);
+  delete restored._fbId;
+  delete restored.deletedAt;
+  restored.done = false;
+  restored.id = Date.now();
+  restored.order = tasks.length;
+  tasks.unshift(restored);
+  await fbSaveTask(restored);
+  // Eliminar de la colección deleted
+  try { await db.collection('deleted').doc(fbId).delete(); } catch(e){}
+  deletedTasks = deletedTasks.filter(x=>x._fbId!==fbId);
+  renderView();
+  toast('↩️','Tarea restaurada');
+}
+
 async function fbSaveContexts() {
   if(typeof firebase === 'undefined') return;
+  window._savingContexts = true;
   setSyncStatus('syncing','Guardando contextos...');
   try {
-    for(let i=0; i<contexts.length; i++) {
-      const c = contexts[i];
+    const batch = db.batch();
+    contexts.forEach((c, i) => {
+      if(!c._fbId) return;
+      const ref = db.collection('contexts').doc(c._fbId);
       const data = Object.assign({}, c, {order: i});
-      const fbId = data._fbId; delete data._fbId;
-      if(fbId) await db.collection('contexts').doc(fbId).set(data);
-      else { const r = await db.collection('contexts').add(data); c._fbId = r.id; }
-    }
+      delete data._fbId;
+      batch.set(ref, data);
+    });
+    await batch.commit();
     setSyncStatus('synced','✓ Contextos guardados');
+    setTimeout(() => { window._savingContexts = false; }, 2000);
   } catch(e){
+    window._savingContexts = false;
     setSyncStatus('error','✗ Error guardando contextos');
     console.error('fbSaveContexts:', e);
+    toast('❌','Error: '+(e.message||'sin conexión'));
   }
 }
 
@@ -6245,9 +6690,9 @@ function fbListenAll() {
   });
   db.collection('contexts').onSnapshot(snap => {
     if(snap.empty) return;
+    if(window._savingContexts) return; // ignorar mientras se guarda
     const arr = [];
     snap.forEach(d => arr.push(Object.assign({}, d.data(), {_fbId: d.id})));
-    // Ordenar por campo "order" para sincronizar el orden entre dispositivos
     arr.sort((a,b) => (a.order||0) - (b.order||0));
     contexts = arr;
     renderSidebar();
@@ -6291,6 +6736,7 @@ function onFirstLoad() {
   checkPendingNotifs();
   // Programar recordatorios de eventos del día
   setTimeout(scheduleAllEventReminders, 1000);
+  setTimeout(scheduleAllAlarms, 1500); // Programar alarmas personales
   // Programar resumen diario por correo
   const cfg = getEmailConfig();
   if(cfg.publicKey && cfg.serviceId && cfg.templateId) {
