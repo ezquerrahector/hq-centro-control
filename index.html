@@ -826,8 +826,12 @@ console.log("Firebase compat cargado OK");
         <input class="form-inp" id="mProjSearch" list="mProjList"
           placeholder="Buscar proyecto..."
           oninput="onProjSearch(this.value)"
-          autocomplete="off"/>
+          autocomplete="off"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();createProjectFromModal(this.value)}"/>
         <datalist id="mProjList"></datalist>
+        <div id="mProjHint" style="display:none;font-size:11px;color:var(--accent);margin-top:3px;cursor:pointer" onclick="createProjectFromModal(document.getElementById('mProjSearch').value)">
+          ↵ Presiona Enter para crear este proyecto
+        </div>
         <input type="hidden" id="mProj" value=""/>
       </div>
     </div>
@@ -1145,7 +1149,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v6.6</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v6.7</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -1190,10 +1194,8 @@ console.log("Firebase compat cargado OK");
         <button class="btn-icon" title="Exportar a Excel" onclick="exportToExcel()">📊</button>
         <button class="btn-icon" title="Importar desde CSV" onclick="document.getElementById('importFileInp').click()">📥</button>
         <input type="file" id="importFileInp" accept=".csv,.xlsx,.xls" style="display:none" onchange="importFromFile(this)"/>
-        <button class="btn-icon" title="Notificación diaria (9 AM)" onclick="scheduleDailyNotif()" id="btnNotif">🔔</button>
-        <button class="btn-icon" title="Perfil — Héctor Ezquerra" onclick="showProfileMenu()">👤</button>
-        <button class="btn-icon" title="🔔 Configurar notificaciones" onclick="openNotifConfig()">🔔</button>
-        <button class="btn-icon" title="📧 Recordatorios por correo" onclick="openEmailConfig()">📧</button>
+        <button class="btn-icon" title="Notificaciones push" onclick="openNotifConfig()" id="btnNotif">🔔</button>
+        <button class="btn-icon" title="Recordatorios por correo" onclick="openEmailConfig()">📧</button>
         <button class="btn-icon" title="Recargar datos" onclick="reloadFromFirebase()" id="reloadBtn">🔄</button>
         <button class="btn-primary" onclick="openTaskModal()">＋ Nueva tarea</button>
       </div>
@@ -2187,6 +2189,7 @@ function buildTreeTask(t) {
       </div>
       <div class="tree-task-actions" onclick="event.stopPropagation()">
         <button class="tree-act" onclick="openSubModal('sub',${t.id},null,null)" title="Nueva subtarea">➕</button>
+        <button class="tree-act" onclick="duplicateTask(${t.id})" title="Duplicar tarea">⧉</button>
         <button class="tree-act" onclick="openTaskModal(${t.id})" title="Editar">✏️</button>
         <button class="tree-act del" onclick="deleteTask(${t.id})" title="Eliminar">🗑️</button>
       </div>
@@ -2910,6 +2913,11 @@ function openDetail(id){
       </div>
       <button class="btn-icon" onclick="closeDetail()">✕</button>
     </div>
+    <div style="display:flex;gap:6px;margin-bottom:14px">
+      <button class="btn-primary" style="flex:1;font-size:12px;padding:7px" onclick="closeDetail();openTaskModal(${t.id})">✏️ Editar</button>
+      <button class="btn-primary" style="flex:1;font-size:12px;padding:7px;background:${t.done?'var(--c-bg3)':'#22a566'};color:${t.done?'var(--c-text)':'#fff'};border-color:${t.done?'var(--c-border2)':'#22a566'}" onclick="${t.done?'restoreTask':'completeTask'}(${t.id});closeDetail()">${t.done?'↩️ Recuperar':'✅ Completar'}</button>
+      <button style="padding:7px 12px;border:1px solid #e05252;background:transparent;color:#e05252;border-radius:var(--radius-sm);cursor:pointer;font-size:13px" onclick="deleteTask(${t.id});closeDetail()">🗑️</button>
+    </div>
 
     ${t.notes?`<div style="margin-bottom:16px"><div class="detail-sec-lbl">Notas</div><div class="detail-notes-box">${t.notes}</div></div>`:''}
 
@@ -2950,13 +2958,7 @@ function openDetail(id){
       </div>`).join('')}
     </div>`:''}
 
-    <div style="display:flex;gap:7px;margin-top:18px;flex-wrap:wrap">
-      <button class="btn-primary" onclick="closeDetail();openTaskModal(${t.id})">✏️ Editar</button>
-      <button class="btn-primary" style="background:${t.done?'var(--c-bg3)':'#22a566'};color:${t.done?'var(--c-text)':'#fff'};border:1px solid ${t.done?'var(--c-border2)':'#22a566'}" onclick="${t.done?'restoreTask':'completeTask'}(${t.id});closeDetail()">
-        ${t.done?'↩️ Recuperar':'✅ Completar'}
-      </button>
-      <button class="btn-primary" style="background:rgba(224,82,82,.08);color:#e05252;border:1px solid #e05252" onclick="deleteTask(${t.id});closeDetail()">🗑️</button>
-    </div>`;
+`;
 
   document.getElementById('detailOv').classList.add('open');
 }
@@ -3017,10 +3019,34 @@ function buildProjSelects(){
 }
 
 function onProjSearch(val) {
-  // Encontrar el proyecto que coincide con el texto escrito
   const match = projects.find(p => p.name.toLowerCase() === val.toLowerCase());
   const hiddenInp = document.getElementById('mProj');
   if(hiddenInp) hiddenInp.value = match ? match.id : '';
+  // Mostrar hint si no existe
+  const hint = document.getElementById('mProjHint');
+  if(hint) hint.style.display = (val.trim() && !match) ? 'block' : 'none';
+}
+
+async function createProjectFromModal(name) {
+  name = (name||'').trim();
+  if(!name) return;
+  const existing = projects.find(p=>p.name.toLowerCase()===name.toLowerCase());
+  if(existing) {
+    document.getElementById('mProj').value = existing.id;
+    document.getElementById('mProjSearch').value = existing.name;
+    return;
+  }
+  const ctxEl = document.getElementById('mCtx');
+  const ctx = ctxEl ? ctxEl.value : (curCtxFilter!=='all'?curCtxFilter:'personal');
+  const newProj = { id:'p_'+Date.now(), name, ctx, order:projects.length, done:false };
+  projects.push(newProj);
+  await fbSaveProject(newProj);
+  buildProjSelects();
+  document.getElementById('mProj').value = newProj.id;
+  document.getElementById('mProjSearch').value = newProj.name;
+  const hint = document.getElementById('mProjHint');
+  if(hint) hint.style.display = 'none';
+  toast('📁', '"'+name+'" creado y seleccionado');
 }
 
 function selP(p,btn){
@@ -3094,10 +3120,34 @@ function buildProjSelects(){
 }
 
 function onProjSearch(val) {
-  // Encontrar el proyecto que coincide con el texto escrito
   const match = projects.find(p => p.name.toLowerCase() === val.toLowerCase());
   const hiddenInp = document.getElementById('mProj');
   if(hiddenInp) hiddenInp.value = match ? match.id : '';
+  // Mostrar hint si no existe
+  const hint = document.getElementById('mProjHint');
+  if(hint) hint.style.display = (val.trim() && !match) ? 'block' : 'none';
+}
+
+async function createProjectFromModal(name) {
+  name = (name||'').trim();
+  if(!name) return;
+  const existing = projects.find(p=>p.name.toLowerCase()===name.toLowerCase());
+  if(existing) {
+    document.getElementById('mProj').value = existing.id;
+    document.getElementById('mProjSearch').value = existing.name;
+    return;
+  }
+  const ctxEl = document.getElementById('mCtx');
+  const ctx = ctxEl ? ctxEl.value : (curCtxFilter!=='all'?curCtxFilter:'personal');
+  const newProj = { id:'p_'+Date.now(), name, ctx, order:projects.length, done:false };
+  projects.push(newProj);
+  await fbSaveProject(newProj);
+  buildProjSelects();
+  document.getElementById('mProj').value = newProj.id;
+  document.getElementById('mProjSearch').value = newProj.name;
+  const hint = document.getElementById('mProjHint');
+  if(hint) hint.style.display = 'none';
+  toast('📁', '"'+name+'" creado y seleccionado');
 }
 
 function selP(p,btn){
@@ -3446,6 +3496,23 @@ async function deleteTask(id){
   updateBadges();
   renderView();
   toast('🗑️','Tarea eliminada');
+}
+
+async function duplicateTask(id) {
+  const orig = tasks.find(t => Number(t.id) === Number(id));
+  if(!orig) return;
+  const copy = Object.assign({}, orig, {
+    id: Date.now(),
+    title: orig.title + ' (copia)',
+    done: false,
+    order: tasks.length,
+    subtasks: (orig.subtasks||[]).map(s => Object.assign({},s,{id:'sub_'+Date.now()+Math.random()})),
+  });
+  delete copy._fbId;
+  tasks.unshift(copy);
+  await fbSaveTask(copy);
+  renderView();
+  toast('📋', 'Tarea duplicada');
 }
 
 async function permDelete(id){
@@ -6069,11 +6136,11 @@ async function fbDeleteTask(t) {
 
 async function fbSaveContexts() {
   if(typeof firebase === 'undefined') return;
-  setSyncStatus('syncing','Guardando orden de contextos...');
+  setSyncStatus('syncing','Guardando contextos...');
   try {
     for(let i=0; i<contexts.length; i++) {
       const c = contexts[i];
-      const data = Object.assign({}, c, {order: i}); // guardar orden
+      const data = Object.assign({}, c, {order: i});
       const fbId = data._fbId; delete data._fbId;
       if(fbId) await db.collection('contexts').doc(fbId).set(data);
       else { const r = await db.collection('contexts').add(data); c._fbId = r.id; }
