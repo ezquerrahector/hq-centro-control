@@ -1149,7 +1149,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v6.9</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v7.0</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -1175,7 +1175,9 @@ console.log("Firebase compat cargado OK");
       <div class="nav-item" data-view="completadas" onclick="gotoView('completadas',this)"><span class="nav-icon">🏆</span><span>Completadas</span></div>
       <div class="nav-item" data-view="archivadas" onclick="gotoView('archivadas',this)"><span class="nav-icon">📦</span><span>Archivadas</span></div>
       <div class="nav-item" data-view="eliminadas" onclick="gotoView('eliminadas',this)"><span class="nav-icon">🗑️</span><span>Eliminadas</span></div>
+      <div class="nav-item" data-view="eliminadas" onclick="gotoView('eliminadas',this)"><span class="nav-icon">🗑️</span><span>Eliminadas</span></div>
       <div class="nav-item" data-view="archivadas" onclick="gotoView('archivadas',this)"><span class="nav-icon">📦</span><span>Archivadas</span></div>
+      <div class="nav-item" data-view="eliminadas" onclick="gotoView('eliminadas',this)"><span class="nav-icon">🗑️</span><span>Eliminadas</span></div>
       <div class="nav-item" data-view="papelera" onclick="gotoView('papelera',this)"><span class="nav-icon">🗑️</span><span>Papelera</span></div>
     </div>
 
@@ -1777,6 +1779,7 @@ function renderView(){
 
     case 'completadas':c.innerHTML=buildCompleted();break;
     case 'archivadas': c.innerHTML=buildArchived();break;
+    case 'eliminadas': c.innerHTML=buildDeleted();break;
     case 'eliminadas':  buildDeletedView().then(html=>{c.innerHTML=html});break;
     case 'archivadas': c.innerHTML=buildArchivadas();break;
     case 'papelera':   buildPapelera();break;
@@ -3089,6 +3092,106 @@ function buildInstinto(){
 // ══════════════════════════════════════════════════════
 // COMPLETED — con recuperación funcional
 // ══════════════════════════════════════════════════════
+function buildDeleted(){
+  const wrap = document.createElement('div');
+
+  const hdr = document.createElement('div');
+  hdr.className = 'sec-hdr';
+  hdr.innerHTML = '<div class="sec-ttl">🗑️ Tareas eliminadas</div>';
+  const clearBtn = document.createElement('button');
+  clearBtn.className = 'btn-sec';
+  clearBtn.style.cssText = 'font-size:11px;color:#e05252;border-color:#e05252';
+  clearBtn.textContent = '🗑️ Vaciar todo';
+  clearBtn.onclick = async () => {
+    if(!confirm('¿Eliminar permanentemente todas las tareas eliminadas?')) return;
+    const snap = await db.collection('deleted').get();
+    const batch = db.batch();
+    snap.forEach(d => batch.delete(d.ref));
+    await batch.commit();
+    renderView();
+    toast('🗑️','Papelera vaciada');
+  };
+  hdr.appendChild(clearBtn);
+  wrap.appendChild(hdr);
+
+  // Cargar desde Firebase
+  const loading = document.createElement('div');
+  loading.style.cssText = 'text-align:center;padding:20px;color:var(--c-text3)';
+  loading.textContent = 'Cargando eliminadas...';
+  wrap.appendChild(loading);
+
+  // Async: cargar y renderizar
+  db.collection('deleted').orderBy('deletedAt','desc').limit(50).get().then(snap => {
+    loading.remove();
+    if(snap.empty) {
+      const empty = document.createElement('div');
+      empty.className = 'empty';
+      empty.innerHTML = '<div class="empty-icon">🗑️</div><div class="empty-ttl">Papelera vacía</div><div class="empty-sub">Las tareas eliminadas aparecen aquí.</div>';
+      wrap.appendChild(empty);
+      return;
+    }
+    snap.forEach(doc => {
+      const t = Object.assign({}, doc.data(), {_delId: doc.id});
+      const row = document.createElement('div');
+      row.className = 'task-item p-none';
+      row.style.cssText = 'opacity:.6;display:flex;align-items:center;gap:10px';
+
+      const icon = document.createElement('span');
+      icon.style.cssText = 'font-size:16px;flex-shrink:0';
+      icon.textContent = '🗑️';
+      row.appendChild(icon);
+
+      const body = document.createElement('div');
+      body.style.cssText = 'flex:1';
+      const title = document.createElement('div');
+      title.className = 'task-title';
+      title.style.textDecoration = 'line-through';
+      title.textContent = t.title || '(sin título)';
+      const meta = document.createElement('div');
+      meta.className = 'task-meta';
+      meta.textContent = (t.deletedAt ? 'Eliminada: ' + new Date(t.deletedAt).toLocaleDateString('es-MX') : '') + (t.date ? ' · ' + t.date : '');
+      body.appendChild(title);
+      body.appendChild(meta);
+      row.appendChild(body);
+
+      const restoreBtn = document.createElement('button');
+      restoreBtn.style.cssText = 'font-size:11px;padding:3px 10px;border:1px solid var(--c-border);background:transparent;color:var(--c-text);border-radius:6px;cursor:pointer;flex-shrink:0';
+      restoreBtn.textContent = '↩️ Restaurar';
+      restoreBtn.onclick = async () => {
+        const restored = Object.assign({}, t);
+        delete restored._delId;
+        delete restored.deletedAt;
+        restored.done = false;
+        restored.id = Date.now();
+        tasks.push(restored);
+        await fbSaveTask(restored);
+        await db.collection('deleted').doc(doc.id).delete();
+        row.remove();
+        updateBadges();
+        toast('↩️','Tarea restaurada');
+      };
+      row.appendChild(restoreBtn);
+
+      const permBtn = document.createElement('button');
+      permBtn.style.cssText = 'font-size:11px;padding:3px 10px;border:1px solid #e05252;background:transparent;color:#e05252;border-radius:6px;cursor:pointer;flex-shrink:0';
+      permBtn.textContent = '🗑️';
+      permBtn.title = 'Eliminar permanentemente';
+      permBtn.onclick = async () => {
+        await db.collection('deleted').doc(doc.id).delete();
+        row.remove();
+        toast('🗑️','Eliminada permanentemente');
+      };
+      row.appendChild(permBtn);
+
+      wrap.appendChild(row);
+    });
+  }).catch(e => {
+    loading.textContent = 'Error al cargar: ' + (e.message||e);
+  });
+
+  return wrap.outerHTML;
+}
+
 function buildArchived(){
   const archived = tasks.filter(t=>t.archived&&(curCtxFilter==='all'||t.ctx===curCtxFilter));
   if(!archived.length) return '<div class="empty"><div class="empty-icon">📦</div><div class="empty-ttl">Sin archivadas</div></div>';
