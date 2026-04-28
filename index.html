@@ -1149,7 +1149,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v7.0</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v7.1</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -1175,10 +1175,6 @@ console.log("Firebase compat cargado OK");
       <div class="nav-item" data-view="completadas" onclick="gotoView('completadas',this)"><span class="nav-icon">🏆</span><span>Completadas</span></div>
       <div class="nav-item" data-view="archivadas" onclick="gotoView('archivadas',this)"><span class="nav-icon">📦</span><span>Archivadas</span></div>
       <div class="nav-item" data-view="eliminadas" onclick="gotoView('eliminadas',this)"><span class="nav-icon">🗑️</span><span>Eliminadas</span></div>
-      <div class="nav-item" data-view="eliminadas" onclick="gotoView('eliminadas',this)"><span class="nav-icon">🗑️</span><span>Eliminadas</span></div>
-      <div class="nav-item" data-view="archivadas" onclick="gotoView('archivadas',this)"><span class="nav-icon">📦</span><span>Archivadas</span></div>
-      <div class="nav-item" data-view="eliminadas" onclick="gotoView('eliminadas',this)"><span class="nav-icon">🗑️</span><span>Eliminadas</span></div>
-      <div class="nav-item" data-view="papelera" onclick="gotoView('papelera',this)"><span class="nav-icon">🗑️</span><span>Papelera</span></div>
     </div>
 
     <div class="sb-projects">
@@ -1780,9 +1776,6 @@ function renderView(){
     case 'completadas':c.innerHTML=buildCompleted();break;
     case 'archivadas': c.innerHTML=buildArchived();break;
     case 'eliminadas': c.innerHTML=buildDeleted();break;
-    case 'eliminadas':  buildDeletedView().then(html=>{c.innerHTML=html});break;
-    case 'archivadas': c.innerHTML=buildArchivadas();break;
-    case 'papelera':   buildPapelera();break;
   }
 }
 
