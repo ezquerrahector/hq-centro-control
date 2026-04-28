@@ -1135,7 +1135,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v6.2</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v6.5</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -3024,6 +3024,7 @@ async function saveTask(){
   const titleEl = document.getElementById('mTitle');
   const title = (titleEl ? titleEl.value : '').trim();
   if(!title) return toast('⚠️','Escribe el título de la tarea');
+  toast('⏳','Guardando...');
 
   const get = id => { const el=document.getElementById(id); return el ? el.value||'' : ''; };
   const ctxVal = get('mCtx') || (curCtxFilter!=='all' ? curCtxFilter : 'personal');
@@ -3094,63 +3095,6 @@ function selP(p,btn){
   document.querySelectorAll('.prio-btn').forEach(b=>b.classList.remove('sel'));
   if(btn)btn.classList.add('sel');
   else{const b=document.querySelector(`.prio-btn.${p}`);if(b)b.classList.add('sel');}
-}
-
-function saveTask(){
-  const title=(document.getElementById('mTitle').value||'').trim();
-  if(!title)return toast('⚠️','Escribe el título de la tarea');
-  
-  const ctxEl = document.getElementById('mCtx');
-  const ctxVal = ctxEl ? ctxEl.value : (curCtxFilter!=='all'?curCtxFilter:'personal');
-  
-  const toOutlook = document.getElementById('mOutlook') ? document.getElementById('mOutlook').checked : false;
-  
-  const prevTask = editingId ? tasks.find(x => Number(x.id) === Number(editingId)) : null;
-  
-  const t={
-    id: editingId || Date.now(),
-    title,
-    notes: (document.getElementById('mNotes')||{}).value || '',
-    date:  (document.getElementById('mDate')||{}).value  || '',
-    time:  (document.getElementById('mTime')||{}).value  || '',
-    priority: curPrio || 'medium',
-    ctx: ctxVal || 'personal',
-    tags: [...mTags],
-    list: 'inbox',
-    projId: (document.getElementById('mProj')||{}).value || '',
-    done: false,
-    recurring: (document.getElementById('remRecurTop')||{}).value || 'none',
-    attachments: [...mAttach],
-    subtasks: prevTask ? (prevTask.subtasks||[]) : [],
-    order: prevTask ? (prevTask.order||0) : tasks.length,
-  };
-  if(editingId){
-    const i=tasks.findIndex(x=>Number(x.id)===Number(editingId));
-    if(i>=0){t._fbId=tasks[i]._fbId; tasks[i]=t;}
-    else tasks.unshift(t);
-  } else {
-    tasks.unshift(t);
-  }
-  // Actualizar UI inmediatamente (optimistic update)
-  updateBadges();
-  renderView();
-  closeTaskModal();
-  // Guardar en Firebase de forma asíncrona
-  fbSaveTask(t).catch(err => {
-    console.error('Error guardando tarea:', err);
-    toast('❌','Error al guardar en Firebase: '+err.message);
-  });
-  if(toOutlook && t.date) {
-    const outlookText = 'Asunto: ' + t.title + '\n' +
-      'Fecha: ' + t.date + (t.time ? ' ' + t.time : '') + '\n' +
-      (t.notes ? 'Descripción: ' + t.notes + '\n' : '') +
-      'Categoría: HQ Centro de Control';
-    navigator.clipboard.writeText(outlookText).then(() => {
-      toast('📋','Evento copiado — pégalo en Outlook con Ctrl+V');
-    }).catch(() => toast('📅','Tarea guardada — crea el evento en Outlook manualmente'));
-  } else {
-    toast('✅','Tarea guardada ☁️');
-  }
 }
 
 // ──────────────────────────────────────────
@@ -5370,7 +5314,9 @@ async function reloadFromFirebase() {
   } catch(e) {
     setSyncStatus('error', '✗ Error al actualizar');
     console.error('reloadFromFirebase:', e);
-    toast('❌', 'Error al conectar con Firebase');
+    // Solo mostrar error si no hay datos cargados
+    if(!tasks.length) toast('❌', 'Error al conectar con Firebase');
+    else console.warn('Firebase reload error (datos locales disponibles):', e);
   }
 }
 
@@ -6215,9 +6161,10 @@ function fbListenAll() {
     }
 
   }, function(err) {
-    setSyncStatus('error', '✗ Sin conexión a Firebase');
+    setSyncStatus('error', '✗ Sin conexión');
     hideLoadingScreen();
     console.error('Firestore tasks error:', err);
+    if(!tasks.length) toast('⚠️', 'Sin conexión a Firebase');
   });
   db.collection('contexts').onSnapshot(snap => {
     if(snap.empty) return;
