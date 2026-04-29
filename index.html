@@ -1149,7 +1149,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v7.8</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v7.9</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -2617,6 +2617,152 @@ function buildCalHeader(title) {
   </div>`;
 }
 
+// ══ EXPORTAR CALENDARIO A .ICS ══
+function exportCalICS() {
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//HQ Centro de Control//ES',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+  ];
+
+  // Exportar eventos
+  events.forEach(ev => {
+    if(!ev.date) return;
+    const dtStr = ev.date.replace(/-/g,'') + (ev.time ? 'T'+ev.time.replace(':','')+'00' : '');
+    const dtEnd = ev.date.replace(/-/g,'') + (ev.time ? 'T'+addMinutes(ev.time,60).replace(':','')+'00' : '');
+    lines.push('BEGIN:VEVENT');
+    lines.push('UID:hq-ev-'+ev.id+'@hq-centro-control');
+    lines.push('SUMMARY:'+escICS(ev.title||'Sin título'));
+    lines.push(ev.time ? 'DTSTART:'+dtStr : 'DTSTART;VALUE=DATE:'+dtStr);
+    lines.push(ev.time ? 'DTEND:'+dtEnd   : 'DTEND;VALUE=DATE:'+dtEnd);
+    if(ev.notes) lines.push('DESCRIPTION:'+escICS(ev.notes));
+    lines.push('END:VEVENT');
+  });
+
+  // Exportar tareas con fecha
+  tasks.filter(t=>t.date&&!t.done).forEach(t => {
+    lines.push('BEGIN:VEVENT');
+    lines.push('UID:hq-task-'+t.id+'@hq-centro-control');
+    lines.push('SUMMARY:✅ '+escICS(t.title||'Sin título'));
+    lines.push('DTSTART;VALUE=DATE:'+t.date.replace(/-/g,''));
+    lines.push('DTEND;VALUE=DATE:'+t.date.replace(/-/g,''));
+    if(t.notes) lines.push('DESCRIPTION:'+escICS(t.notes));
+    lines.push('END:VEVENT');
+  });
+
+  lines.push('END:VCALENDAR');
+
+  const crlf = '\r\n';
+  const blob = new Blob([lines.join(crlf)], {type:'text/calendar;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'HQ-Centro-Control-'+TODAY+'.ics';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('📤','Calendario exportado — ábrelo con Google/Outlook/Apple Calendar');
+}
+
+function escICS(str) {
+  return (str||'').replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\n/g,'\\n');
+}
+
+function addMinutes(timeStr, mins) {
+  const [h,m] = (timeStr||'00:00').split(':').map(Number);
+  const total = h*60+m+mins;
+  return String(Math.floor(total/60)%24).padStart(2,'0')+':'+String(total%60).padStart(2,'0');
+}
+
+// ══ IMPORTAR CALENDARIO DESDE .ICS ══
+function importCalICS(input) {
+  const file = input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = async e => {
+    const text = e.target.result;
+    const eventsImported = parseICS(text);
+    if(!eventsImported.length) {
+      toast('⚠️','No se encontraron eventos en el archivo');
+      input.value='';
+      return;
+    }
+
+    let added = 0;
+    for(const ev of eventsImported) {
+      // Evitar duplicados por UID
+      const alreadyExists = events.find(x => x.icsUid === ev.icsUid);
+      if(alreadyExists) continue;
+      const newEv = {
+        id: 'ics_'+Date.now()+'_'+added,
+        title: ev.title,
+        date: ev.date,
+        time: ev.time||'',
+        endDate: ev.endDate||'',
+        notes: ev.notes||'',
+        color: '#2d7dd2',
+        recur: 'none',
+        ctx: curCtxFilter!=='all'?curCtxFilter:'',
+        icsUid: ev.icsUid||''
+      };
+      events.push(newEv);
+      try {
+        const ref = await db.collection('events').add(newEv);
+        newEv._fbId = ref.id;
+      } catch(err) { console.error('Error guardando evento ICS:', err); }
+      added++;
+    }
+
+    input.value='';
+    renderView();
+    toast('📥', added+' eventos importados de '+eventsImported.length+' en el archivo');
+  };
+  reader.readAsText(file);
+}
+
+function parseICS(text) {
+  const events = [];
+  const lines  = text.replace(/\r\n/g,'\n').replace(/\r/g,'\n')
+    // Unfolded lines (ICS permite continuar líneas con espacio/tab)
+    .replace(/\n[ \t]/g,'').split('\n');
+
+  let current = null;
+  lines.forEach(line => {
+    if(line === 'BEGIN:VEVENT') { current = {}; return; }
+    if(line === 'END:VEVENT') {
+      if(current && current.title && current.date) events.push(current);
+      current = null; return;
+    }
+    if(!current) return;
+
+    const [key, ...rest] = line.split(':');
+    const val = rest.join(':').trim();
+    const keyBase = key.split(';')[0];
+
+    if(keyBase === 'SUMMARY')     current.title   = unescICS(val);
+    if(keyBase === 'UID')         current.icsUid  = val;
+    if(keyBase === 'DESCRIPTION') current.notes   = unescICS(val);
+
+    if(keyBase === 'DTSTART') {
+      const clean = val.replace(/[TZ]/g,'');
+      current.date = clean.slice(0,4)+'-'+clean.slice(4,6)+'-'+clean.slice(6,8);
+      if(val.includes('T') && clean.length >= 12) {
+        current.time = clean.slice(8,10)+':'+clean.slice(10,12);
+      }
+    }
+    if(keyBase === 'DTEND') {
+      const clean = val.replace(/[TZ]/g,'');
+      const endDate = clean.slice(0,4)+'-'+clean.slice(4,6)+'-'+clean.slice(6,8);
+      if(endDate !== current.date) current.endDate = endDate;
+    }
+  });
+  return events;
+}
+
+function unescICS(str) {
+  return (str||'').replace(/\\n/g,'\n').replace(/\\,/g,',').replace(/\\;/g,';').replace(/\\\\/g,'\\');
+}
+
 function buildCalDay() {
   const dateStr = calSelectedDate || TODAY;
   const d = new Date(dateStr + 'T00:00:00');
@@ -2803,6 +2949,11 @@ function buildCal(){
         <button class="btn-sec" onclick="calView='week';renderView()" style="font-size:11px;padding:4px 8px;${calView==='week'?'background:var(--accent);color:#fff':''}" >Semana</button>
         <button class="btn-sec" onclick="calView='month';renderView()" style="font-size:11px;padding:4px 8px;${calView==='month'?'background:var(--accent);color:#fff':''}" >Mes</button>
         <button class="btn-primary" style="font-size:12px;padding:6px 13px" onclick="openAddTypeModal(calSelectedDate||TODAY)">＋ Agregar</button>
+        <button class="btn-sec" style="font-size:11px;padding:5px 10px" onclick="exportCalICS()" title="Exportar eventos a Google/Outlook/Apple Calendar">📤 Exportar .ics</button>
+        <label class="btn-sec" style="font-size:11px;padding:5px 10px;cursor:pointer" title="Importar desde Google/Outlook/Apple Calendar">
+          📥 Importar .ics
+          <input type="file" accept=".ics" style="display:none" onchange="importCalICS(this)"/>
+        </label>
       </div>
     </div>
     <div class="cal-wrap">
