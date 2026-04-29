@@ -1149,7 +1149,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v7.9</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v8.0</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -2617,6 +2617,180 @@ function buildCalHeader(title) {
   </div>`;
 }
 
+// ══ SINCRONIZACIÓN AUTOMÁTICA ICS FEED ══
+
+function openICSFeedModal() {
+  const existing = document.getElementById('icsFeedModal');
+  if(existing) { existing.remove(); return; }
+
+  let savedUrl = '';
+  let savedName = '';
+  try {
+    const saved = JSON.parse(localStorage.getItem('hq_ics_feeds')||'[]');
+    if(saved.length) {
+      savedUrl  = saved[0].url  || '';
+      savedName = saved[0].name || '';
+    }
+  } catch(e){}
+
+  const m = document.createElement('div');
+  m.id = 'icsFeedModal';
+  m.className = 'overlay open';
+  m.onclick = e => { if(e.target===m) m.remove(); };
+
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.style.maxWidth = '500px';
+
+  const hdr = document.createElement('div');
+  hdr.className = 'modal-hdr';
+  hdr.innerHTML = '<span class="modal-ttl">🔗 Sincronizar calendario externo</span>';
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'btn-icon';
+  closeBtn.textContent = '✕';
+  closeBtn.onclick = () => m.remove();
+  hdr.appendChild(closeBtn);
+  modal.appendChild(hdr);
+
+  modal.innerHTML += `
+    <div style="font-size:12px;color:var(--c-text3);margin-bottom:14px;line-height:1.6">
+      Pega el <strong>enlace ICS</strong> de tu calendario de Outlook, Google o Apple.<br>
+      <span style="color:var(--accent)">Outlook:</span> Configuración → Calendario → Calendarios compartidos → Publicar un calendario → copiar el enlace ICS.<br>
+      <span style="color:var(--accent)">Google:</span> Configuración del calendario → Integrar el calendario → URL secreta en formato iCal.
+    </div>
+    <div style="margin-bottom:10px">
+      <label style="font-size:11px;font-weight:600;color:var(--c-text3);letter-spacing:.05em">NOMBRE DEL CALENDARIO</label>
+      <input id="icsFeedName" class="form-inp" placeholder="Ej: Outlook BanBajío" value="${savedName}" style="margin-top:4px"/>
+    </div>
+    <div style="margin-bottom:14px">
+      <label style="font-size:11px;font-weight:600;color:var(--c-text3);letter-spacing:.05em">URL DEL FEED ICS</label>
+      <input id="icsFeedUrl" class="form-inp" placeholder="https://outlook.office365.com/.../calendar.ics" value="${savedUrl}" style="margin-top:4px;font-size:11px"/>
+    </div>
+    <div id="icsSyncStatus" style="font-size:12px;color:var(--c-text3);margin-bottom:12px;min-height:18px"></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn-primary" style="flex:1" onclick="saveAndSyncICSFeed()">🔄 Guardar y sincronizar</button>
+      <button class="btn-sec" onclick="document.getElementById('icsFeedModal').remove()">Cancelar</button>
+    </div>
+    ${savedUrl?'<button class="btn-sec" style="width:100%;margin-top:8px;color:#e05252;border-color:#e05252" onclick="clearICSFeed()">🗑️ Quitar sincronización</button>':''}
+  `;
+
+  m.appendChild(modal);
+  document.body.appendChild(m);
+}
+
+async function saveAndSyncICSFeed() {
+  const url  = (document.getElementById('icsFeedUrl')?.value||'').trim();
+  const name = (document.getElementById('icsFeedName')?.value||'').trim() || 'Calendario externo';
+  const status = document.getElementById('icsSyncStatus');
+
+  if(!url) { if(status) status.textContent = '⚠️ Pega la URL del feed ICS'; return; }
+
+  if(status) status.innerHTML = '<span style="color:var(--accent)">⏳ Sincronizando...</span>';
+
+  // Guardar la URL en localStorage
+  try {
+    localStorage.setItem('hq_ics_feeds', JSON.stringify([{url, name}]));
+  } catch(e){}
+
+  // Sincronizar
+  const result = await syncICSFeed(url, name);
+  if(status) status.innerHTML = result.ok
+    ? '<span style="color:#22a566">✅ '+result.added+' eventos nuevos importados</span>'
+    : '<span style="color:#e05252">❌ '+result.error+'</span>';
+
+  if(result.ok) {
+    renderView();
+    setTimeout(() => {
+      const m = document.getElementById('icsFeedModal');
+      if(m) m.remove();
+    }, 2000);
+  }
+}
+
+async function syncICSFeed(url, name) {
+  try {
+    // Usar un proxy CORS para evitar bloqueos del navegador
+    // Intentar primero directo, luego via proxy
+    let text = '';
+    const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(url);
+
+    try {
+      const resp = await fetch(proxyUrl, {signal: AbortSignal.timeout(15000)});
+      if(!resp.ok) throw new Error('HTTP '+resp.status);
+      const data = await resp.json();
+      text = data.contents || '';
+    } catch(proxyErr) {
+      // Intentar directo (solo funciona si el servidor permite CORS)
+      try {
+        const resp2 = await fetch(url, {signal: AbortSignal.timeout(10000)});
+        text = await resp2.text();
+      } catch(directErr) {
+        return {ok:false, error:'No se pudo conectar. Verifica que la URL sea correcta y pública.'};
+      }
+    }
+
+    if(!text || !text.includes('BEGIN:VCALENDAR')) {
+      return {ok:false, error:'La URL no devuelve un calendario válido.'};
+    }
+
+    const parsed = parseICS(text);
+    if(!parsed.length) return {ok:true, added:0};
+
+    let added = 0;
+    for(const ev of parsed) {
+      if(!ev.date) continue;
+      const alreadyExists = events.find(x => x.icsUid && x.icsUid === ev.icsUid);
+      if(alreadyExists) continue;
+      const newEv = {
+        id: 'ics_'+Date.now()+'_'+added,
+        title: ev.title,
+        date: ev.date,
+        time: ev.time||'',
+        endDate: ev.endDate||'',
+        notes: ev.notes||'',
+        color: '#0078d4',
+        recur: 'none',
+        ctx: '',
+        icsUid: ev.icsUid||'',
+        icsSource: name
+      };
+      events.push(newEv);
+      try {
+        const ref = await db.collection('events').add(newEv);
+        newEv._fbId = ref.id;
+      } catch(err) { console.error('Error guardando evento ICS:', err); }
+      added++;
+    }
+    return {ok:true, added};
+  } catch(e) {
+    return {ok:false, error: e.message||'Error desconocido'};
+  }
+}
+
+function clearICSFeed() {
+  if(!confirm('¿Quitar la sincronización automática? Los eventos ya importados permanecen.')) return;
+  localStorage.removeItem('hq_ics_feeds');
+  const m = document.getElementById('icsFeedModal');
+  if(m) m.remove();
+  toast('✅','Sincronización eliminada');
+}
+
+// Auto-sincronizar al cargar la app si hay un feed guardado
+async function autoSyncICSFeeds() {
+  try {
+    const feeds = JSON.parse(localStorage.getItem('hq_ics_feeds')||'[]');
+    for(const feed of feeds) {
+      if(feed.url) {
+        const result = await syncICSFeed(feed.url, feed.name||'Calendario externo');
+        if(result.ok && result.added > 0) {
+          renderView();
+          toast('🔗', result.added+' eventos nuevos de '+feed.name);
+        }
+      }
+    }
+  } catch(e) { console.warn('autoSyncICS error:', e); }
+}
+
 // ══ EXPORTAR CALENDARIO A .ICS ══
 function exportCalICS() {
   const lines = [
@@ -2954,6 +3128,7 @@ function buildCal(){
           📥 Importar .ics
           <input type="file" accept=".ics" style="display:none" onchange="importCalICS(this)"/>
         </label>
+        <button class="btn-sec" style="font-size:11px;padding:5px 10px" onclick="openICSFeedModal()" title="Sincronizar automáticamente con Outlook/Google Calendar">🔗 Sincronizar</button>
       </div>
     </div>
     <div class="cal-wrap">
@@ -7016,6 +7191,7 @@ function onFirstLoad() {
   // Programar recordatorios de eventos del día
   setTimeout(scheduleAllEventReminders, 1000);
   setTimeout(scheduleAllAlarms, 1500); // Programar alarmas personales
+  setTimeout(autoSyncICSFeeds, 3000);  // Sincronizar calendarios externos
   // Programar resumen diario por correo
   const cfg = getEmailConfig();
   if(cfg.publicKey && cfg.serviceId && cfg.templateId) {
