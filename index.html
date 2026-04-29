@@ -1149,7 +1149,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v7.6</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v7.7</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -2389,7 +2389,7 @@ function quickAddSub(e, taskId, inp) {
   const task = tasks.find(t=>Number(t.id)===Number(taskId));
   if(!task) return;
   task.subtasks = task.subtasks||[];
-  task.subtasks.push({id:'sub_'+Date.now(),title:inp.value.trim(),notes:'',date:'',time:'',priority:'medium',tags:[],done:false,order:task.subtasks.length,attachments:[],subsubtasks:[]});
+  task.subtasks.push({id:'sub_'+Date.now(),title:inp.value.trim(),notes:'',date:TODAY,time:'',priority:'medium',tags:[],done:false,order:task.subtasks.length,attachments:[],subsubtasks:[]});
   fbSaveTask(task);
   if(!treeState[taskId]) treeState[taskId]={open:true,subs:{}};
   treeState[taskId].open = true;
@@ -2406,7 +2406,7 @@ function quickAddSubsub(e, taskId, subId, inp) {
   const sub = task.subtasks&&task.subtasks.find(s=>String(s.id)===String(subId));
   if(!sub) return;
   sub.subsubtasks = sub.subsubtasks||[];
-  sub.subsubtasks.push({id:'ss_'+Date.now(),title:inp.value.trim(),notes:'',date:'',time:'',priority:'medium',tags:[],done:false,order:sub.subsubtasks.length});
+  sub.subsubtasks.push({id:'ss_'+Date.now(),title:inp.value.trim(),notes:'',date:TODAY,time:'',priority:'medium',tags:[],done:false,order:sub.subsubtasks.length});
   fbSaveTask(task);
   if(!treeState[taskId]) treeState[taskId]={open:true,subs:{}};
   if(!treeState[taskId].subs[subId]) treeState[taskId].subs[subId]={open:true};
@@ -5532,7 +5532,7 @@ function addSubsubInline(e, taskId, subId, inp) {
   const sub = task.subtasks && task.subtasks.find(s=>String(s.id)===String(subId));
   if(!sub) return;
   sub.subsubtasks = sub.subsubtasks || [];
-  sub.subsubtasks.push({id:'ss_'+Date.now(), title:inp.value.trim(), notes:'', date:'', time:'', priority:'medium', tags:[], done:false, order:sub.subsubtasks.length});
+  sub.subsubtasks.push({id:'ss_'+Date.now(), title:inp.value.trim(), notes:'', date:TODAY, time:'', priority:'medium', tags:[], done:false, order:sub.subsubtasks.length});
   fbSaveTask(task);
   inp.value = '';
   renderView();
