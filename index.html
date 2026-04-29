@@ -1149,7 +1149,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v7.7</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v7.8</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -2628,7 +2628,13 @@ function buildCalDay() {
   const dayEvents = getEventsForDate(dateStr);
   const allItems  = [
     ...dayEvents.map(e => ({time: e.time||'00:00', label: e.title, color: e.color||'var(--accent)', type:'event', id:e.id})),
-    ...dayTasks.map(t => ({time: t.time||'', label: t.title, color: 'var(--accent)', type:'task', id:t.id}))
+    ...dayTasks.map(t => ({
+      time: t.time||'',
+      label: (t.type==='subtask'?'↳ ':t.type==='subsubtask'?'↳↳ ':'')+t.title,
+      color: (()=>{ const c=contexts.find(x=>x.id===t.ctx); return c?c.color:'var(--accent)'; })(),
+      type: t.type||'task',
+      id: t.id
+    }))
   ].sort((a,b) => (a.time||'99:99').localeCompare(b.time||'99:99'));
 
   const hours = [];
@@ -2746,7 +2752,7 @@ function buildCal(){
     const dayEvents = getEventsForDate(d.dateStr);
     const pills = [
       ...dayEvents.map(ev => `<div class="cal-event-pill" style="background:${ev.color}22;color:${ev.color}" onclick="event.stopPropagation();openEventModal('${ev.id}','${d.dateStr}')" title="${ev.title}">📅 ${ev.title.slice(0,14)}</div>`),
-      ...dayTasks.slice(0,2).map(t => { const c=contexts.find(x=>x.id===t.ctx); return`<div class="cal-event-pill" style="background:${c?c.color+'22':'var(--accent-light)'};color:${c?c.color:'var(--accent)'}" onclick="event.stopPropagation();openDetail(${t.id})" title="${t.title}">✅ ${t.title.slice(0,14)}</div>`; }),
+      ...dayTasks.slice(0,2).map(t => { const c=contexts.find(x=>x.id===t.ctx); const icon=t.type==='subtask'?'↳':t.type==='subsubtask'?'↳↳':'✅'; return`<div class="cal-event-pill" style="background:${c?c.color+'22':'var(--accent-light)'};color:${c?c.color:'var(--accent)'}" onclick="event.stopPropagation();openDetail(${t.id})" title="${t.title}">${icon} ${t.title.slice(0,14)}</div>`; }),
     ];
     const more = (dayTasks.length + dayEvents.length) > 3 ? `<div style="font-size:8px;color:var(--c-text3);padding:1px 3px">+${dayTasks.length+dayEvents.length-3} más</div>` : '';
     return `<div class="cal-day ${isToday?'today':''} ${isSel?'selected':''} ${(dayTasks.length||dayEvents.length)?'has-events':''}"
