@@ -1149,7 +1149,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v8.0</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v8.1</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -2709,28 +2709,42 @@ async function saveAndSyncICSFeed() {
 
 async function syncICSFeed(url, name) {
   try {
-    // Usar un proxy CORS para evitar bloqueos del navegador
-    // Intentar primero directo, luego via proxy
     let text = '';
-    const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(url);
 
-    try {
-      const resp = await fetch(proxyUrl, {signal: AbortSignal.timeout(15000)});
-      if(!resp.ok) throw new Error('HTTP '+resp.status);
-      const data = await resp.json();
-      text = data.contents || '';
-    } catch(proxyErr) {
-      // Intentar directo (solo funciona si el servidor permite CORS)
+    // Intentar múltiples proxies en orden
+    const proxies = [
+      u => 'https://corsproxy.io/?' + encodeURIComponent(u),
+      u => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u),
+      u => 'https://api.allorigins.win/get?url=' + encodeURIComponent(u),
+    ];
+
+    for(const makeProxy of proxies) {
       try {
-        const resp2 = await fetch(url, {signal: AbortSignal.timeout(10000)});
-        text = await resp2.text();
-      } catch(directErr) {
-        return {ok:false, error:'No se pudo conectar. Verifica que la URL sea correcta y pública.'};
-      }
+        const proxyUrl = makeProxy(url);
+        const resp = await fetch(proxyUrl, {signal: AbortSignal.timeout(12000)});
+        if(!resp.ok) continue;
+        // allorigins devuelve JSON, los demás devuelven texto directo
+        if(proxyUrl.includes('allorigins')) {
+          const data = await resp.json();
+          text = data.contents || '';
+        } else {
+          text = await resp.text();
+        }
+        if(text && text.includes('BEGIN:VCALENDAR')) break;
+        text = '';
+      } catch(e) { continue; }
+    }
+
+    // Último intento: directo (funciona si el servidor permite CORS)
+    if(!text) {
+      try {
+        const resp = await fetch(url, {signal: AbortSignal.timeout(8000)});
+        text = await resp.text();
+      } catch(e) {}
     }
 
     if(!text || !text.includes('BEGIN:VCALENDAR')) {
-      return {ok:false, error:'La URL no devuelve un calendario válido.'};
+      return {ok:false, error:'No se pudo conectar. Intenta descargar el .ics manualmente e importarlo con el botón 📥 Importar.'};
     }
 
     const parsed = parseICS(text);
