@@ -1149,7 +1149,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v7.4</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v7.5</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -1267,16 +1267,31 @@ let curSortOrder  = 'order';
 
 function sortTasks(list) {
   const copy = [...list];
-  if(curSortOrder === 'order') return copy;
-  if(curSortOrder === 'date') return copy.sort((a,b)=>{
-    if(!a.date&&!b.date)return 0; if(!a.date)return 1; if(!b.date)return -1;
-    return a.date.localeCompare(b.date);
-  });
-  if(curSortOrder === 'alpha')    return copy.sort((a,b)=>(a.title||'').localeCompare(b.title||''));
-  if(curSortOrder === 'proj')     return copy.sort((a,b)=>(a.projId||'').localeCompare(b.projId||''));
-  if(curSortOrder === 'reg')      return copy.sort((a,b)=>Number(a.id)-Number(b.id));
-  if(curSortOrder === 'priority'){const p={high:0,medium:1,low:2,none:3};return copy.sort((a,b)=>(p[a.priority]||3)-(p[b.priority]||3));}
-  return copy;
+  const pOrd = {high:0,medium:1,low:2,none:3};
+  const byDate = (a,b,dir=1) => {
+    if(!a.date&&!b.date)return 0; if(!a.date)return dir; if(!b.date)return -dir;
+    return a.date.localeCompare(b.date)*dir;
+  };
+  switch(curSortOrder) {
+    case 'order':      return copy;
+    case 'date_asc':   return copy.sort((a,b)=>byDate(a,b,1));
+    case 'date_desc':  return copy.sort((a,b)=>byDate(a,b,-1));
+    case 'alpha_asc':  return copy.sort((a,b)=>(a.title||'').localeCompare(b.title||''));
+    case 'alpha_desc': return copy.sort((a,b)=>(b.title||'').localeCompare(a.title||''));
+    case 'proj_asc':   return copy.sort((a,b)=>(a.projId||'').localeCompare(b.projId||''));
+    case 'proj_desc':  return copy.sort((a,b)=>(b.projId||'').localeCompare(a.projId||''));
+    case 'reg_asc':    return copy.sort((a,b)=>Number(a.id)-Number(b.id));
+    case 'reg_desc':   return copy.sort((a,b)=>Number(b.id)-Number(a.id));
+    case 'prio_asc':   return copy.sort((a,b)=>(pOrd[a.priority]||3)-(pOrd[b.priority]||3));
+    case 'prio_desc':  return copy.sort((a,b)=>(pOrd[b.priority]||3)-(pOrd[a.priority]||3));
+    // Compatibilidad con valores anteriores
+    case 'date':     return copy.sort((a,b)=>byDate(a,b,1));
+    case 'alpha':    return copy.sort((a,b)=>(a.title||'').localeCompare(b.title||''));
+    case 'proj':     return copy.sort((a,b)=>(a.projId||'').localeCompare(b.projId||''));
+    case 'reg':      return copy.sort((a,b)=>Number(a.id)-Number(b.id));
+    case 'priority': return copy.sort((a,b)=>(pOrd[a.priority]||3)-(pOrd[b.priority]||3));
+    default:         return copy;
+  }
 }
 let curPrio='medium', _selCtxColorVal='#7c5cbf', _selCtxIconVal='👤';
 let editingId=null, mTags=[], mAttach=[], remOpen=false, focusProjId=null;
@@ -1320,7 +1335,8 @@ document.addEventListener('DOMContentLoaded',()=>{
         {icon:'🔔', label:'Alarmas',       action:"mobileNav('alarmas',null)"},
         {icon:'🛎️', label:'Notificaciones', action:'openNotifConfig()'},
         {icon:'🏆', label:'Completadas',   action:"mobileNav('completadas',null)"},
-        {icon:'🌸', label:'Instinto',      action:"mobileNav('instinto',null)"},
+        {icon:'📦', label:'Archivadas',    action:"mobileNav('archivadas',null)"},
+        {icon:'🗑️', label:'Eliminadas',   action:"mobileNav('eliminadas',null)"},
       ];
 
       const createItems = [
@@ -1473,20 +1489,26 @@ function renderCtxFilterBar(){
 }
 
 function gotoCtxTareas(ctxId) {
+  // Cambiar contexto
   curCtxFilter = ctxId;
   const c = contexts.find(x=>x.id===ctxId);
   if(c) {
     document.documentElement.style.setProperty('--accent', c.color);
     document.documentElement.style.setProperty('--accent-light', c.color+'1a');
   }
-  // Usar setTimeout para asegurar que el DOM del dashboard
-  // termine de procesar el evento antes de navegar
-  setTimeout(() => {
-    gotoView('tareas', null);
-    updateBadges();
-    renderSidebar();
-    renderCtxFilterBar();
-  }, 50);
+  // Navegar — forzar curView ANTES de cualquier render
+  curView = 'tareas';
+  try { localStorage.setItem('hq_last_view','tareas'); } catch(e){}
+  // Actualizar nav activo
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  const navEl = document.querySelector('[data-view="tareas"]');
+  if(navEl) navEl.classList.add('active');
+  // Renderizar tareas directamente (sin pasar por gotoView para evitar loops)
+  const contentEl = document.getElementById('content');
+  if(contentEl) contentEl.innerHTML = buildList(false);
+  updateBadges();
+  renderSidebar();
+  renderCtxFilterBar();
 }
 
 function filterByCtx(id){
@@ -1783,25 +1805,23 @@ function renderView(){
 // DASHBOARD
 // ══════════════════════════════════════════════════════
 function buildCtxStatCards() {
-  const wrap = document.createElement('div');
-  wrap.style.display = 'contents';
   if(!contexts || !contexts.length) return '';
-  contexts.forEach(ctx => {
+  return contexts.map(ctx => {
     const ctxP     = tasks.filter(t=>!t.done&&t.ctx===ctx.id).length;
-    const ctxToday = tasks.filter(t=>!t.done&&t.ctx===ctx.id&&taskMatchesToday(t)).length;
-    const card = document.createElement('button');
-    card.className = 'stat-card';
-    card.style.cssText = 'cursor:pointer;border-top:3px solid '+ctx.color+';width:100%;text-align:left;border-left:none;border-right:none;border-bottom:none;background:var(--c-bg2)';
-    card.onclick = function(){ gotoCtxTareas(''+ctx.id+''); };
     const ctxProjs = projects.filter(p=>p.ctx===ctx.id).length;
-    card.innerHTML = '<div class="stat-icon">'+ctx.icon+'</div>'
+    const ctxToday = tasks.filter(t=>!t.done&&t.ctx===ctx.id&&taskMatchesToday(t)).length;
+    const safeId   = ctx.id.replace(/'/g, '');
+    return '<div class="stat-card"'
+      +' style="cursor:pointer;border-top:3px solid '+ctx.color+';user-select:none"'
+      +' onclick="gotoCtxTareas(\'' + safeId + '\')">'
+      +'<div class="stat-icon">'+ctx.icon+'</div>'
       +'<div class="stat-lbl">'+ctx.name+'</div>'
       +'<div class="stat-val">'+ctxP+'</div>'
-      +'<div class="stat-sub">'+(ctxProjs?ctxProjs+' proy. · ':'')+ctxToday+' hoy</div>';
-    wrap.appendChild(card);
-  });
-  return wrap.innerHTML;
+      +'<div class="stat-sub">'+(ctxProjs?ctxProjs+' proy. · ':'')+ctxToday+' hoy</div>'
+      +'</div>';
+  }).join('');
 }
+
 
 function buildDash(){
   const pending = tasks.filter(t=>!t.done&&(curCtxFilter==='all'||t.ctx===curCtxFilter));
@@ -2135,12 +2155,18 @@ function buildList(todayOnly){
     <button class="tree-btn" onclick="treeCollapseSubsOnly()">📋 Colapsar sub-subtareas</button>
     <button class="tree-btn" onclick="treeCollapseAll()">📁 Colapsar todo</button>
     <div style="flex:1"></div>
-    <select onchange="setSortOrder(this.value)" style="font-size:11px;padding:4px 8px;border:1px solid var(--c-border);border-radius:6px;background:var(--c-bg2);color:var(--c-text);cursor:pointer">
-      <option value="order" ${curSortOrder==='order'?'selected':''}>↕ Orden manual</option>
-      <option value="date"  ${curSortOrder==='date'?'selected':''}>📅 Por fecha</option>
-      <option value="alpha" ${curSortOrder==='alpha'?'selected':''}>🔤 Alfabético</option>
-      <option value="proj"  ${curSortOrder==='proj'?'selected':''}>📁 Por proyecto</option>
-      <option value="reg"   ${curSortOrder==='reg'?'selected':''}>🕐 Por registro</option>
+    <select on<select onchange="setSortOrder(this.value)" style="font-size:11px;padding:4px 8px;border:1px solid var(--c-border);border-radius:6px;background:var(--c-bg2);color:var(--c-text);cursor:pointer">
+      <option value="order"       ${curSortOrder==='order'?'selected':''}>↕ Orden manual</option>
+      <option value="date_asc"    ${curSortOrder==='date_asc'?'selected':''}>📅 Fecha próxima ↑</option>
+      <option value="date_desc"   ${curSortOrder==='date_desc'?'selected':''}>📅 Fecha lejana ↓</option>
+      <option value="alpha_asc"   ${curSortOrder==='alpha_asc'?'selected':''}>🔤 A → Z</option>
+      <option value="alpha_desc"  ${curSortOrder==='alpha_desc'?'selected':''}>🔤 Z → A</option>
+      <option value="proj_asc"    ${curSortOrder==='proj_asc'?'selected':''}>📁 Proyecto A → Z</option>
+      <option value="proj_desc"   ${curSortOrder==='proj_desc'?'selected':''}>📁 Proyecto Z → A</option>
+      <option value="reg_asc"     ${curSortOrder==='reg_asc'?'selected':''}>🕐 Más antiguo primero</option>
+      <option value="reg_desc"    ${curSortOrder==='reg_desc'?'selected':''}>🕐 Más reciente primero</option>
+      <option value="prio_asc"    ${curSortOrder==='prio_asc'?'selected':''}>⚡ Alta prioridad primero</option>
+      <option value="prio_desc"   ${curSortOrder==='prio_desc'?'selected':''}>⚡ Baja prioridad primero</option>
     </select>
     <button onclick="exportToExcel()" class="tree-btn">📊 Excel</button>
     <button onclick="document.getElementById('importFileInp').click()" class="tree-btn">📥 Importar</button>
@@ -2290,7 +2316,7 @@ function buildTreeSubs(task, taskOpen) {
       <input class="tree-add-inp" placeholder="Nueva sub-subtarea (Enter)"
         onclick="event.stopPropagation()"
         onkeydown="event.stopPropagation();quickAddSubsub(event,${task.id},'${s.id}',this)"/>
-      <button onclick="event.stopPropagation();openSubModal('sub',${task.id},'${s.id}',null,'subsub')"
+      <button onclick="event.stopPropagation();openSubModal('subsub',${task.id},'${s.id}',null,null)"
         style="font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--c-border);background:var(--c-bg3);color:var(--c-text2);cursor:pointer">+ Detalle</button>
     </div>`;
 
@@ -2321,7 +2347,7 @@ function buildTreeSubs(task, taskOpen) {
         </div>
       </div>
       <div class="tree-sub-actions">
-        <button class="sub-act-btn" onclick="event.stopPropagation();openSubModal('sub',${task.id},'${s.id}',null,'subsub')" title="Nueva sub-subtarea">＋</button>
+        <button class="sub-act-btn" onclick="event.stopPropagation();openSubModal('subsub',${task.id},'${s.id}',null,null)" title="Nueva sub-subtarea">＋</button>
         <button class="sub-act-btn" onclick="event.stopPropagation();openSubModal('sub',${task.id},'${s.id}','${s.id}')" title="Editar subtarea">✏️</button>
         <button class="sub-act-btn del" onclick="event.stopPropagation();deleteSubtaskById(${task.id},'${s.id}')" title="Eliminar">🗑️</button>
       </div>
@@ -3174,6 +3200,15 @@ async function vaciarPapelera() {
 }
 
 
+function filterCompleted(q) {
+  const items = document.querySelectorAll('#completedList .task-item');
+  const ql = (q||'').toLowerCase();
+  items.forEach(el => {
+    const txt = el.textContent.toLowerCase();
+    el.style.display = (!ql || txt.includes(ql)) ? '' : 'none';
+  });
+}
+
 function buildArchived(){
   const archived = tasks.filter(t=>t.archived&&(curCtxFilter==='all'||t.ctx===curCtxFilter));
   if(!archived.length) return '<div class="empty"><div class="empty-icon">📦</div><div class="empty-ttl">Sin archivadas</div></div>';
@@ -3191,9 +3226,12 @@ function buildCompleted(){
   return`
     <div class="sec-hdr">
       <div class="sec-ttl">🏆 Completadas — ${done.length}</div>
-      <span style="font-size:11px;color:var(--c-text3)">Clic para ver detalle · ✓ en el círculo para recuperar</span>
     </div>
-    ${done.length?done.map(t=>`
+    <div style="margin-bottom:12px">
+      <input id="completedSearch" placeholder="🔍 Buscar en completadas..." oninput="filterCompleted(this.value)"
+        style="width:100%;padding:8px 12px;border:1px solid var(--c-border);border-radius:var(--radius-sm);background:var(--c-bg2);color:var(--c-text);font-size:13px;box-sizing:border-box"/>
+    </div>
+    <div id="completedList">${done.length?done.map(t=>`
       <div class="task-item p-none" style="opacity:.65;cursor:pointer" onclick="openDetail(${t.id})">
         <div class="task-check checked" onclick="event.stopPropagation();restoreTask(${t.id})">✓</div>
         <div class="task-body">
@@ -3204,13 +3242,13 @@ function buildCompleted(){
             ${t.notes?`<span style="font-size:10px;color:var(--c-text3)">📝 Tiene notas</span>`:''}
           </div>
         </div>
-        <div class="task-actions" style="opacity:1" onclick="event.stopPropagation()">
+        <div style="display:flex;gap:4px;flex-shrink:0" onclick="event.stopPropagation()">
           <button class="tact" onclick="restoreTask(${t.id})" title="Recuperar" style="font-size:14px">↩️</button>
-          <button class="tact" onclick="archiveTask(${t.id})" title="Archivar — ocultar de completadas" style="font-size:14px">📦</button>
+          <button class="tact" onclick="archiveTask(${t.id})" title="Archivar" style="font-size:14px">📦</button>
           <button class="tact del" onclick="permDelete(${t.id})" title="Eliminar definitivamente">🗑️</button>
         </div>
       </div>`).join('')
-    :`<div class="empty"><div class="empty-icon">🎯</div><div class="empty-ttl">Sin completadas aún</div><div class="empty-sub">Cuando marques tareas como hechas aparecerán aquí.</div></div>`}`;
+    :`<div class="empty"><div class="empty-icon">🎯</div><div class="empty-ttl">Sin completadas aún</div><div class="empty-sub">Cuando marques tareas como hechas aparecerán aquí.</div></div>`}</div>`;
 }
 
 function buildArchivadas() {
@@ -5130,7 +5168,7 @@ function renderSubtasks(task) {
           ` : ''}
         </div>
         <div class="sub-actions">
-          <button class="sub-act-btn" onclick="event.stopPropagation();openSubModal('sub',${task.id},'${s.id}',null,'subsub')" title="Agregar sub-subtarea">＋</button>
+          <button class="sub-act-btn" onclick="event.stopPropagation();openSubModal('subsub',${task.id},'${s.id}',null,null)" title="Agregar sub-subtarea">＋</button>
           <button class="sub-act-btn" onclick="event.stopPropagation();openSubModal('sub',${task.id},'${s.id}','${s.id}')" title="Editar subtarea">✏️</button>
           <button class="sub-act-btn del" onclick="event.stopPropagation();deleteSubtaskById(${task.id},'${s.id}')" title="Eliminar">🗑️</button>
         </div>
@@ -5199,8 +5237,8 @@ function openSubModal(type, taskId, subId, editId, addType) {
   const task = tasks.find(t=>Number(t.id)===Number(taskId));
   
   // Determinar título y contexto del modal
-  if(addType === 'subsub' && subId) {
-    // Agregar sub-subtarea a una subtarea
+  if((type === 'subsub' || addType === 'subsub') && subId && !editId) {
+    // Nueva sub-subtarea
     const sub = task && task.subtasks ? task.subtasks.find(s=>String(s.id)===String(subId)) : null;
     document.getElementById('subModalTitle').textContent = '➕ Nueva sub-subtarea';
     document.getElementById('subModalParent').innerHTML = 
@@ -5698,7 +5736,7 @@ function buildDetailSubRow(task, s) {
       onfocus="this.style.borderBottomColor='var(--accent)'"
       onblur="this.style.borderBottomColor='transparent'"
       onkeydown="quickAddSubsub(event,${task.id},'${s.id}',this);if(event.key==='Enter')setTimeout(()=>openDetail(${task.id}),100)"/>
-    <button onclick="openSubModal('sub',${task.id},'${s.id}',null,'subsub')"
+    <button onclick="openSubModal('subsub',${task.id},'${s.id}',null,null)"
       style="font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--c-border);background:var(--c-bg2);color:var(--c-text2);cursor:pointer;white-space:nowrap">+ Detalle</button>
   </div>`;
 
@@ -5727,7 +5765,7 @@ function buildDetailSubRow(task, s) {
         </div>
       </div>
       <div style="display:flex;gap:3px;flex-shrink:0">
-        <button onclick="openSubModal('sub',${task.id},'${s.id}',null,'subsub')" title="Nueva sub-subtarea"
+        <button onclick="openSubModal('subsub',${task.id},'${s.id}',null,null)" title="Nueva sub-subtarea"
           style="width:22px;height:22px;border:none;background:var(--c-bg3);color:var(--c-text2);cursor:pointer;border-radius:5px;font-size:11px;display:flex;align-items:center;justify-content:center;transition:all .15s"
           onmouseover="this.style.background='var(--c-border)'" onmouseout="this.style.background='var(--c-bg3)'">＋</button>
         <button onclick="openSubModal('sub',${task.id},'${s.id}','${s.id}')" title="Editar subtarea"
