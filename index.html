@@ -1149,7 +1149,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v7.5</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v7.6</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -5228,7 +5228,7 @@ function openSubModal(type, taskId, subId, editId, addType) {
   // Limpiar campos
   document.getElementById('subTitle').value  = '';
   document.getElementById('subNotes').value  = '';
-  document.getElementById('subDate').value   = '';
+  document.getElementById('subDate').value   = TODAY;  // fecha hoy por default
   document.getElementById('subTime').value   = '';
   document.querySelectorAll('#subModal .prio-btn').forEach(b=>b.classList.remove('sel'));
   document.querySelector('#subModal .prio-btn.medium').classList.add('sel');
