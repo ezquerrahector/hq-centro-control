@@ -70,8 +70,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--c-bg);color:var(--c-text)
 @media(max-width:640px){
   .search-wrap{display:none;}
   #mobileSearchBar{display:block;}
-  .topbar-title{font-size:14px;}
-  .topbar{padding:0 10px;gap:6px;}
+  .topbar-title{font-size:13px;}
+  .topbar{padding:0 8px;gap:4px;}
+  #mobileVersion{display:inline!important;}
 }
 .search-wrap input{border:none;background:transparent;color:var(--c-text);font-family:'DM Sans',sans-serif;font-size:13px;flex:1;outline:none;}
 .search-wrap input::placeholder{color:var(--c-text3);}
@@ -182,6 +183,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--c-bg);color:var(--c-text)
 .cal-wd{text-align:center;padding:7px 4px;font-size:10px;color:var(--c-text3);text-transform:uppercase;letter-spacing:.4px;}
 .cal-days{display:grid;grid-template-columns:repeat(7,1fr);}
 .cal-day{min-height:62px;border-right:1px solid var(--c-border);border-bottom:1px solid var(--c-border);padding:6px;cursor:pointer;transition:background .12s;}
+@media(max-width:640px){
+  .cal-day{min-height:44px;padding:2px 1px;}
+  .cal-day .day-n{font-size:11px;}
+  .cal-event-pill{font-size:7px;padding:1px 2px;margin-bottom:1px;}
+  .cal-wds .cal-wd{font-size:9px;padding:4px 1px;}
+  .cal-wds{grid-template-columns:repeat(7,1fr);}
+}
 .cal-day:nth-child(7n){border-right:none;}
 .cal-day:hover{background:var(--c-bg3);}
 .cal-day.today .day-n{background:var(--accent);color:#fff;border-radius:50%;}
@@ -1157,7 +1165,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v8.2</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v8.4</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -1196,6 +1204,7 @@ console.log("Firebase compat cargado OK");
   <main class="main">
     <div class="topbar">
       <div class="topbar-title" id="topTitle">📊 Dashboard</div>
+      <span id="mobileVersion" style="font-size:9px;color:var(--c-text3);display:none">v8.4</span>
       <div class="search-wrap">
         <span style="color:var(--c-text3);font-size:14px">🔍</span>
         <input placeholder="Buscar tareas, etiquetas..." oninput="doSearch(this.value)"/>
@@ -2620,16 +2629,18 @@ function buildKanban(){
 // CALENDAR
 // ══════════════════════════════════════════════════════
 function buildCalHeader(title) {
-  return `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:13px">
-    <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:16px">${title}</div>
-    <div style="display:flex;gap:4px;align-items:center">
-      <button class="btn-icon" onclick="prevCal()">◀</button>
-      <button class="btn-icon" onclick="nextCal()">▶</button>
-      <button class="btn-icon" onclick="goToToday()" style="font-size:11px;width:auto;padding:0 10px">Hoy</button>
-      <button class="btn-sec" onclick="calView='day';renderView()" style="font-size:11px;padding:4px 8px;${calView==='day'?'background:var(--accent);color:#fff':''}">Día</button>
-      <button class="btn-sec" onclick="calView='week';renderView()" style="font-size:11px;padding:4px 8px;${calView==='week'?'background:var(--accent);color:#fff':''}">Semana</button>
-      <button class="btn-sec" onclick="calView='month';renderView()" style="font-size:11px;padding:4px 8px;${calView==='month'?'background:var(--accent);color:#fff':''}">Mes</button>
-      <button class="btn-primary" style="font-size:12px;padding:6px 13px" onclick="openAddTypeModal(calSelectedDate||TODAY)">＋ Agregar</button>
+  return `<div style="margin-bottom:10px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:4px">
+      <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:16px">${title}</div>
+      <div style="display:flex;gap:3px;align-items:center;flex-wrap:wrap">
+        <button class="btn-icon" onclick="prevCal()" style="width:30px;height:30px;font-size:12px">◀</button>
+        <button class="btn-icon" onclick="nextCal()" style="width:30px;height:30px;font-size:12px">▶</button>
+        <button class="btn-sec" onclick="goToToday()" style="font-size:11px;padding:4px 8px">Hoy</button>
+        <button class="btn-sec" onclick="calView='day';renderView()" style="font-size:11px;padding:4px 8px;${calView==='day'?'background:var(--accent);color:#fff;border-color:var(--accent)':''}">Día</button>
+        <button class="btn-sec" onclick="calView='week';renderView()" style="font-size:11px;padding:4px 8px;${calView==='week'?'background:var(--accent);color:#fff;border-color:var(--accent)':''}">Sem</button>
+        <button class="btn-sec" onclick="calView='month';renderView()" style="font-size:11px;padding:4px 8px;${calView==='month'?'background:var(--accent);color:#fff;border-color:var(--accent)':''}">Mes</button>
+        <button class="btn-primary" style="font-size:11px;padding:4px 10px" onclick="openAddTypeModal(calSelectedDate||TODAY)">＋</button>
+      </div>
     </div>
   </div>`;
 }
@@ -2770,20 +2781,41 @@ async function syncICSFeed(url, name) {
     let added = 0;
     for(const ev of parsed) {
       if(!ev.date) continue;
-      const alreadyExists = events.find(x => x.icsUid && x.icsUid === ev.icsUid);
-      if(alreadyExists) continue;
+      // Si ya existe, actualizar en lugar de saltar
+      const existingIdx = events.findIndex(x => x.icsUid && x.icsUid === ev.icsUid);
+      if(existingIdx >= 0) {
+        // Actualizar datos del evento existente
+        const existing = events[existingIdx];
+        const updated = Object.assign({}, existing, {
+          title: ev.title, date: ev.date, time: ev.time||'',
+          timeEnd: ev.timeEnd||'', notes: ev.notes||'',
+          location: ev.location||'', meetUrl: ev.meetUrl||''
+        });
+        events[existingIdx] = updated;
+        if(existing._fbId) {
+          try {
+            const data = Object.assign({}, updated); delete data._fbId;
+            await db.collection('events').doc(existing._fbId).set(data);
+          } catch(e) {}
+        }
+        continue;
+      }
       const newEv = {
         id: 'ics_'+Date.now()+'_'+added,
         title: ev.title,
         date: ev.date,
         time: ev.time||'',
+        timeEnd: ev.timeEnd||'',
         endDate: ev.endDate||'',
-        notes: ev.notes||'',
+        notes: (ev.notes||'') + (ev.location?'\n📍 '+ev.location:'') + (ev.meetUrl?'\n🔗 '+ev.meetUrl:''),
+        location: ev.location||'',
+        meetUrl: ev.meetUrl||'',
         color: '#0078d4',
         recur: 'none',
         ctx: '',
         icsUid: ev.icsUid||'',
-        icsSource: name
+        icsSource: name,
+        status: ev.status||''
       };
       events.push(newEv);
       try {
@@ -2926,42 +2958,96 @@ function importCalICS(input) {
 }
 
 function parseICS(text) {
-  const events = [];
-  const lines  = text.replace(/\r\n/g,'\n').replace(/\r/g,'\n')
-    // Unfolded lines (ICS permite continuar líneas con espacio/tab)
-    .replace(/\n[ \t]/g,'').split('\n');
+  const evList = [];
+  // Unfold lines (ICS permite continuación con espacio/tab al inicio)
+  const normalized = text
+    .replace(/\r\n/g,'\n').replace(/\r/g,'\n')
+    .replace(/\n[ \t]/g,'');
+  const lines = normalized.split('\n');
 
-  let current = null;
-  lines.forEach(line => {
-    if(line === 'BEGIN:VEVENT') { current = {}; return; }
+  let cur = null;
+  lines.forEach(raw => {
+    const line = raw.trim();
+    if(line === 'BEGIN:VEVENT') { cur = {}; return; }
     if(line === 'END:VEVENT') {
-      if(current && current.title && current.date) events.push(current);
-      current = null; return;
+      if(cur && cur.title) {
+        // Si no tiene fecha, intentar extraerla de cualquier campo DT
+        if(!cur.date && cur._dtraw) {
+          const c = cur._dtraw.replace(/[^0-9]/g,'');
+          if(c.length >= 8) {
+            cur.date = c.slice(0,4)+'-'+c.slice(4,6)+'-'+c.slice(6,8);
+          }
+        }
+        if(cur.date) evList.push(cur);
+      }
+      cur = null; return;
     }
-    if(!current) return;
+    if(!cur) return;
 
-    const [key, ...rest] = line.split(':');
-    const val = rest.join(':').trim();
-    const keyBase = key.split(';')[0];
+    // Separar key y valor — clave puede tener parámetros (KEY;PARAM=X:value)
+    const colonIdx = line.indexOf(':');
+    if(colonIdx < 0) return;
+    const keyPart = line.slice(0, colonIdx);
+    const val     = line.slice(colonIdx+1);
+    const keyBase = keyPart.split(';')[0].toUpperCase();
+    const params  = keyPart.includes(';') ? keyPart.slice(keyPart.indexOf(';')+1) : '';
 
-    if(keyBase === 'SUMMARY')     current.title   = unescICS(val);
-    if(keyBase === 'UID')         current.icsUid  = val;
-    if(keyBase === 'DESCRIPTION') current.notes   = unescICS(val);
+    if(keyBase === 'SUMMARY')      cur.title    = unescICS(val);
+    if(keyBase === 'UID')          cur.icsUid   = val.trim();
+    if(keyBase === 'DESCRIPTION')  cur.notes    = unescICS(val).replace(/\\n/g,'\n');
+    if(keyBase === 'LOCATION')     cur.location = unescICS(val);
+    if(keyBase === 'ORGANIZER')    cur.organizer= val.replace('mailto:','').replace(/CN=/i,'').split(':').pop();
+    if(keyBase === 'STATUS')       cur.status   = val.trim();
+    if(keyBase === 'CATEGORIES')   cur.tags     = val.split(',').map(s=>s.trim()).filter(Boolean);
 
-    if(keyBase === 'DTSTART') {
-      const clean = val.replace(/[TZ]/g,'');
-      current.date = clean.slice(0,4)+'-'+clean.slice(4,6)+'-'+clean.slice(6,8);
-      if(val.includes('T') && clean.length >= 12) {
-        current.time = clean.slice(8,10)+':'+clean.slice(10,12);
+    // URLs de Teams/Zoom/Meet en DESCRIPTION o URL
+    if(keyBase === 'URL') cur.meetUrl = val.trim();
+
+    // Parsear fechas — Outlook usa varios formatos
+    if(keyBase === 'DTSTART' || keyBase === 'DTEND' || keyBase === 'DTSTART' ) {
+      cur._dtraw = val;
+      // Detectar si es DATE puro (sin tiempo) vs DATETIME
+      const isDateOnly = params.includes('VALUE=DATE') || (!val.includes('T') && val.length === 8);
+      const clean = val.replace(/[TZ]/g,'').replace(/[-:]/g,'');
+      const y  = clean.slice(0,4);
+      const mo = clean.slice(4,6);
+      const d  = clean.slice(6,8);
+      const h  = clean.slice(8,10)||'';
+      const mi = clean.slice(10,12)||'';
+
+      if(y && mo && d && y.length===4) {
+        const dateStr = y+'-'+mo+'-'+d;
+
+        if(keyBase === 'DTSTART') {
+          cur.date = dateStr;
+          if(!isDateOnly && h && mi && h !== 'un' && mi !== 'un') {
+            // Convertir UTC a hora local si termina en Z
+            if(val.endsWith('Z') || params.includes('TZID')) {
+              try {
+                const utcDate = new Date(y+'-'+mo+'-'+d+'T'+h+':'+mi+':00Z');
+                const local = new Date(utcDate.getTime());
+                cur.time = String(local.getHours()).padStart(2,'0')+':'+String(local.getMinutes()).padStart(2,'0');
+                cur.date = local.toISOString().slice(0,10);
+              } catch(e) { cur.time = h+':'+mi; }
+            } else {
+              cur.time = h+':'+mi;
+            }
+          }
+        }
+        if(keyBase === 'DTEND') {
+          if(!isDateOnly && h && mi && h !== 'un') {
+            try {
+              const utcDate = new Date(y+'-'+mo+'-'+d+'T'+h+':'+mi+':00Z');
+              const local = new Date(utcDate.getTime());
+              cur.timeEnd = String(local.getHours()).padStart(2,'0')+':'+String(local.getMinutes()).padStart(2,'0');
+            } catch(e) { cur.timeEnd = h+':'+mi; }
+          }
+          if(dateStr !== cur.date) cur.endDate = dateStr;
+        }
       }
     }
-    if(keyBase === 'DTEND') {
-      const clean = val.replace(/[TZ]/g,'');
-      const endDate = clean.slice(0,4)+'-'+clean.slice(4,6)+'-'+clean.slice(6,8);
-      if(endDate !== current.date) current.endDate = endDate;
-    }
   });
-  return events;
+  return evList;
 }
 
 function unescICS(str) {
@@ -3117,7 +3203,11 @@ function buildCal(){
   // Panel del día seleccionado o de hoy
   const panelDate = selStr || todayStr;
   const panelTasks  = getTasksForDate(panelDate); // incluye recurrentes
-  const panelEvents = getEventsForDate(panelDate);
+  const panelEvents = getEventsForDate(panelDate).map(ev => Object.assign({}, ev, {
+    start: ev.time || ev.startTime || '',
+    end:   ev.timeEnd || ev.endTime || '',
+    desc:  ev.notes || ev.description || ''
+  }));
   const panelLabel  = formatDateLabel(panelDate);
 
   const panelHTML = `
@@ -3132,7 +3222,7 @@ function buildCal(){
           <div class="event-color-dot" style="background:${ev.color}"></div>
           <div class="event-list-info">
             <div class="event-list-title">${ev.title}</div>
-            <div class="event-list-time">🕐 ${ev.start}–${ev.end}${ev.desc?` · ${ev.desc.slice(0,40)}`:''}</div>
+            <div class="event-list-time">🕐 ${ev.start||'Todo el día'}${ev.end?' – '+ev.end:''}${ev.location?' 📍 '+ev.location.slice(0,30):''}</div>
           </div>
           <div class="event-list-actions">
             <button class="tact" onclick="event.stopPropagation();openEventModal('${ev.id}','${panelDate}')">✏️</button>
