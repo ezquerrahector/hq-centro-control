@@ -16,6 +16,8 @@
   --radius:12px;--radius-sm:8px;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
+/* Eliminar delay de 300ms en taps en toda la app */
+button,a,[onclick]{touch-action:manipulation;}
 body{font-family:'DM Sans',sans-serif;background:var(--c-bg);color:var(--c-text);height:100vh;overflow:hidden;font-size:14px;}
 
 /* ── LAYOUT ── */
@@ -94,7 +96,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--c-bg);color:var(--c-text)
 .view-tab:hover{color:var(--c-text2);}
 .view-tab.active{color:var(--c-text);border-bottom-color:var(--accent);}
 
-.content{flex:1;overflow-y:auto;padding:22px;min-height:0;}
+.content{flex:1;overflow-y:auto;padding:22px;min-height:0;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;}
+/* Perf móvil: evitar repintado innecesario del sidebar mientras se hace scroll */
+.sidebar{contain:layout style;}
+/* Acelerar aparición del panel de detalle */
+.detail-panel{will-change:transform;}
 
 /* ── STATS ── */
 .dash-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:13px;margin-bottom:20px;}
@@ -567,7 +573,12 @@ textarea.form-inp{resize:vertical;min-height:65px;}
   .ctx-filter-chip{font-size:11px;padding:4px 10px;white-space:nowrap;flex-shrink:0;}
 
   /* Contenido con espacio para bottom nav */
-  .content{padding:14px 12px 20px;overflow-y:auto;flex:1;min-height:0;-webkit-overflow-scrolling:touch;}
+  .content{padding:14px 12px 20px;overflow-y:auto;flex:1;min-height:0;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;}
+  /* Mejora de rendimiento táctil: reducir área de repintado */
+  .task-item,.kanban-card,.project-block{contain:layout style;}
+  /* Evitar delays de 300ms en taps */
+  .task-check,.task-item,.ctx-btn,.nav-item,.btn-primary,.btn-icon,
+  .mob-nav-btn,.mob-fab,.ctx-filter-chip{touch-action:manipulation;}
   /* Asegurar scroll en todos los contenedores internos */
   .content > *{max-width:100%;}
   .kanban-board{overflow-x:auto;padding-bottom:20px;}
@@ -780,6 +791,19 @@ try {
 } catch(e) {
   // Ya inicializado
 }
+
+// Habilitar caché offline — hace la carga inicial instantánea (sirve datos cacheados mientras conecta)
+db.enablePersistence({ synchronizeTabs: true })
+  .catch(err => {
+    if(err.code === 'failed-precondition') {
+      // Múltiples pestañas abiertas — solo funciona en una
+      console.log('Persistencia offline: múltiples pestañas');
+    } else if(err.code === 'unimplemented') {
+      // Browser no soporta IndexedDB (raro)
+      console.log('Persistencia offline no disponible en este browser');
+    }
+  });
+
 console.log("Firebase compat cargado OK");
 </script>
 </head>
@@ -1808,22 +1832,60 @@ function getFiltered(todayOnly){
   return sortTasks(list);
 }
 // ══════════════════════════════════════════════════════
-// RENDER VIEW
+// RENDER VIEW — con debounce y protección anti-pantalla-en-blanco
 // ══════════════════════════════════════════════════════
-function renderView(){
-  const c=document.getElementById('content');
-  switch(curView){
-    case 'dashboard':  c.innerHTML=buildDash();break;
-    case 'midia':      c.innerHTML=buildList(true);break;
-    case 'tareas':     c.innerHTML=buildList(false);break;
-    case 'proyectos':  c.innerHTML=buildProjects();break;
-    case 'kanban':     c.innerHTML=buildKanban();break;
-    case 'calendario': c.innerHTML=buildCal();break;
-    case 'alarmas':    c.innerHTML=buildAlarms();break;
+let _renderTimer = null;
 
-    case 'completadas':c.innerHTML=buildCompleted();break;
-    case 'archivadas': c.innerHTML=buildArchived();break;
-    case 'eliminadas': c.innerHTML=buildDeleted();break;
+function renderView() {
+  // Debounce: agrupa llamadas múltiples en un solo render (crucial para Firebase snapshots)
+  clearTimeout(_renderTimer);
+  _renderTimer = setTimeout(_doRenderView, 30);
+}
+
+function _doRenderView() {
+  const c = document.getElementById('content');
+  if (!c) return;
+  // Guardar scroll para no saltar al tope en cada re-render
+  const prevScroll = c.scrollTop;
+  try {
+    let html = '';
+    switch (curView) {
+      case 'dashboard':   html = buildDash();       break;
+      case 'midia':       html = buildList(true);   break;
+      case 'tareas':      html = buildList(false);  break;
+      case 'proyectos':   html = buildProjects();   break;
+      case 'kanban':      html = buildKanban();     break;
+      case 'calendario':  html = buildCal();        break;
+      case 'alarmas':     html = buildAlarms();     break;
+      case 'completadas': html = buildCompleted();  break;
+      case 'archivadas':  html = buildArchived();   break;
+      case 'eliminadas':
+        // buildDeletedView es async — mostrar loading y luego rellenar
+        c.innerHTML = '<div style="text-align:center;padding:30px;color:var(--c-text3);font-size:13px">⏳ Cargando eliminadas...</div>';
+        buildDeletedView().then(html => { if(document.getElementById('content') === c) c.innerHTML = html; }).catch(err => {
+          c.innerHTML = '<div style="text-align:center;padding:30px;color:var(--c-text3);font-size:13px">⚠️ Error: ' + (err.message||'') + '</div>';
+        });
+        html = null; // evitar que el bloque de abajo sobreescriba
+        break;
+      default:            html = buildDash();
+    }
+    // Solo actualizar DOM si el contenido cambió (evita repintados innecesarios)
+    if (html !== undefined && html !== null) {
+      c.innerHTML = html;
+      // Restaurar scroll si el usuario estaba a mitad de lista
+      if (prevScroll > 0) {
+        requestAnimationFrame(() => { c.scrollTop = prevScroll; });
+      }
+    }
+  } catch (err) {
+    console.error('renderView error en vista "' + curView + '":', err);
+    // Anti pantalla-en-blanco: mostrar mensaje de error recuperable
+    c.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--c-text3)">'
+      + '<div style="font-size:32px;margin-bottom:12px">⚠️</div>'
+      + '<div style="font-size:14px;font-weight:600;color:var(--c-text2);margin-bottom:8px">Error al cargar la vista</div>'
+      + '<div style="font-size:12px;margin-bottom:16px">' + (err.message || '') + '</div>'
+      + '<button onclick="renderView()" style="padding:8px 20px;border-radius:20px;border:1px solid var(--c-border);background:var(--c-bg3);color:var(--c-text2);cursor:pointer;font-size:13px">🔄 Reintentar</button>'
+      + '</div>';
   }
 }
 
@@ -7216,6 +7278,7 @@ async function fbSeedIfEmpty() {
 }
 
 // Escuchar cambios en tiempo real
+let _fbTasksDebounce = null;
 function fbListenAll() {
   if(typeof firebase === 'undefined') return;
   // Mostrar estado inicial
@@ -7250,12 +7313,16 @@ function fbListenAll() {
     }
 
     updateBadges();
-    renderView();
-    // Refrescar panel de detalle si estaba abierto
-    if(_detailOpenId !== null) {
-      const stillExists = tasks.find(x=>Number(x.id)===Number(_detailOpenId));
-      if(stillExists) openDetail(_detailOpenId);
-    }
+    // Debounce: esperar 80ms para agrupar cambios rápidos de Firestore (mejora rendimiento en móvil)
+    clearTimeout(_fbTasksDebounce);
+    _fbTasksDebounce = setTimeout(() => {
+      renderView();
+      // Refrescar panel de detalle si estaba abierto
+      if(_detailOpenId !== null) {
+        const stillExists = tasks.find(x=>Number(x.id)===Number(_detailOpenId));
+        if(stillExists) openDetail(_detailOpenId);
+      }
+    }, 80);
 
   }, function(err) {
     setSyncStatus('error', '✗ Sin conexión');
