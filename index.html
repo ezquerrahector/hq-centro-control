@@ -5744,7 +5744,7 @@ function openSubModal(type, taskId, subId, editId, addType) {
   document.getElementById('subTitle').value  = '';
   document.getElementById('subNotes').value  = '';
   document.getElementById('subDate').value   = TODAY;  // fecha hoy por default
-  document.getElementById('subTime').value   = '';
+  const _nowT = new Date(); document.getElementById('subTime').value = String(_nowT.getHours()).padStart(2,'0')+':'+String(_nowT.getMinutes()).padStart(2,'0'); // hora actual por default
   document.querySelectorAll('#subModal .prio-btn').forEach(b=>b.classList.remove('sel'));
   document.querySelector('#subModal .prio-btn.medium').classList.add('sel');
   renderSubTagPills();
