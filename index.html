@@ -1189,7 +1189,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v8.4</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v8.6</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -1228,7 +1228,7 @@ console.log("Firebase compat cargado OK");
   <main class="main">
     <div class="topbar">
       <div class="topbar-title" id="topTitle">📊 Dashboard</div>
-      <span id="mobileVersion" style="font-size:9px;color:var(--c-text3);display:none">v8.4</span>
+      <span id="mobileVersion" style="font-size:9px;color:var(--c-text3);display:none">v8.6</span>
       <div class="search-wrap">
         <span style="color:var(--c-text3);font-size:14px">🔍</span>
         <input placeholder="Buscar tareas, etiquetas..." oninput="doSearch(this.value)"/>
@@ -2428,7 +2428,7 @@ function buildTreeSubs(task, taskOpen) {
         <div class="tree-sub-title ${doneCls}"
           ondblclick="event.stopPropagation();inlineEditSubtask(${task.id},'${s.id}',this)"
           title="Doble clic para editar">${s.title||s.text||''}</div>
-        <div class="tree-sub-meta">${tagHTML}${pMark?`<span style="font-size:10px">${pMark}</span>`:''}${s.date?`<span class="sub-date">📅 ${s.date}</span>`:''}${ssProgBar}</div>
+        <div class="tree-sub-meta">${tagHTML}${pMark?`<span style="font-size:10px">${pMark}</span>`:''}${s.date?`<span class="sub-date">📅 ${s.date}${s.time?' ⏰ '+s.time:''}</span>`:''}${ssProgBar}</div>
         <div id="treesubbody-${task.id}-${s.id}" style="display:${isOpen&&hasSubsub?'block':'none'}">
           <div class="tree-subsubs">${subsubsHTML}</div>
           ${addSubsubRow}
@@ -2462,7 +2462,7 @@ function buildTreeSubsubs(taskId, sub, subOpen) {
         ondblclick="event.stopPropagation();inlineEditSubsub(${taskId},'${sub.id}','${ss.id}',this)"
         title="Doble clic para editar">${ss.title||''}</span>
       ${pMark?`<span style="font-size:10px">${pMark}</span>`:''}
-      ${ss.date?`<span class="subsub-date">📅 ${ss.date}</span>`:''}
+      ${ss.date?`<span class="subsub-date">📅 ${ss.date}${ss.time?' ⏰ '+ss.time:''}</span>`:''}
       <div class="tree-subsub-actions">
         <button class="sub-act-btn" onclick="event.stopPropagation();openSubModal('subsub',${taskId},'${sub.id}','${ss.id}')" title="Editar">✏️</button>
         <button class="sub-act-btn del" onclick="event.stopPropagation();deleteSubSubtask(${taskId},'${sub.id}','${ss.id}')" title="Eliminar">🗑️</button>
@@ -4790,7 +4790,7 @@ function buildSubRow(taskId, s, inDetail) {
   const checkedCls = s.done ? 'checked' : '';
   const doneCls    = s.done ? 'done' : '';
   const checkMark  = s.done ? '&#10003;' : '';
-  const dateHtml   = s.date ? '<span class="sub-date">&#128197; ' + s.date + '</span>' : '';
+  const dateHtml   = s.date ? '<span class="sub-date">&#128197; ' + s.date + (s.time ? ' ⏰ ' + s.time : '') + '</span>' : '';
   const sid        = String(s.id);
   const tid        = String(taskId);
 
@@ -5649,7 +5649,7 @@ function renderSubtasks(task) {
     const doneCls   = s.done ? 'done' : '';
     const checkedCls = s.done ? 'checked' : '';
     const prioMark  = {high:'🔴',medium:'🟡',low:'🔵',none:''}[s.priority||'none']||'';
-    const dateTxt   = s.date ? '📅 '+s.date : '';
+    const dateTxt   = s.date ? '📅 '+s.date+(s.time?' ⏰ '+s.time:'') : '';
     const tagHTML   = (s.tags||[]).map(t=>{const c=tagColor(t);return`<span style="font-size:9px;padding:1px 5px;border-radius:10px;background:${c}22;color:${c}">${t}</span>`;}).join('');
     const subDone   = (s.subsubtasks||[]).filter(ss=>ss.done).length;
     const subTotal  = (s.subsubtasks||[]).length;
@@ -5717,7 +5717,7 @@ function renderSubSubtasks(taskId, sub) {
           ondblclick="event.stopPropagation();inlineEditSubsub(${taskId},'${sub.id}','${ss.id}',this)"
           style="cursor:text" title="Doble clic para editar">${ss.title||''}</span>
         ${prioMark?`<span class="subsub-prio">${prioMark}</span>`:''}
-        ${ss.date?`<span class="subsub-date">📅 ${ss.date}</span>`:''}
+        ${ss.date?`<span class="subsub-date">📅 ${ss.date}${ss.time?' ⏰ '+ss.time:''}</span>`:''}
         <button class="sub-act-btn" onclick="event.stopPropagation();openSubModal('subsub',${taskId},'${sub.id}','${ss.id}')" title="Editar" style="opacity:0" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0'">✏️</button>
         <button class="sub-act-btn del" onclick="event.stopPropagation();deleteSubSubtask(${taskId},'${sub.id}','${ss.id}')" title="Eliminar" style="opacity:0" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0'">🗑️</button>
       </div>`;
@@ -6231,7 +6231,7 @@ function buildDetailSubRow(task, s) {
         ondblclick="inlineEditSubsub(${task.id},'${s.id}','${ss.id}',this)"
         title="Doble clic para editar">${ss.title||''}</span>
       ${ssPMark?`<span style="font-size:10px">${ssPMark}</span>`:''}
-      ${ss.date?`<span style="font-size:10px;color:var(--c-text3)">📅 ${ss.date}</span>`:''}
+      ${ss.date?`<span style="font-size:10px;color:var(--c-text3)">📅 ${ss.date}${ss.time?' ⏰ '+ss.time:''}</span>`:''}
       <div style="display:flex;gap:3px">
         <button onclick="openSubModal('subsub',${task.id},'${s.id}','${ss.id}')" title="Editar"
           style="width:20px;height:20px;border:none;background:transparent;color:var(--c-text3);cursor:pointer;font-size:11px;border-radius:4px;display:flex;align-items:center;justify-content:center"
@@ -6274,7 +6274,7 @@ function buildDetailSubRow(task, s) {
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
           ${tagHTML}
           ${pMark?`<span style="font-size:11px">${pMark}</span>`:''}
-          ${s.date?`<span style="font-size:11px;color:var(--c-text3)">📅 ${s.date}</span>`:''}
+          ${s.date?`<span style="font-size:11px;color:var(--c-text3)">📅 ${s.date}${s.time?' ⏰ '+s.time:''}</span>`:''}
           ${s.notes?`<span style="font-size:10px;color:var(--c-text3)">📝 ${s.notes.slice(0,30)}${s.notes.length>30?'...':''}</span>`:''}
           ${ssProgress}
         </div>
