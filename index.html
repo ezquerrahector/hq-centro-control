@@ -1189,7 +1189,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v8.6</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v8.7</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -1228,7 +1228,7 @@ console.log("Firebase compat cargado OK");
   <main class="main">
     <div class="topbar">
       <div class="topbar-title" id="topTitle">📊 Dashboard</div>
-      <span id="mobileVersion" style="font-size:9px;color:var(--c-text3);display:none">v8.6</span>
+      <span id="mobileVersion" style="font-size:9px;color:var(--c-text3);display:none">v8.7</span>
       <div class="search-wrap">
         <span style="color:var(--c-text3);font-size:14px">🔍</span>
         <input placeholder="Buscar tareas, etiquetas..." oninput="doSearch(this.value)"/>
@@ -5767,7 +5767,8 @@ function openSubModal(type, taskId, subId, editId, addType) {
       document.getElementById('subTitle').value  = sub.title||sub.text||'';
       document.getElementById('subNotes').value  = sub.notes||'';
       document.getElementById('subDate').value   = sub.date||'';
-      document.getElementById('subTime').value   = sub.time||'';
+      const _nt1=new Date(),_th1=String(_nt1.getHours()).padStart(2,'0')+':'+String(_nt1.getMinutes()).padStart(2,'0');
+      document.getElementById('subTime').value   = sub.time||_th1;
       curSubPrio   = sub.priority||'medium';
       subModalTags = [...(sub.tags||[])];
       document.querySelectorAll('#subModal .prio-btn').forEach(b=>b.classList.remove('sel'));
@@ -5785,7 +5786,8 @@ function openSubModal(type, taskId, subId, editId, addType) {
       document.getElementById('subTitle').value  = ss.title||'';
       document.getElementById('subNotes').value  = ss.notes||'';
       document.getElementById('subDate').value   = ss.date||'';
-      document.getElementById('subTime').value   = ss.time||'';
+      const _nt2=new Date(),_th2=String(_nt2.getHours()).padStart(2,'0')+':'+String(_nt2.getMinutes()).padStart(2,'0');
+      document.getElementById('subTime').value   = ss.time||_th2;
       curSubPrio   = ss.priority||'medium';
       subModalTags = [...(ss.tags||[])];
       document.querySelectorAll('#subModal .prio-btn').forEach(b=>b.classList.remove('sel'));
