@@ -1293,7 +1293,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:11px;color:var(--accent);font-weight:700;letter-spacing:.2px">v9.9</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:11px;color:var(--accent);font-weight:700;letter-spacing:.2px">v10.0</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -1332,7 +1332,7 @@ console.log("Firebase compat cargado OK");
   <main class="main">
     <div class="topbar">
       <div class="topbar-title" id="topTitle">Dashboard</div>
-      <span id="mobileVersion" style="font-size:11px;color:var(--c-text3);display:none">v9.9</span>
+      <span id="mobileVersion" style="font-size:11px;color:var(--c-text3);display:none">v10.0</span>
       <div class="search-wrap">
         <span style="color:var(--c-text3);font-size:14px">🔍</span>
         <input placeholder="Buscar tareas, etiquetas..." oninput="doSearch(this.value)"/>
@@ -1403,6 +1403,17 @@ let contexts = [
   {id:'banbajio',  name:'BanBajío',            color:'#2d7dd2', icon:'🏦'},
   {id:'instinto',  name:'Instinto Fragancias', color:'#c9732a', icon:'🌸'},
 ];
+// Aplicar orden guardado en localStorage inmediatamente al cargar
+// Esto garantiza que pull-to-refresh nunca revierta el orden
+try {
+  const _savedOrder = JSON.parse(localStorage.getItem('hq_ctx_order') || '[]');
+  if(_savedOrder.length) {
+    const _ordered = [];
+    _savedOrder.forEach(id => { const c=contexts.find(x=>x.id===id); if(c) _ordered.push(c); });
+    contexts.forEach(c => { if(!_ordered.find(x=>x.id===c.id)) _ordered.push(c); });
+    contexts = _ordered;
+  }
+} catch(e){}
 let projects = [];
 let alarms=[
   {id:1,name:'Ejercicio matutino',time:'07:00',repeat:'Lunes a viernes',on:true,ctx:'personal'},
