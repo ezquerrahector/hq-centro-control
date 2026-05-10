@@ -1293,7 +1293,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:11px;color:var(--accent);font-weight:700;letter-spacing:.2px">v9.0</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:11px;color:var(--accent);font-weight:700;letter-spacing:.2px">v9.1</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -1332,7 +1332,7 @@ console.log("Firebase compat cargado OK");
   <main class="main">
     <div class="topbar">
       <div class="topbar-title" id="topTitle">Dashboard</div>
-      <span id="mobileVersion" style="font-size:11px;color:var(--c-text3);display:none">v9.0</span>
+      <span id="mobileVersion" style="font-size:11px;color:var(--c-text3);display:none">v9.1</span>
       <div class="search-wrap">
         <span style="color:var(--c-text3);font-size:14px">🔍</span>
         <input placeholder="Buscar tareas, etiquetas..." oninput="doSearch(this.value)"/>
@@ -7622,8 +7622,11 @@ function onFirstLoad() {
     position:absolute;bottom:0;left:0;right:0;
     background:#f2f2f7;
     border-radius:22px 22px 0 0;
-    padding:16px 16px calc(env(safe-area-inset-bottom,0px) + 16px);
-    max-height:90vh;overflow-y:auto;
+    padding:16px 16px calc(env(safe-area-inset-bottom,0px) + 80px);
+    max-height:92vh;
+    overflow-y:scroll;
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior-y:contain;
     box-shadow:0 -4px 40px rgba(0,0,0,.15);
     transform:translateY(100%);transition:transform .32s cubic-bezier(.34,1.56,.64,1);">
     <!-- Pill handle -->
