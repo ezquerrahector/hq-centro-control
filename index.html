@@ -1293,7 +1293,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:11px;color:var(--accent);font-weight:700;letter-spacing:.2px">v9.8</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:11px;color:var(--accent);font-weight:700;letter-spacing:.2px">v9.9</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -1332,7 +1332,7 @@ console.log("Firebase compat cargado OK");
   <main class="main">
     <div class="topbar">
       <div class="topbar-title" id="topTitle">Dashboard</div>
-      <span id="mobileVersion" style="font-size:11px;color:var(--c-text3);display:none">v9.8</span>
+      <span id="mobileVersion" style="font-size:11px;color:var(--c-text3);display:none">v9.9</span>
       <div class="search-wrap">
         <span style="color:var(--c-text3);font-size:14px">🔍</span>
         <input placeholder="Buscar tareas, etiquetas..." oninput="doSearch(this.value)"/>
@@ -7478,10 +7478,11 @@ function fbListenAll() {
   });
   db.collection('contexts').onSnapshot(snap => {
     if(snap.empty) return;
-    if(window._savingContexts) return; // ignorar mientras se guarda
     const arr = [];
     snap.forEach(d => arr.push(Object.assign({}, d.data(), {_fbId: d.id})));
-    // Aplicar orden de localStorage (sobrescribe el order de Firebase)
+    // SIEMPRE aplicar el orden de localStorage — es la fuente de verdad
+    // Esto garantiza que pull-to-refresh, reconexión y cambio de pestaña
+    // nunca reviertan el orden que el usuario configuró
     contexts = applyCtxOrder(arr);
     contexts.forEach((c,i) => { c.order = i; });
     renderSidebar();
