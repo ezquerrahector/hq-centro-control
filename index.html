@@ -1293,7 +1293,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:11px;color:var(--accent);font-weight:700;letter-spacing:.2px">v9.6</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:11px;color:var(--accent);font-weight:700;letter-spacing:.2px">v9.7</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -1332,7 +1332,7 @@ console.log("Firebase compat cargado OK");
   <main class="main">
     <div class="topbar">
       <div class="topbar-title" id="topTitle">Dashboard</div>
-      <span id="mobileVersion" style="font-size:11px;color:var(--c-text3);display:none">v9.6</span>
+      <span id="mobileVersion" style="font-size:11px;color:var(--c-text3);display:none">v9.7</span>
       <div class="search-wrap">
         <span style="color:var(--c-text3);font-size:14px">🔍</span>
         <input placeholder="Buscar tareas, etiquetas..." oninput="doSearch(this.value)"/>
@@ -1801,6 +1801,7 @@ function moveCtx(id,dir){
   if(j<0||j>=contexts.length) return;
   [contexts[i],contexts[j]]=[contexts[j],contexts[i]];
   contexts.forEach((c,idx)=>{ c.order=idx; });
+  saveCtxOrder(); // guardar inmediatamente en localStorage
   fbSaveContexts();
   renderSidebar();
   renderCtxFilterBar();
@@ -5297,6 +5298,7 @@ function onCtxDrop(e, targetId) {
   });
 
   contexts.forEach((c, idx) => { c.order = idx; });
+  saveCtxOrder(); // guardar inmediatamente en localStorage
   fbSaveContexts();
   renderSidebar();
   renderCtxFilterBar();
@@ -5348,6 +5350,7 @@ function onCtxSbDrop(e, targetId) {
   contexts.splice(toIdx, 0, moved);
   // Actualizar campo order y persistir con lock
   contexts.forEach((c,idx)=>{ c.order=idx; });
+  saveCtxOrder(); // guardar inmediatamente en localStorage
   fbSaveContexts();
   renderSidebar();
   renderCtxFilterBar();
@@ -7348,11 +7351,42 @@ async function restoreDeletedTask(fbId) {
   toast('↩️','Tarea restaurada');
 }
 
+
+// ── ORDEN DE CONTEXTOS — localStorage como fuente de verdad ──
+function saveCtxOrder() {
+  try {
+    const order = contexts.map(c => c.id);
+    localStorage.setItem('hq_ctx_order', JSON.stringify(order));
+  } catch(e) {}
+}
+
+function applyCtxOrder(arr) {
+  // Aplica el orden guardado en localStorage al array de contextos
+  try {
+    const saved = JSON.parse(localStorage.getItem('hq_ctx_order') || '[]');
+    if (!saved.length) return arr;
+    const ordered = [];
+    // Primero los que están en el orden guardado
+    saved.forEach(id => {
+      const c = arr.find(x => x.id === id);
+      if (c) ordered.push(c);
+    });
+    // Luego los nuevos que no estaban en el orden guardado
+    arr.forEach(c => {
+      if (!ordered.find(x => x.id === c.id)) ordered.push(c);
+    });
+    return ordered;
+  } catch(e) {
+    return arr;
+  }
+}
 async function fbSaveContexts() {
   if(typeof firebase === 'undefined') return;
   // 1. Actualizar order en memoria ANTES de cualquier cosa
   contexts.forEach((c, i) => { c.order = i; });
-  // 2. Bloquear el onSnapshot para que no revierta el orden
+  // 2. Guardar orden en localStorage (fuente de verdad local)
+  saveCtxOrder();
+  // 3. Bloquear el onSnapshot para que no revierta el orden
   window._savingContexts = true;
   setSyncStatus('syncing','Guardando contextos...');
   try {
@@ -7485,13 +7519,13 @@ function fbListenAll() {
   });
   db.collection('contexts').onSnapshot(snap => {
     if(snap.empty) return;
-    // Si estamos en medio de un guardado, ignorar el snapshot de confirmación
-    // para que no revierta el orden que el usuario acaba de establecer
     if(window._savingContexts) return;
     const arr = [];
     snap.forEach(d => arr.push(Object.assign({}, d.data(), {_fbId: d.id})));
-    arr.sort((a,b) => (a.order||0) - (b.order||0));
-    contexts = arr;
+    // Aplicar orden de localStorage (fuente de verdad) sobre los datos de Firebase
+    contexts = applyCtxOrder(arr);
+    // Sincronizar el campo order con el orden real
+    contexts.forEach((c, i) => { c.order = i; });
     renderSidebar();
     renderCtxFilterBar();
     buildProjSelects();
