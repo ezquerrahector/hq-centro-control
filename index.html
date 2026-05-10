@@ -1983,7 +1983,6 @@ function _doRenderView() {
     }
   } catch (err) {
     console.error('renderView error en vista "' + curView + '":', err);
-    // Anti pantalla-en-blanco: mostrar mensaje de error recuperable
     c.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--c-text3)">'
       + '<div style="font-size:32px;margin-bottom:12px">⚠️</div>'
       + '<div style="font-size:14px;font-weight:600;color:var(--c-text2);margin-bottom:8px">Error al cargar la vista</div>'
@@ -1991,6 +1990,12 @@ function _doRenderView() {
       + '<button onclick="renderView()" style="padding:8px 20px;border-radius:20px;border:1px solid var(--c-border);background:var(--c-bg3);color:var(--c-text2);cursor:pointer;font-size:13px">🔄 Reintentar</button>'
       + '</div>';
   }
+  // ── Sync tab bar active state after every render ──
+  try {
+    document.querySelectorAll('.hq-tab-btn').forEach(b => b.classList.remove('active'));
+    const _activeTab = document.getElementById('tab-' + curView);
+    if (_activeTab) _activeTab.classList.add('active');
+  } catch(e) {}
 }
 
 // ══════════════════════════════════════════════════════
@@ -7495,20 +7500,20 @@ if('serviceWorker' in navigator) {
 
 // ── iOS TAB BAR LOGIC ──
 function tabNav(view, btn) {
-  // Update active tab
   document.querySelectorAll('.hq-tab-btn').forEach(b => b.classList.remove('active'));
   if(btn) btn.classList.add('active');
   gotoView(view, null);
+  setTimeout(updateTabBadges, 300);
 }
 function tabNavClose(view) {
   closeMasMenu();
   setTimeout(() => {
-    const tabId = 'tab-'+view;
     document.querySelectorAll('.hq-tab-btn').forEach(b => b.classList.remove('active'));
-    const t = document.getElementById(tabId);
+    const t = document.getElementById('tab-'+view);
     if(t) t.classList.add('active');
     gotoView(view, null);
-  }, 200);
+    setTimeout(updateTabBadges, 300);
+  }, 220);
 }
 function openMasMenu(btn) {
   const overlay = document.getElementById('masOverlay');
@@ -7542,17 +7547,8 @@ function updateTabBadges() {
   if(midBdg){ if(today.length){midBdg.textContent=today.length;midBdg.style.display='block';}else midBdg.style.display='none'; }
   if(tarBdg){ if(pending.length){tarBdg.textContent=pending.length;tarBdg.style.display='block';}else tarBdg.style.display='none'; }
 }
-// Sync tab active state when gotoView is called
-const _origGotoView = gotoView;
-function gotoView(view, el) {
-  _origGotoView(view, el);
-  setTimeout(() => {
-    document.querySelectorAll('.hq-tab-btn').forEach(b => b.classList.remove('active'));
-    const t = document.getElementById('tab-'+view);
-    if(t) t.classList.add('active');
-    updateTabBadges();
-  }, 50);
-}
+// Sync tab active state — hook into renderView instead (safe, no redeclaration)
+// Called after every view change via the existing renderView function
 
 setTimeout(() => {
   fbListenAll();
