@@ -1293,7 +1293,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:11px;color:var(--accent);font-weight:700;letter-spacing:.2px">v9.4</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:11px;color:var(--accent);font-weight:700;letter-spacing:.2px">v9.5</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -1332,7 +1332,7 @@ console.log("Firebase compat cargado OK");
   <main class="main">
     <div class="topbar">
       <div class="topbar-title" id="topTitle">Dashboard</div>
-      <span id="mobileVersion" style="font-size:11px;color:var(--c-text3);display:none">v9.4</span>
+      <span id="mobileVersion" style="font-size:11px;color:var(--c-text3);display:none">v9.5</span>
       <div class="search-wrap">
         <span style="color:var(--c-text3);font-size:14px">🔍</span>
         <input placeholder="Buscar tareas, etiquetas..." oninput="doSearch(this.value)"/>
@@ -1562,13 +1562,13 @@ document.addEventListener('DOMContentLoaded',()=>{
     const isMobile = window.innerWidth <= 600;
     const nav = document.getElementById('mobileNav');
     const fab = document.getElementById('mobFab');
-    // FAB viejo siempre oculto — reemplazado por tab bar
     if(nav) nav.style.display = 'none';
-    if(fab) fab.style.display = 'none';
-    // Tab bar visible solo en móvil
+    if(fab) { fab.style.display = 'none'; fab.style.setProperty('display','none','important'); }
     const tabBar = document.getElementById('hqTabBar');
-    if(tabBar) tabBar.style.display = isMobile ? 'flex' : 'none';
-    // Padding para tab bar
+    if(tabBar) {
+      tabBar.style.display = isMobile ? 'flex' : 'none';
+      if(isMobile) tabBar.style.setProperty('display','flex','important');
+    }
     const contentEl = document.getElementById('content');
     if(contentEl) contentEl.style.paddingBottom = isMobile ? '96px' : '';
   }
@@ -1951,9 +1951,12 @@ function getFiltered(todayOnly){
 let _renderTimer = null;
 
 function renderView() {
-  // Debounce: agrupa llamadas múltiples en un solo render (crucial para Firebase snapshots)
   clearTimeout(_renderTimer);
-  _renderTimer = setTimeout(_doRenderView, 30);
+  _renderTimer = setTimeout(() => {
+    _doRenderView();
+    // Garantizar tab bar visible después de cada render
+    if(typeof applyMobileLayout === 'function') applyMobileLayout();
+  }, 30);
 }
 
 function _doRenderView() {
@@ -6294,6 +6297,8 @@ document.head.appendChild(pulseStyle);
 
 
 function hideLoadingScreen() {
+  // Asegurar tab bar visible en móvil
+  if(typeof applyMobileLayout === 'function') applyMobileLayout();
   const screen = document.getElementById('loadingScreen');
   if(!screen || screen.style.opacity === '0') return;
   screen.style.opacity = '0';
@@ -7435,8 +7440,18 @@ async function fbSeedIfEmpty() {
 let _fbTasksDebounce = null;
 function fbListenAll() {
   if(typeof firebase === 'undefined') return;
-  // Mostrar estado inicial
   setSyncStatus('syncing', 'Conectando con Firebase...');
+  // Safety timeout: si Firebase no responde en 8s, mostrar app de todos modos
+  const _fbTimeout = setTimeout(() => {
+    if(!_appLoaded) {
+      _appLoaded = true;
+      hideLoadingScreen();
+      renderView();
+      setSyncStatus('error', 'Sin conexión — modo offline');
+      toast('⚠️', 'Sin conexión a Firebase');
+    }
+  }, 8000);
+  window._fbSafetyTimeout = _fbTimeout;
 
   db.collection('tasks').onSnapshot(snap => {
     // No interrumpir drag activo
@@ -7458,8 +7473,9 @@ function fbListenAll() {
 
     if(isFirstLoad) {
       _appLoaded = true;
+      clearTimeout(window._fbSafetyTimeout); // Firebase respondió — cancelar timeout de seguridad
       hideLoadingScreen();
-      setTimeout(onFirstLoad, 500); // tareas ya cargadas, ahora programar notifs
+      setTimeout(onFirstLoad, 500);
       setSyncStatus('synced', '✓ ' + arr.length + ' tarea' + (arr.length!==1?'s':'') + ' cargada' + (arr.length!==1?'s':''));
     } else {
       // Cambio en tiempo real desde otro dispositivo
