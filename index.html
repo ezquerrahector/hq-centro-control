@@ -1562,11 +1562,15 @@ document.addEventListener('DOMContentLoaded',()=>{
     const isMobile = window.innerWidth <= 600;
     const nav = document.getElementById('mobileNav');
     const fab = document.getElementById('mobFab');
-    if(nav) nav.style.display = isMobile ? 'flex' : 'none';
-    if(fab) fab.style.display = isMobile ? 'flex' : 'none';
-    // Ajustar padding del contenido para el bottom nav en móvil
+    // FAB viejo siempre oculto — reemplazado por tab bar
+    if(nav) nav.style.display = 'none';
+    if(fab) fab.style.display = 'none';
+    // Tab bar visible solo en móvil
+    const tabBar = document.getElementById('hqTabBar');
+    if(tabBar) tabBar.style.display = isMobile ? 'flex' : 'none';
+    // Padding para tab bar
     const contentEl = document.getElementById('content');
-    if(contentEl) contentEl.style.paddingBottom = isMobile ? '80px' : '';
+    if(contentEl) contentEl.style.paddingBottom = isMobile ? '96px' : '';
   }
   applyMobileLayout();
   window.addEventListener('resize', applyMobileLayout);
