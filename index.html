@@ -1293,7 +1293,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:11px;color:var(--accent);font-weight:700;letter-spacing:.2px">v9.1</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:11px;color:var(--accent);font-weight:700;letter-spacing:.2px">v9.2</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -1332,7 +1332,7 @@ console.log("Firebase compat cargado OK");
   <main class="main">
     <div class="topbar">
       <div class="topbar-title" id="topTitle">Dashboard</div>
-      <span id="mobileVersion" style="font-size:11px;color:var(--c-text3);display:none">v9.1</span>
+      <span id="mobileVersion" style="font-size:11px;color:var(--c-text3);display:none">v9.2</span>
       <div class="search-wrap">
         <span style="color:var(--c-text3);font-size:14px">🔍</span>
         <input placeholder="Buscar tareas, etiquetas..." oninput="doSearch(this.value)"/>
@@ -1801,14 +1801,20 @@ function moveCtx(id,dir){
   if(j<0||j>=contexts.length) return;
   [contexts[i],contexts[j]]=[contexts[j],contexts[i]];
   contexts.forEach((c,idx)=>{ c.order=idx; });
-  // Debug: verificar que todos tienen _fbId
-  const sinFbId = contexts.filter(c=>!c._fbId);
-  if(sinFbId.length > 0) {
-    console.warn('Contextos sin _fbId:', sinFbId.map(c=>c.name));
-    toast('⚠️','Algunos contextos no tienen ID en Firebase');
-  }
+  // Guardar snapshot local del orden para restaurarlo si Firebase lo pisa
+  const savedOrder = contexts.map(c => c.id);
+  window._ctxOrderLock = savedOrder;
   fbSaveContexts().then(()=>{
-    toast('↕️','Orden guardado ☁️');
+    // Restaurar el orden local si Firebase lo alteró durante el guardado
+    if(window._ctxOrderLock) {
+      const lock = window._ctxOrderLock;
+      contexts.sort((a,b) => lock.indexOf(a.id) - lock.indexOf(b.id));
+      contexts.forEach((c,idx)=>{ c.order=idx; });
+      window._ctxOrderLock = null;
+    }
+    renderSidebar();
+    renderCtxFilterBar();
+    if(typeof buildCtxEditList==='function') buildCtxEditList();
   });
   renderSidebar();
   renderCtxFilterBar();
@@ -7346,10 +7352,11 @@ async function restoreDeletedTask(fbId) {
 
 async function fbSaveContexts() {
   if(typeof firebase === 'undefined') return;
-  window._savingContexts = true;
   setSyncStatus('syncing','Guardando contextos...');
   try {
     const batch = db.batch();
+    // Actualizar el order en el array local primero
+    contexts.forEach((c, i) => { c.order = i; });
     contexts.forEach((c, i) => {
       if(!c._fbId) return;
       const ref = db.collection('contexts').doc(c._fbId);
@@ -7359,9 +7366,10 @@ async function fbSaveContexts() {
     });
     await batch.commit();
     setSyncStatus('synced','✓ Contextos guardados');
-    setTimeout(() => { window._savingContexts = false; }, 2000);
+    // Re-renderizar con el orden local correcto (no esperar snapshot)
+    renderSidebar();
+    renderCtxFilterBar();
   } catch(e){
-    window._savingContexts = false;
     setSyncStatus('error','✗ Error guardando contextos');
     console.error('fbSaveContexts:', e);
     toast('❌','Error: '+(e.message||'sin conexión'));
@@ -7466,10 +7474,25 @@ function fbListenAll() {
   });
   db.collection('contexts').onSnapshot(snap => {
     if(snap.empty) return;
-    if(window._savingContexts) return; // ignorar mientras se guarda
     const arr = [];
     snap.forEach(d => arr.push(Object.assign({}, d.data(), {_fbId: d.id})));
     arr.sort((a,b) => (a.order||0) - (b.order||0));
+    // Si hay un lock de orden activo (usuario acaba de reordenar), respetar el orden local
+    if(window._ctxOrderLock) {
+      const lock = window._ctxOrderLock;
+      arr.sort((a,b) => {
+        const ia = lock.indexOf(a.id), ib = lock.indexOf(b.id);
+        if(ia === -1 && ib === -1) return (a.order||0)-(b.order||0);
+        if(ia === -1) return 1;
+        if(ib === -1) return -1;
+        return ia - ib;
+      });
+    }
+    // Preservar _fbId en el array local
+    arr.forEach(nc => {
+      const existing = contexts.find(c => c._fbId === nc._fbId);
+      if(existing) Object.assign(existing, nc);
+    });
     contexts = arr;
     renderSidebar();
     renderCtxFilterBar();
