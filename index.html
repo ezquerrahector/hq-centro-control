@@ -1293,7 +1293,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:11px;color:var(--accent);font-weight:700;letter-spacing:.2px">v9.3</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:11px;color:var(--accent);font-weight:700;letter-spacing:.2px">v9.4</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -1332,7 +1332,7 @@ console.log("Firebase compat cargado OK");
   <main class="main">
     <div class="topbar">
       <div class="topbar-title" id="topTitle">Dashboard</div>
-      <span id="mobileVersion" style="font-size:11px;color:var(--c-text3);display:none">v9.3</span>
+      <span id="mobileVersion" style="font-size:11px;color:var(--c-text3);display:none">v9.4</span>
       <div class="search-wrap">
         <span style="color:var(--c-text3);font-size:14px">🔍</span>
         <input placeholder="Buscar tareas, etiquetas..." oninput="doSearch(this.value)"/>
@@ -5300,8 +5300,15 @@ function onCtxDrop(e, targetId) {
     el.style.transform   = '';
   });
 
-  // Persistir y actualizar sidebar (no el modal - ya está actualizado)
-  fbSaveContexts();
+  // Actualizar campo order en cada contexto ANTES de guardar
+  contexts.forEach((c, idx) => { c.order = idx; });
+  // Lock para evitar que el onSnapshot de Firebase revierta el orden
+  window._ctxOrderLock = contexts.map(c => c.id);
+  fbSaveContexts().then(() => {
+    window._ctxOrderLock = null;
+    renderSidebar();
+    renderCtxFilterBar();
+  });
   renderSidebar();
   renderCtxFilterBar();
   toast('↕️', 'Contexto reordenado');
@@ -5350,9 +5357,14 @@ function onCtxSbDrop(e, targetId) {
 
   const [moved] = contexts.splice(fromIdx, 1);
   contexts.splice(toIdx, 0, moved);
-  // Actualizar campo order y persistir
+  // Actualizar campo order y persistir con lock
   contexts.forEach((c,idx)=>{ c.order=idx; });
-  fbSaveContexts();
+  window._ctxOrderLock = contexts.map(c => c.id);
+  fbSaveContexts().then(() => {
+    window._ctxOrderLock = null;
+    renderSidebar();
+    renderCtxFilterBar();
+  });
   renderSidebar();
   renderCtxFilterBar();
   toast('↕️', 'Contexto reordenado ☁️');
@@ -7476,23 +7488,26 @@ function fbListenAll() {
     if(snap.empty) return;
     const arr = [];
     snap.forEach(d => arr.push(Object.assign({}, d.data(), {_fbId: d.id})));
-    arr.sort((a,b) => (a.order||0) - (b.order||0));
-    // Si hay un lock de orden activo (usuario acaba de reordenar), respetar el orden local
+    // Si hay un lock activo, usar el orden local guardado y solo actualizar _fbId
     if(window._ctxOrderLock) {
       const lock = window._ctxOrderLock;
-      arr.sort((a,b) => {
-        const ia = lock.indexOf(a.id), ib = lock.indexOf(b.id);
-        if(ia === -1 && ib === -1) return (a.order||0)-(b.order||0);
-        if(ia === -1) return 1;
-        if(ib === -1) return -1;
-        return ia - ib;
-      });
+      // Verificar si Firebase ya tiene el orden correcto (orders coinciden con lock)
+      const fbOrderIds = [...arr].sort((a,b)=>(a.order||0)-(b.order||0)).map(c=>c.id);
+      const lockStr = lock.join(',');
+      const fbStr = fbOrderIds.join(',');
+      if(lockStr !== fbStr) {
+        // Firebase aún no confirma el orden nuevo — ignorar este snapshot
+        // Solo actualizar _fbId por si algún doc nuevo llegó
+        arr.forEach(nc => {
+          const local = contexts.find(c => c.id === nc.id);
+          if(local && !local._fbId) local._fbId = nc._fbId;
+        });
+        return;
+      }
+      // Firebase ya confirmó el orden correcto — liberar lock
+      window._ctxOrderLock = null;
     }
-    // Preservar _fbId en el array local
-    arr.forEach(nc => {
-      const existing = contexts.find(c => c._fbId === nc._fbId);
-      if(existing) Object.assign(existing, nc);
-    });
+    arr.sort((a,b) => (a.order||0) - (b.order||0));
     contexts = arr;
     renderSidebar();
     renderCtxFilterBar();
