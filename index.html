@@ -1293,7 +1293,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:11px;color:var(--accent);font-weight:700;letter-spacing:.2px">v9.5</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:11px;color:var(--accent);font-weight:700;letter-spacing:.2px">v9.6</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -1332,7 +1332,7 @@ console.log("Firebase compat cargado OK");
   <main class="main">
     <div class="topbar">
       <div class="topbar-title" id="topTitle">Dashboard</div>
-      <span id="mobileVersion" style="font-size:11px;color:var(--c-text3);display:none">v9.5</span>
+      <span id="mobileVersion" style="font-size:11px;color:var(--c-text3);display:none">v9.6</span>
       <div class="search-wrap">
         <span style="color:var(--c-text3);font-size:14px">🔍</span>
         <input placeholder="Buscar tareas, etiquetas..." oninput="doSearch(this.value)"/>
@@ -1801,21 +1801,7 @@ function moveCtx(id,dir){
   if(j<0||j>=contexts.length) return;
   [contexts[i],contexts[j]]=[contexts[j],contexts[i]];
   contexts.forEach((c,idx)=>{ c.order=idx; });
-  // Guardar snapshot local del orden para restaurarlo si Firebase lo pisa
-  const savedOrder = contexts.map(c => c.id);
-  window._ctxOrderLock = savedOrder;
-  fbSaveContexts().then(()=>{
-    // Restaurar el orden local si Firebase lo alteró durante el guardado
-    if(window._ctxOrderLock) {
-      const lock = window._ctxOrderLock;
-      contexts.sort((a,b) => lock.indexOf(a.id) - lock.indexOf(b.id));
-      contexts.forEach((c,idx)=>{ c.order=idx; });
-      window._ctxOrderLock = null;
-    }
-    renderSidebar();
-    renderCtxFilterBar();
-    if(typeof buildCtxEditList==='function') buildCtxEditList();
-  });
+  fbSaveContexts();
   renderSidebar();
   renderCtxFilterBar();
   if(typeof buildCtxEditList==='function') buildCtxEditList();
@@ -1962,7 +1948,14 @@ function renderView() {
 function _doRenderView() {
   const c = document.getElementById('content');
   if (!c) return;
-  // Guardar scroll para no saltar al tope en cada re-render
+  // Si Firebase aún no cargó, mostrar spinner en lugar de pantalla en blanco
+  if (!_appLoaded) {
+    c.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:60vh;gap:16px;color:var(--c-text3)">'
+      + '<div style="width:36px;height:36px;border-radius:50%;border:3px solid var(--c-border);border-top-color:var(--accent);animation:spin .7s linear infinite"></div>'
+      + '<div style="font-size:13px;font-weight:500">Conectando...</div>'
+      + '</div>';
+    return;
+  }
   const prevScroll = c.scrollTop;
   try {
     let html = '';
@@ -5303,15 +5296,8 @@ function onCtxDrop(e, targetId) {
     el.style.transform   = '';
   });
 
-  // Actualizar campo order en cada contexto ANTES de guardar
   contexts.forEach((c, idx) => { c.order = idx; });
-  // Lock para evitar que el onSnapshot de Firebase revierta el orden
-  window._ctxOrderLock = contexts.map(c => c.id);
-  fbSaveContexts().then(() => {
-    window._ctxOrderLock = null;
-    renderSidebar();
-    renderCtxFilterBar();
-  });
+  fbSaveContexts();
   renderSidebar();
   renderCtxFilterBar();
   toast('↕️', 'Contexto reordenado');
@@ -5362,15 +5348,10 @@ function onCtxSbDrop(e, targetId) {
   contexts.splice(toIdx, 0, moved);
   // Actualizar campo order y persistir con lock
   contexts.forEach((c,idx)=>{ c.order=idx; });
-  window._ctxOrderLock = contexts.map(c => c.id);
-  fbSaveContexts().then(() => {
-    window._ctxOrderLock = null;
-    renderSidebar();
-    renderCtxFilterBar();
-  });
+  fbSaveContexts();
   renderSidebar();
   renderCtxFilterBar();
-  toast('↕️', 'Contexto reordenado ☁️');
+  toast('↕️', 'Contexto reordenado');
   dragCtxId = null;
 }
 
@@ -7369,27 +7350,29 @@ async function restoreDeletedTask(fbId) {
 
 async function fbSaveContexts() {
   if(typeof firebase === 'undefined') return;
+  // 1. Actualizar order en memoria ANTES de cualquier cosa
+  contexts.forEach((c, i) => { c.order = i; });
+  // 2. Bloquear el onSnapshot para que no revierta el orden
+  window._savingContexts = true;
   setSyncStatus('syncing','Guardando contextos...');
   try {
     const batch = db.batch();
-    // Actualizar el order en el array local primero
-    contexts.forEach((c, i) => { c.order = i; });
     contexts.forEach((c, i) => {
-      if(!c._fbId) return;
+      if(!c._fbId) return; // sin _fbId no podemos guardar en Firestore
       const ref = db.collection('contexts').doc(c._fbId);
       const data = Object.assign({}, c, {order: i});
       delete data._fbId;
       batch.set(ref, data);
     });
     await batch.commit();
-    setSyncStatus('synced','✓ Contextos guardados');
-    // Re-renderizar con el orden local correcto (no esperar snapshot)
-    renderSidebar();
-    renderCtxFilterBar();
+    setSyncStatus('synced','✓ Orden guardado');
   } catch(e){
     setSyncStatus('error','✗ Error guardando contextos');
     console.error('fbSaveContexts:', e);
     toast('❌','Error: '+(e.message||'sin conexión'));
+  } finally {
+    // 3. Liberar lock después de 3s (suficiente para que el snapshot llegue y se ignore)
+    setTimeout(() => { window._savingContexts = false; }, 3000);
   }
 }
 
@@ -7502,27 +7485,11 @@ function fbListenAll() {
   });
   db.collection('contexts').onSnapshot(snap => {
     if(snap.empty) return;
+    // Si estamos en medio de un guardado, ignorar el snapshot de confirmación
+    // para que no revierta el orden que el usuario acaba de establecer
+    if(window._savingContexts) return;
     const arr = [];
     snap.forEach(d => arr.push(Object.assign({}, d.data(), {_fbId: d.id})));
-    // Si hay un lock activo, usar el orden local guardado y solo actualizar _fbId
-    if(window._ctxOrderLock) {
-      const lock = window._ctxOrderLock;
-      // Verificar si Firebase ya tiene el orden correcto (orders coinciden con lock)
-      const fbOrderIds = [...arr].sort((a,b)=>(a.order||0)-(b.order||0)).map(c=>c.id);
-      const lockStr = lock.join(',');
-      const fbStr = fbOrderIds.join(',');
-      if(lockStr !== fbStr) {
-        // Firebase aún no confirma el orden nuevo — ignorar este snapshot
-        // Solo actualizar _fbId por si algún doc nuevo llegó
-        arr.forEach(nc => {
-          const local = contexts.find(c => c.id === nc.id);
-          if(local && !local._fbId) local._fbId = nc._fbId;
-        });
-        return;
-      }
-      // Firebase ya confirmó el orden correcto — liberar lock
-      window._ctxOrderLock = null;
-    }
     arr.sort((a,b) => (a.order||0) - (b.order||0));
     contexts = arr;
     renderSidebar();
