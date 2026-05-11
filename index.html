@@ -4774,7 +4774,7 @@ function exportToExcel() {
         return val;
       }).join(COMMA);
     }).join(CRLF);
-  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const blob = new Blob([csvContent], {type:'text/csv;charset=utf-8;'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -8042,6 +8042,10 @@ function buildNotas() {
 
 // ── Agregar Notas al menú móvil (ejecutar al cargar) ──
 // (el botón ya se agrega abajo en el HTML)
+
+// Verificar notificaciones push y programar correo DESPUÉS de que Firebase cargue
+// Se llama desde el listener de Firebase cuando llega el primer snapshot
+function onFirstLoad() {
   checkPendingNotifs();
   // Programar recordatorios de eventos del día
   setTimeout(scheduleAllEventReminders, 1000);
