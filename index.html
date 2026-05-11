@@ -74,6 +74,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--c-bg);color:var(--c-text)
   #mobileSearchBar{display:block;}
   .topbar-title{font-size:13px;}
   .topbar{padding:0 8px;gap:4px;}
+  .topbar-quickbtns{display:none !important;}
   #mobileVersion{display:inline!important;}
 }
 .search-wrap input{border:none;background:transparent;color:var(--c-text);font-family:'DM Sans',sans-serif;font-size:13px;flex:1;outline:none;}
@@ -1242,6 +1243,14 @@ console.log("Firebase compat cargado OK");
         <button class="btn-icon" title="Notificaciones push" onclick="openNotifConfig()" id="btnNotif">🔔</button>
         <button class="btn-icon" title="Recordatorios por correo" onclick="openEmailConfig()">📧</button>
         <button class="btn-icon" title="Recargar datos" onclick="reloadFromFirebase()" id="reloadBtn">🔄</button>
+        <button onclick="gotoView('notas',null);setTimeout(newNote,150)" title="Nueva nota de junta" class="topbar-quickbtns"
+          style="padding:7px 12px;border-radius:var(--radius-sm);border:1px solid var(--c-border);background:var(--c-bg3);color:var(--c-text2);cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap;flex-shrink:0">
+          📝 Nota
+        </button>
+        <button onclick="openEventModal(null,TODAY)" title="Nuevo evento" class="topbar-quickbtns"
+          style="padding:7px 12px;border-radius:var(--radius-sm);border:1px solid var(--c-border);background:var(--c-bg3);color:var(--c-text2);cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap;flex-shrink:0">
+          📅 Evento
+        </button>
         <button class="btn-primary" onclick="openTaskModal()">＋ Nueva tarea</button>
       </div>
     </div>
@@ -1385,6 +1394,8 @@ document.addEventListener('DOMContentLoaded',()=>{
         {icon:'🗂️', label:'Kanban',       action:"mobileNav('kanban',null)"},
         {icon:'📅', label:'Calendario',    action:"mobileNav('calendario',null)"},
         {icon:'🔔', label:'Alarmas',       action:"mobileNav('alarmas',null)"},
+        {icon:'📝', label:'Notas & Minutas',action:"mobileNav('notas',null)"},
+        {icon:'⚙️', label:'Configuración', action:"mobileNav('configuracion',null)"},
         {icon:'🛎️', label:'Notificaciones', action:'openNotifConfig()'},
         {icon:'🏆', label:'Completadas',   action:"mobileNav('completadas',null)"},
         {icon:'📦', label:'Archivadas',    action:"mobileNav('archivadas',null)"},
@@ -1392,6 +1403,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       ];
 
       const createItems = [
+        {icon:'📝', label:'Nueva nota',    action:"mobileNav('notas',null);setTimeout(newNote,200)"},
         {icon:'✅', label:'Nueva tarea',   action:'openTaskModal()'},
         {icon:'📅', label:'Nuevo evento',  action:'openEventModal(null,TODAY)'},
         {icon:'📁', label:'Nuevo proyecto',action:"document.getElementById('projModal').classList.add('open');buildProjSelects()"},
@@ -7470,11 +7482,26 @@ function newNote() {
 }
 
 // ── Guardar cambios de la nota activa (auto-save) ──
-let _noteSaveTimer = null;
+let _noteUnsaved = false;
+
 function autoSaveNote() {
-  clearTimeout(_noteSaveTimer);
-  _noteSaveTimer = setTimeout(flushSaveNote, 900);
+  // Solo marcar como no guardado visualmente
+  _noteUnsaved = true;
+  const btn = document.getElementById('btnSaveNote');
+  if(btn) { btn.style.background='#e0a752'; btn.textContent='💾 Guardar*'; }
 }
+
+function saveNoteManual() {
+  flushSaveNote();
+  _noteUnsaved = false;
+  const btn = document.getElementById('btnSaveNote');
+  if(btn) {
+    btn.style.background='#22a566'; btn.textContent='✓ Guardado';
+    setTimeout(()=>{ if(btn){ btn.style.background='var(--accent)'; btn.textContent='💾 Guardar'; } }, 1800);
+  }
+  toast('💾','Nota guardada');
+}
+
 function flushSaveNote() {
   const note = notes.find(n=>Number(n.id)===Number(_activeNoteId));
   if(!note) return;
@@ -7982,7 +8009,7 @@ function buildNotas() {
 
   // Panel derecho — editor
   const rightPanel = activeNote ? `
-    <div style="flex:1;display:flex;flex-direction:column;min-width:0;background:var(--c-bg);overflow:hidden">
+    <div style="flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--c-bg);overflow:hidden">
 
       <!-- Barra superior del editor -->
       <div style="padding:10px 16px;border-bottom:1px solid var(--c-border);background:var(--c-bg2);display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -8018,6 +8045,11 @@ function buildNotas() {
             style="padding:5px 10px;border-radius:6px;border:1px solid var(--c-border);background:var(--c-bg3);color:var(--c-text2);cursor:pointer;font-size:11px">
             📋 Copiar
           </button>
+          <!-- Guardar -->
+          <button onclick="saveNoteManual()" id="btnSaveNote"
+            style="padding:5px 14px;border-radius:6px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:11px;font-weight:600">
+            💾 Guardar
+          </button>
           <!-- Eliminar -->
           <button onclick="deleteNote(${activeNote.id})"
             style="padding:5px 10px;border-radius:6px;border:1px solid #e0522240;background:#e0522212;color:#e05222;cursor:pointer;font-size:11px">
@@ -8027,7 +8059,7 @@ function buildNotas() {
       </div>
 
       <!-- Editor scrolleable -->
-      <div style="flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:14px">
+      <div style="flex:1;overflow-y:auto;overflow-x:hidden;padding:16px 20px;display:flex;flex-direction:column;gap:14px;min-height:0">
 
         <!-- Título del evento -->
         <div>
@@ -8083,7 +8115,7 @@ function buildNotas() {
         </div>
 
         <!-- Minuta IA -->
-        <div style="background:var(--c-bg2);border:1px solid var(--c-border);border-radius:var(--radius-sm);overflow:hidden">
+        <div style="background:var(--c-bg2);border:1px solid var(--c-border);border-radius:var(--radius-sm);overflow:hidden;flex-shrink:0">
           <div style="padding:12px 14px;border-bottom:1px solid var(--c-border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
             <div>
               <div style="font-size:13px;font-weight:700;color:var(--c-text)">✨ Minuta Automática con IA</div>
