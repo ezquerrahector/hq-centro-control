@@ -1747,9 +1747,9 @@ function gotoView(view,el){
   const titles={dashboard:'📊 Dashboard',midia:'☀️ Mi Día',tareas:'✅ Tareas',
     proyectos:'📁 Proyectos',kanban:'🗂️ Kanban',calendario:'📅 Calendario',
     alarmas:'🔔 Alarmas',instinto:'🌸 Instinto Fragancias',completadas:'🏆 Completadas',
-    notas:'📝 Notas & Minutas'};
+    notas:'📝 Notas & Minutas',configuracion:'⚙️ Configuración'};
   document.getElementById('topTitle').textContent=titles[view]||view;
-  const hideTabs=['dashboard','kanban','calendario','alarmas','instinto','proyectos','completadas','notas'];
+  const hideTabs=['dashboard','kanban','calendario','alarmas','instinto','proyectos','completadas','notas','configuracion'];
   document.getElementById('viewTabs').style.display=hideTabs.includes(view)?'none':'flex';
   if(view!=='proyectos')focusProjId=null;
   renderView();
@@ -1860,6 +1860,7 @@ function _doRenderView() {
       case 'calendario':  html = buildCal();        break;
       case 'alarmas':     html = buildAlarms();     break;
       case 'notas':       html = buildNotas();      break;
+      case 'configuracion': html = buildConfiguracion(); break;
       case 'completadas': html = buildCompleted();  break;
       case 'archivadas':  html = buildArchived();   break;
       case 'eliminadas':
@@ -8133,6 +8134,281 @@ function buildNotas() {
     </div>`;
 }
 
+
+// ══════════════════════════════════════════════════════
+// CONFIGURACIÓN — Panel unificado de integraciones
+// ══════════════════════════════════════════════════════
+
+function getOpenAIConfig() {
+  return {
+    apiKey: localStorage.getItem('hq_openai_key') || '',
+  };
+}
+function saveOpenAIConfig(cfg) {
+  if(cfg.apiKey) localStorage.setItem('hq_openai_key', cfg.apiKey.trim());
+  else localStorage.removeItem('hq_openai_key');
+}
+
+function buildConfiguracion() {
+  const emailCfg = getEmailConfig();
+  const openaiCfg = getOpenAIConfig();
+  const notifOk = ('Notification' in window) && Notification.permission === 'granted';
+  const swOk = !!window._swReg;
+
+  return `
+  <div style="max-width:700px;margin:0 auto;padding:24px 20px;overflow-y:auto;height:100%">
+
+    <!-- Header -->
+    <div style="margin-bottom:24px">
+      <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:var(--c-text)">⚙️ Configuración</div>
+      <div style="font-size:13px;color:var(--c-text3);margin-top:4px">Gestiona todas las integraciones de HQ Centro de Control</div>
+    </div>
+
+    <!-- ── SECCIÓN: IA para Minutas ── -->
+    <div style="background:var(--c-bg2);border:1px solid var(--c-border);border-radius:var(--radius);margin-bottom:16px;overflow:hidden">
+      <div style="padding:14px 18px;border-bottom:1px solid var(--c-border);display:flex;align-items:center;gap:10px">
+        <div style="width:36px;height:36px;border-radius:10px;background:#10a37f22;display:flex;align-items:center;justify-content:center;font-size:18px">🤖</div>
+        <div>
+          <div style="font-weight:700;font-size:14px;color:var(--c-text)">IA para Minutas — OpenAI</div>
+          <div style="font-size:11px;color:var(--c-text3)">Genera minutas completas con GPT desde tus notas de junta</div>
+        </div>
+        <div style="margin-left:auto">
+          ${openaiCfg.apiKey
+            ? '<span style="background:#22a56620;color:#22a566;border:1px solid #22a56640;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600">✓ Conectado</span>'
+            : '<span style="background:#e0522220;color:#e05222;border:1px solid #e0522240;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600">Sin configurar</span>'}
+        </div>
+      </div>
+      <div style="padding:16px 18px;display:flex;flex-direction:column;gap:12px">
+        <div style="font-size:12px;color:var(--c-text3);background:var(--c-bg3);padding:10px 12px;border-radius:8px;line-height:1.6">
+          Obtén tu API key gratis en <a href="https://platform.openai.com/api-keys" target="_blank" style="color:var(--accent)">platform.openai.com → API Keys</a>.
+          Se guarda solo en este dispositivo. El modelo usado es <strong>gpt-4o-mini</strong> (~$0.001 por minuta).
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:600;color:var(--c-text3);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px">API Key de OpenAI</label>
+          <div style="display:flex;gap:8px">
+            <input id="cfg-openai-key" type="password"
+              placeholder="sk-proj-..." value="${openaiCfg.apiKey}"
+              style="flex:1;padding:9px 12px;border:1px solid var(--c-border);border-radius:var(--radius-sm);background:var(--c-bg3);color:var(--c-text);font-size:13px;font-family:monospace;outline:none"
+              oninput="document.getElementById('cfg-openai-key-show').checked=false">
+            <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--c-text3);cursor:pointer;flex-shrink:0">
+              <input type="checkbox" id="cfg-openai-key-show"
+                onchange="const i=document.getElementById('cfg-openai-key');i.type=this.checked?'text':'password'">
+              Ver
+            </label>
+            <button onclick="saveOpenAICfgFromForm()"
+              style="padding:9px 16px;border-radius:var(--radius-sm);border:none;background:var(--accent);color:#fff;font-weight:600;font-size:12px;cursor:pointer;flex-shrink:0">
+              💾 Guardar
+            </button>
+          </div>
+        </div>
+        ${openaiCfg.apiKey ? `
+        <div style="display:flex;gap:8px">
+          <button onclick="testOpenAIKey()"
+            style="padding:7px 14px;border-radius:var(--radius-sm);border:1px solid var(--accent);background:var(--accent-light);color:var(--accent);font-size:12px;cursor:pointer">
+            🧪 Probar conexión
+          </button>
+          <button onclick="if(confirm('¿Eliminar la API key guardada?')){localStorage.removeItem('hq_openai_key');renderView();toast('🗑️','API key eliminada')}"
+            style="padding:7px 14px;border-radius:var(--radius-sm);border:1px solid #e0522240;background:#e0522212;color:#e05222;font-size:12px;cursor:pointer">
+            🗑️ Eliminar key
+          </button>
+        </div>` : ''}
+      </div>
+    </div>
+
+    <!-- ── SECCIÓN: Correo EmailJS ── -->
+    <div style="background:var(--c-bg2);border:1px solid var(--c-border);border-radius:var(--radius);margin-bottom:16px;overflow:hidden">
+      <div style="padding:14px 18px;border-bottom:1px solid var(--c-border);display:flex;align-items:center;gap:10px">
+        <div style="width:36px;height:36px;border-radius:10px;background:#2d7dd222;display:flex;align-items:center;justify-content:center;font-size:18px">📧</div>
+        <div>
+          <div style="font-weight:700;font-size:14px;color:var(--c-text)">Recordatorios por Correo — EmailJS</div>
+          <div style="font-size:11px;color:var(--c-text3)">Resumen diario y recordatorios de tareas por email</div>
+        </div>
+        <div style="margin-left:auto">
+          ${emailCfg.publicKey && emailCfg.serviceId
+            ? '<span style="background:#22a56620;color:#22a566;border:1px solid #22a56640;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600">✓ Conectado</span>'
+            : '<span style="background:#e0522220;color:#e05222;border:1px solid #e0522240;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600">Sin configurar</span>'}
+        </div>
+      </div>
+      <div style="padding:16px 18px;display:flex;flex-direction:column;gap:10px">
+        <div style="font-size:12px;color:var(--c-text3);background:var(--c-bg3);padding:10px 12px;border-radius:8px;line-height:1.6">
+          Usa <strong>EmailJS</strong> — gratis hasta 200 correos/mes.
+          <a href="https://www.emailjs.com" target="_blank" style="color:var(--accent)">Regístrate aquí</a> y crea un servicio con tu Gmail.
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div>
+            <label style="font-size:11px;font-weight:600;color:var(--c-text3);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Tu correo</label>
+            <input id="cfg-email" class="form-inp" type="email" placeholder="tu@correo.com" value="${emailCfg.toEmail||''}">
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:600;color:var(--c-text3);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Tu nombre</label>
+            <input id="cfg-name" class="form-inp" placeholder="Héctor" value="${emailCfg.toName||''}">
+          </div>
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:600;color:var(--c-text3);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Public Key</label>
+          <input id="cfg-pk" class="form-inp" placeholder="user_XXXXXXXXXXXX" value="${emailCfg.publicKey||''}">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div>
+            <label style="font-size:11px;font-weight:600;color:var(--c-text3);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Service ID</label>
+            <input id="cfg-svc" class="form-inp" placeholder="service_XXXXXXX" value="${emailCfg.serviceId||''}">
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:600;color:var(--c-text3);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Template ID</label>
+            <input id="cfg-tpl" class="form-inp" placeholder="template_XXXXXXX" value="${emailCfg.templateId||''}">
+          </div>
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:600;color:var(--c-text3);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Hora del resumen diario</label>
+          <select id="cfg-hr" class="form-inp" style="width:160px">
+            ${[6,7,8,9,10].map(h=>`<option value="${h}" ${(emailCfg.summaryHour||8)==h?'selected':''}>0${h}:00 AM</option>`).join('')}
+          </select>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap">
+          <button onclick="saveEmailCfgFromSettings()"
+            style="padding:8px 16px;border-radius:var(--radius-sm);border:none;background:var(--accent);color:#fff;font-weight:600;font-size:12px;cursor:pointer">
+            💾 Guardar
+          </button>
+          <button onclick="testEmailCfg()"
+            style="padding:8px 14px;border-radius:var(--radius-sm);border:1px solid var(--c-border);background:var(--c-bg3);color:var(--c-text2);font-size:12px;cursor:pointer">
+            📤 Probar correo
+          </button>
+          <button onclick="scheduleEmailSummary()"
+            style="padding:8px 14px;border-radius:var(--radius-sm);border:1px solid var(--c-border);background:var(--c-bg3);color:var(--c-text2);font-size:12px;cursor:pointer">
+            📬 Activar resumen diario
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SECCIÓN: Notificaciones Push ── -->
+    <div style="background:var(--c-bg2);border:1px solid var(--c-border);border-radius:var(--radius);margin-bottom:16px;overflow:hidden">
+      <div style="padding:14px 18px;border-bottom:1px solid var(--c-border);display:flex;align-items:center;gap:10px">
+        <div style="width:36px;height:36px;border-radius:10px;background:#7c5cbf22;display:flex;align-items:center;justify-content:center;font-size:18px">🔔</div>
+        <div>
+          <div style="font-weight:700;font-size:14px;color:var(--c-text)">Notificaciones Push</div>
+          <div style="font-size:11px;color:var(--c-text3)">Alertas del navegador para tareas y eventos</div>
+        </div>
+        <div style="margin-left:auto">
+          ${notifOk
+            ? '<span style="background:#22a56620;color:#22a566;border:1px solid #22a56640;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600">✓ Activas</span>'
+            : '<span style="background:#e0a75220;color:#c47a1a;border:1px solid #e0a75240;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600">Sin activar</span>'}
+        </div>
+      </div>
+      <div style="padding:16px 18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div style="font-size:12px;color:var(--c-text3);max-width:400px;line-height:1.6">
+          ${notifOk
+            ? 'Las notificaciones están activas. Se programan recordatorios automáticos para eventos y tareas con hora.'
+            : 'Activa las notificaciones para recibir recordatorios de tareas y eventos directamente en el navegador.'}
+          <br>Service Worker: ${swOk ? '✓ registrado' : '✗ no disponible'}
+        </div>
+        <button onclick="requestNotifPermission();setTimeout(()=>renderView(),1000)"
+          style="padding:8px 16px;border-radius:var(--radius-sm);border:none;background:${notifOk?'var(--c-bg3)':'var(--accent)'};color:${notifOk?'var(--c-text2)':'#fff'};font-weight:600;font-size:12px;cursor:pointer">
+          ${notifOk ? '🔔 Reconfigurar' : '🔔 Activar notificaciones'}
+        </button>
+      </div>
+    </div>
+
+    <!-- ── SECCIÓN: Firebase ── -->
+    <div style="background:var(--c-bg2);border:1px solid var(--c-border);border-radius:var(--radius);margin-bottom:16px;overflow:hidden">
+      <div style="padding:14px 18px;border-bottom:1px solid var(--c-border);display:flex;align-items:center;gap:10px">
+        <div style="width:36px;height:36px;border-radius:10px;background:#f5a62322;display:flex;align-items:center;justify-content:center;font-size:18px">🔥</div>
+        <div>
+          <div style="font-weight:700;font-size:14px;color:var(--c-text)">Base de datos — Firebase</div>
+          <div style="font-size:11px;color:var(--c-text3)">Sincronización en tiempo real entre dispositivos</div>
+        </div>
+        <div style="margin-left:auto" id="cfg-fb-status">
+          <span style="background:#22a56620;color:#22a566;border:1px solid #22a56640;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600">✓ Conectado</span>
+        </div>
+      </div>
+      <div style="padding:14px 18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div style="font-size:12px;color:var(--c-text3);line-height:1.6">
+          Proyecto: <strong>hq-centro-control</strong> · Plan Spark (gratuito)<br>
+          Tareas cargadas: <strong>${typeof tasks !== 'undefined' ? tasks.length : 0}</strong> · 
+          Notas: <strong>${typeof notes !== 'undefined' ? notes.length : 0}</strong>
+        </div>
+        <button onclick="reloadFromFirebase()"
+          style="padding:8px 14px;border-radius:var(--radius-sm);border:1px solid var(--c-border);background:var(--c-bg3);color:var(--c-text2);font-size:12px;cursor:pointer">
+          🔄 Forzar sincronización
+        </button>
+      </div>
+    </div>
+
+    <!-- ── SECCIÓN: Datos & Exportar ── -->
+    <div style="background:var(--c-bg2);border:1px solid var(--c-border);border-radius:var(--radius);margin-bottom:24px;overflow:hidden">
+      <div style="padding:14px 18px;border-bottom:1px solid var(--c-border);display:flex;align-items:center;gap:10px">
+        <div style="width:36px;height:36px;border-radius:10px;background:#22a56622;display:flex;align-items:center;justify-content:center;font-size:18px">📊</div>
+        <div>
+          <div style="font-weight:700;font-size:14px;color:var(--c-text)">Datos & Exportación</div>
+          <div style="font-size:11px;color:var(--c-text3)">Exporta tus tareas a Excel o importa desde un archivo</div>
+        </div>
+      </div>
+      <div style="padding:14px 18px;display:flex;gap:10px;flex-wrap:wrap">
+        <button onclick="exportToExcel()"
+          style="padding:8px 16px;border-radius:var(--radius-sm);border:none;background:var(--accent);color:#fff;font-weight:600;font-size:12px;cursor:pointer">
+          📊 Exportar a Excel
+        </button>
+        <button onclick="document.getElementById('importFileInp').click()"
+          style="padding:8px 14px;border-radius:var(--radius-sm);border:1px solid var(--c-border);background:var(--c-bg3);color:var(--c-text2);font-size:12px;cursor:pointer">
+          📥 Importar CSV
+        </button>
+      </div>
+    </div>
+
+    <!-- Versión -->
+    <div style="text-align:center;font-size:11px;color:var(--c-text3);padding-bottom:20px">
+      HQ Centro de Control v8.4 · Firebase Spark · GitHub Pages
+    </div>
+
+  </div>`;
+}
+
+// ── Guardar OpenAI desde el panel de configuración ──
+function saveOpenAICfgFromForm() {
+  const key = (document.getElementById('cfg-openai-key')||{}).value || '';
+  if(!key.trim()) { toast('⚠️','Pega tu API key de OpenAI'); return; }
+  if(!key.trim().startsWith('sk-')) { toast('⚠️','La key debe empezar con sk-'); return; }
+  saveOpenAIConfig({apiKey: key.trim()});
+  toast('✅','API key de OpenAI guardada');
+  renderView();
+}
+
+async function testOpenAIKey() {
+  const key = localStorage.getItem('hq_openai_key') || '';
+  if(!key) { toast('⚠️','No hay API key guardada'); return; }
+  toast('🧪','Probando conexión con OpenAI...');
+  try {
+    const r = await fetch('https://api.openai.com/v1/models', {
+      headers:{'Authorization':'Bearer '+key}
+    });
+    const d = await r.json();
+    if(d.error) throw new Error(d.error.message);
+    toast('✅','¡Conexión con OpenAI exitosa!');
+  } catch(e) {
+    toast('❌','Error: '+(e.message||'revisa tu API key'));
+  }
+}
+
+// ── Guardar EmailJS desde el panel de configuración ──
+function saveEmailCfgFromSettings() {
+  const cfg = {
+    toEmail:    (document.getElementById('cfg-email')||{}).value||'',
+    toName:     (document.getElementById('cfg-name')||{}).value||'',
+    publicKey:  (document.getElementById('cfg-pk')||{}).value||'',
+    serviceId:  (document.getElementById('cfg-svc')||{}).value||'',
+    templateId: (document.getElementById('cfg-tpl')||{}).value||'',
+    summaryHour:(document.getElementById('cfg-hr')||{}).value||'8',
+  };
+  if(!cfg.toEmail){ toast('⚠️','Ingresa tu correo'); return; }
+  if(!cfg.publicKey || !cfg.serviceId || !cfg.templateId){
+    toast('⚠️','Completa los datos de EmailJS'); return;
+  }
+  saveEmailConfig(cfg);
+  initEmailJS();
+  toast('✅','Configuración de correo guardada');
+  renderView();
+}
+
 // ── Agregar Notas al menú móvil (ejecutar al cargar) ──
 // (el botón ya se agrega abajo en el HTML)
 
@@ -8165,6 +8441,9 @@ function onFirstLoad() {
 <!-- ── MENÚ "MÁS" MÓVIL ── -->
 <div id="mobileMenuOverlay" style="display:none;position:fixed;inset:0;z-index:9980;background:rgba(0,0,0,.5)" onclick="toggleMobileMenu()">
   <div style="position:absolute;bottom:62px;left:0;right:0;background:var(--sb-bg);border-top:1px solid var(--sb-border);padding:12px;display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;max-height:80vh;overflow-y:auto" onclick="event.stopPropagation()">
+    <button class="mob-nav-btn" style="flex-direction:column;height:60px;border-radius:10px;border:1px solid var(--sb-border)" onclick="mobileNav('configuracion',null);toggleMobileMenu()">
+      <span class="mob-nav-icon">⚙️</span><span class="mob-nav-label">Config.</span>
+    </button>
     <button class="mob-nav-btn" style="flex-direction:column;height:60px;border-radius:10px;border:1px solid var(--sb-border)" onclick="mobileNav('notas',null);toggleMobileMenu()">
       <span class="mob-nav-icon">📝</span><span class="mob-nav-label">Notas</span>
     </button>
