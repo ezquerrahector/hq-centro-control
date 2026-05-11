@@ -8217,8 +8217,8 @@ function buildNotas() {
         .notas-layout{flex-direction:column;height:calc(100vh - 54px)}
         /* En móvil: lista arriba colapsada, editor abajo */
         .notas-list-panel{width:100%!important;min-width:unset!important;border-right:none!important;
-          border-bottom:1px solid var(--c-border);max-height:160px;flex-shrink:0}
-        .notas-list-panel .nota-new-btn{display:none} /* el btn de nueva nota ya está en el FAB */
+          border-bottom:1px solid var(--c-border);max-height:200px;flex-shrink:0}
+        .notas-list-panel .nota-new-btn{display:block} /* siempre visible */
         /* Toolbar móvil: colapsar acciones secundarias por defecto */
         .note-toolbar-extra{display:none}
         .note-toolbar-extra.open{display:flex}
