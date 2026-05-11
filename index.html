@@ -7749,7 +7749,29 @@ function copyNoteAsText() {
 function copyMinutaText() {
   const note = notes.find(n=>Number(n.id)===Number(_activeNoteId));
   if(!note||!note.minutaText) return;
-  navigator.clipboard.writeText(note.minutaText).then(()=>toast('📋','Minuta copiada'))
+  // Generar texto limpio para correo (sin markdown, sin emojis)
+  const clean = note.minutaText
+    .replace(/^#{1,3}\s*/gm, '')
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/\*(.+?)\*/g, '$1')
+    .replace(/^---+$/gm, '─'.repeat(50))
+    .replace(/^[-–•]\s+/gm, '  ')
+    .replace(/[\u{1F300}-\u{1FFFF}]/gu, '')  // emojis unicode
+    .replace(/[\uD800-\uDFFF]/g, '')           // surrogates
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  // Encabezado corporativo
+  const header = [
+    'MINUTA DE REUNIÓN',
+    '─'.repeat(50),
+    'Asunto:        ' + (note.title || 'Reunión de trabajo'),
+    'Fecha:         ' + formatNoteDate(note.createdAt),
+    'Participantes: ' + ((note.participants||[]).join(', ') || 'No especificados'),
+    '─'.repeat(50),
+    ''
+  ].join('\n');
+  navigator.clipboard.writeText(header + clean)
+    .then(()=>toast('📋','Minuta copiada — lista para pegar en correo'))
     .catch(()=>toast('⚠️','No se pudo copiar'));
 }
 
@@ -7783,43 +7805,30 @@ async function generarMinuta() {
 
 async function _generarMinutaOpenAI(note, apiKey, btn, minutaDiv) {
 
-  const prompt = `Eres un asistente experto en redactar minutas ejecutivas profesionales en español.
-  
-Con base en las siguientes notas de junta, genera una minuta completa y bien estructurada.
+  const prompt = `Redacta una minuta ejecutiva formal en español, lista para enviar por correo corporativo.
 
-**EVENTO:** ${note.title || 'Junta de trabajo'}
-**FECHA:** ${formatNoteDate(note.createdAt)}
-**PARTICIPANTES:** ${(note.participants||[]).join(', ') || 'No especificados'}
-**ETIQUETAS:** ${(note.tags||[]).map(t=>'#'+t).join(', ') || 'Ninguna'}
+DATOS DE LA REUNIÓN:
+- Asunto: ${note.title || 'Reunión de trabajo'}
+- Fecha: ${formatNoteDate(note.createdAt)}
+- Participantes: ${(note.participants||[]).join(', ') || 'No especificados'}
+- Temas: ${(note.tags||[]).join(', ') || ''}
 
-**NOTAS DE LA JUNTA:**
+NOTAS DE LA REUNIÓN:
 ${note.body}
 
----
-Genera la minuta con EXACTAMENTE esta estructura en Markdown:
-
-## 📋 MINUTA DE JUNTA
-**Evento:** [nombre]
-**Fecha y hora:** [fecha]
-**Participantes:** [lista]
-
----
-## 🎯 RESUMEN EJECUTIVO
-[2-3 párrafos con los puntos más importantes discutidos]
-
----
-## ✅ ACUERDOS
-[Lista numerada de todos los acuerdos tomados. Si no hay explícitos, infiere de las notas]
-
----
-## 📌 PRÓXIMOS PASOS
-[Lista numerada con acciones concretas, responsable sugerido si se menciona, y fecha si se indicó]
-
----
-## 💡 OBSERVACIONES
-[Puntos adicionales relevantes, riesgos identificados o temas pendientes de seguimiento]
-
-Usa lenguaje formal pero directo. Si las notas son informales o incompletas, interpreta el contexto y completa la minuta de forma coherente.`;
+INSTRUCCIONES ESTRICTAS:
+- Usa SOLO estas secciones con estos encabezados exactos (sin emojis, sin #, sin *):
+  MINUTA DE REUNIÓN
+  RESUMEN EJECUTIVO
+  ACUERDOS
+  PRÓXIMOS PASOS
+  OBSERVACIONES
+- El texto debe ser completamente limpio: sin asteriscos, sin almohadillas (#), sin guiones como viñetas, sin emojis.
+- Los acuerdos y próximos pasos deben numerarse: 1. 2. 3.
+- Tono: formal, corporativo, directo. Como lo redactaría un director ejecutivo.
+- Si los próximos pasos mencionan responsables o fechas, inclúyelos en el mismo punto numerado entre paréntesis.
+- Máximo 350 palabras en total.
+- No incluyas saludos, despedidas ni frases como "A continuación" al inicio.`;
 
   try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -7878,34 +7887,30 @@ function _generarMinutaLocal(note, btn, minutaDiv) {
     const tags = (note.tags||[]).map(t=>'#'+t).join(', ');
 
     const minutaMd = [
-      '## 📋 MINUTA DE JUNTA',
-      `**Evento:** ${titulo}`,
-      `**Fecha y hora:** ${fecha}`,
-      `**Participantes:** ${partic}`,
-      tags ? `**Etiquetas:** ${tags}` : '',
+      'MINUTA DE REUNIÓN',
       '',
-      '---',
-      '## 🎯 RESUMEN EJECUTIVO',
+      `Asunto:        ${titulo}`,
+      `Fecha:         ${fecha}`,
+      `Participantes: ${partic}`,
+      tags ? `Temas:         ${tags}` : '',
+      '',
+      'RESUMEN EJECUTIVO',
       otrasLineas.length
         ? otrasLineas.map(l => l.trim()).join(' ')
-        : `Junta de trabajo sobre ${titulo} con la participación de ${partic}.`,
+        : `Reunión de trabajo sobre ${titulo} con la participación de ${partic}.`,
       '',
-      '---',
-      '## ✅ ACUERDOS',
+      'ACUERDOS',
       acuerdos.length
         ? acuerdos.map((a,i)=>`${i+1}. ${a.replace(/✅\s*ACUERDO:\s*/i,'').trim()}`).join('\n')
         : '1. Sin acuerdos explícitos registrados.',
       '',
-      '---',
-      '## 📌 PRÓXIMOS PASOS',
+      'PRÓXIMOS PASOS',
       pendientes.length
         ? pendientes.map((p,i)=>`${i+1}. ${p.replace(/📌\s*PENDIENTE:\s*/i,'').trim()}`).join('\n')
         : '1. Sin próximos pasos registrados.',
       '',
-      '---',
-      '## 💡 OBSERVACIONES',
-      `Minuta generada automáticamente el ${fecha}.`,
-      tags ? `Temas relacionados: ${tags}` : '',
+      'OBSERVACIONES',
+      `Minuta generada el ${fecha}.`,
     ].filter(l=>l!==null && l!==undefined).join('\n');
 
     note.minutaText = minutaMd;
@@ -7937,15 +7942,56 @@ function _generarMinutaLocal(note, btn, minutaDiv) {
 
 // Mini markdown-to-html para mostrar la minuta
 function markdownToHtml(md) {
-  return md
-    .replace(/^## (.+)$/gm,'<h3 style="font-size:14px;font-weight:700;color:var(--accent);margin:16px 0 8px;border-bottom:1px solid var(--c-border);padding-bottom:4px">$1</h3>')
-    .replace(/^### (.+)$/gm,'<h4 style="font-size:13px;font-weight:600;color:var(--c-text);margin:10px 0 6px">$1</h4>')
-    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
-    .replace(/^(\d+)\. (.+)$/gm,'<li style="margin:4px 0;padding-left:4px"><strong style="color:var(--accent);margin-right:4px">$1.</strong>$2</li>')
-    .replace(/^[-*] (.+)$/gm,'<li style="margin:4px 0;padding-left:4px;list-style:disc;margin-left:16px">$1</li>')
-    .replace(/^---$/gm,'<hr style="border:none;border-top:1px solid var(--c-border);margin:12px 0">')
-    .replace(/\n\n/g,'</p><p style="margin:6px 0">')
-    .replace(/\n/g,'<br>');
+  // Limpiar markdown residual que el modelo pudiera generar
+  let t = md
+    .replace(/^#{1,3}\s*/gm, '')          // quitar ## ### #
+    .replace(/\*\*(.+?)\*\*/g, '$1')    // quitar **bold**
+    .replace(/\*(.+?)\*/g, '$1')          // quitar *italic*
+    .replace(/^---+$/gm, '|||SEP|||')       // separadores → marcador
+    .replace(/^[-–•]\s+/gm, '')            // quitar viñetas con guión
+    .trim();
+
+  // Detectar secciones por encabezados conocidos
+  const SECS = [
+    'MINUTA DE REUNIÓN', 'MINUTA DE JUNTA',
+    'RESUMEN EJECUTIVO',
+    'ACUERDOS',
+    'PRÓXIMOS PASOS',
+    'OBSERVACIONES'
+  ];
+
+  // Envolver cada sección con HTML
+  SECS.forEach(sec => {
+    const re = new RegExp('(^|\n)(' + sec + ')\s*\n', 'i');
+    t = t.replace(re, (_, pre, title) =>
+      pre + '<div class="mn-section-hdr">' + title.toUpperCase() + '</div>\n'
+    );
+  });
+
+  // Listas numeradas → HTML limpio
+  t = t.replace(/^(\d+)\.\s+(.+)$/gm,
+    '<div class="mn-item"><span class="mn-num">$1.</span><span>$2</span></div>');
+
+  // Separadores
+  t = t.replace(/\|\|\|SEP\|\|\|/g,
+    '<div class="mn-sep"></div>');
+
+  // Párrafos
+  t = t.replace(/\n{2,}/g, '</p><p class="mn-p">');
+  t = '<p class="mn-p">' + t + '</p>';
+  t = t.replace(/<p class="mn-p">\s*<\/p>/g, '');
+  t = t.replace(/\n/g, ' ');
+
+  return `<style>
+    .mn-wrap{font-family:'Georgia',serif;color:#1a1a2e;max-width:600px}
+    .mn-section-hdr{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
+      color:#4a4a6a;border-bottom:2px solid #7c5cbf;padding-bottom:5px;margin:20px 0 10px}
+    .mn-section-hdr:first-child{margin-top:0}
+    .mn-item{display:flex;gap:10px;margin:5px 0;font-size:13px;line-height:1.6}
+    .mn-num{color:#7c5cbf;font-weight:700;min-width:18px;flex-shrink:0}
+    .mn-sep{border-top:1px solid #e4e6eb;margin:14px 0}
+    .mn-p{font-size:13px;line-height:1.7;margin:6px 0;color:#2a2a3e}
+  </style><div class="mn-wrap">${t}</div>`;
 }
 
 // ── VISTA PRINCIPAL DE NOTAS ──
