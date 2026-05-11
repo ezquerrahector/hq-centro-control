@@ -7736,7 +7736,23 @@ async function generarMinuta() {
   const btn = document.getElementById('btnGenerarMinuta');
   if(btn){ btn.disabled=true; btn.textContent='⏳ Generando...'; }
   const minutaDiv = document.getElementById('minutaOutput');
-  if(minutaDiv){ minutaDiv.innerHTML='<div style="text-align:center;padding:20px;color:var(--c-text3);font-size:13px">⏳ Procesando con IA...</div>'; }
+  if(minutaDiv){ minutaDiv.innerHTML='<div style="text-align:center;padding:20px;color:var(--c-text3);font-size:13px">⏳ Procesando...</div>'; }
+
+  // Intentar con OpenAI si hay key guardada; si falla CORS, usar generación local
+  const savedKey = localStorage.getItem('hq_openai_key') || '';
+  if(savedKey) {
+    try {
+      await _generarMinutaOpenAI(note, savedKey, btn, minutaDiv);
+      return;
+    } catch(corsErr) {
+      console.warn('OpenAI CORS bloqueado, usando generación local:', corsErr.message);
+    }
+  }
+  // Generación local estructurada (sin API)
+  _generarMinutaLocal(note, btn, minutaDiv);
+}
+
+async function _generarMinutaOpenAI(note, apiKey, btn, minutaDiv) {
 
   const prompt = `Eres un asistente experto en redactar minutas ejecutivas profesionales en español.
   
@@ -7776,19 +7792,6 @@ Genera la minuta con EXACTAMENTE esta estructura en Markdown:
 
 Usa lenguaje formal pero directo. Si las notas son informales o incompletas, interpreta el contexto y completa la minuta de forma coherente.`;
 
-  // Obtener API key de OpenAI guardada localmente
-  let apiKey = localStorage.getItem('hq_openai_key') || '';
-  if(!apiKey) {
-    apiKey = prompt('Para generar minutas con IA necesitas tu API key de OpenAI (ChatGPT).\n\nObtén la tuya en: platform.openai.com → API Keys\n\nPega tu API key aquí (se guarda solo en este dispositivo):');
-    if(!apiKey || !apiKey.trim()) {
-      if(btn){ btn.disabled=false; btn.textContent='✨ Generar Minuta IA'; }
-      if(minutaDiv) minutaDiv.innerHTML='<div style="padding:16px;color:var(--c-text3);font-size:13px;text-align:center">⚠️ Necesitas una API key de OpenAI para generar minutas.<br><br><a href="https://platform.openai.com/api-keys" target="_blank" style="color:var(--accent)">Obtener API key →</a></div>';
-      return;
-    }
-    localStorage.setItem('hq_openai_key', apiKey.trim());
-    toast('🔑','API key de OpenAI guardada en este dispositivo');
-  }
-
   try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method:'POST',
@@ -7826,9 +7829,78 @@ Usa lenguaje formal pero directo. Si las notas son informales o incompletas, int
       <div class="minuta-render">${note.minutaHtml}</div>`;
     toast('✨','¡Minuta generada!');
   } catch(err) {
-    console.error('generarMinuta error:', err);
-    if(minutaDiv) minutaDiv.innerHTML=`<div style="color:#e05222;padding:12px;font-size:13px">⚠️ Error al generar: ${err.message||'Intenta de nuevo'}</div>`;
-    toast('⚠️','Error al generar minuta');
+    console.error('_generarMinutaOpenAI error:', err);
+    throw err; // re-lanzar para que generarMinuta use el fallback local
+  } finally {
+    if(btn){ btn.disabled=false; btn.textContent='✨ Generar Minuta IA'; }
+  }
+}
+
+// ── GENERACIÓN LOCAL DE MINUTA (sin API externa) ──
+function _generarMinutaLocal(note, btn, minutaDiv) {
+  try {
+    const lines = (note.body||'').split('\n').filter(l=>l.trim());
+    const acuerdos = lines.filter(l => l.includes('ACUERDO:') || l.includes('✅'));
+    const pendientes = lines.filter(l => l.includes('PENDIENTE:') || l.includes('📌'));
+    const otrasLineas = lines.filter(l => !l.includes('ACUERDO:') && !l.includes('PENDIENTE:') && !l.includes('✅') && !l.includes('📌'));
+    const partic = (note.participants||[]).join(', ') || 'No especificados';
+    const fecha = formatNoteDate(note.createdAt);
+    const titulo = note.title || 'Junta de trabajo';
+    const tags = (note.tags||[]).map(t=>'#'+t).join(', ');
+
+    const minutaMd = [
+      '## 📋 MINUTA DE JUNTA',
+      `**Evento:** ${titulo}`,
+      `**Fecha y hora:** ${fecha}`,
+      `**Participantes:** ${partic}`,
+      tags ? `**Etiquetas:** ${tags}` : '',
+      '',
+      '---',
+      '## 🎯 RESUMEN EJECUTIVO',
+      otrasLineas.length
+        ? otrasLineas.map(l => l.trim()).join(' ')
+        : `Junta de trabajo sobre ${titulo} con la participación de ${partic}.`,
+      '',
+      '---',
+      '## ✅ ACUERDOS',
+      acuerdos.length
+        ? acuerdos.map((a,i)=>`${i+1}. ${a.replace(/✅\s*ACUERDO:\s*/i,'').trim()}`).join('\n')
+        : '1. Sin acuerdos explícitos registrados.',
+      '',
+      '---',
+      '## 📌 PRÓXIMOS PASOS',
+      pendientes.length
+        ? pendientes.map((p,i)=>`${i+1}. ${p.replace(/📌\s*PENDIENTE:\s*/i,'').trim()}`).join('\n')
+        : '1. Sin próximos pasos registrados.',
+      '',
+      '---',
+      '## 💡 OBSERVACIONES',
+      `Minuta generada automáticamente el ${fecha}.`,
+      tags ? `Temas relacionados: ${tags}` : '',
+    ].filter(l=>l!==null && l!==undefined).join('\n');
+
+    note.minutaText = minutaMd;
+    note.minutaHtml = markdownToHtml(minutaMd);
+    note.minutaGeneratedAt = nowISOLocal();
+    fbSaveNote(note);
+
+    if(minutaDiv) minutaDiv.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <span style="font-size:11px;color:var(--c-text3)">📄 Generada localmente · ${formatNoteDate(note.minutaGeneratedAt)}</span>
+        <div style="display:flex;gap:6px">
+          <button onclick="copyMinutaText()" style="padding:5px 12px;border-radius:6px;border:1px solid var(--c-border);background:var(--c-bg3);color:var(--c-text2);cursor:pointer;font-size:11px">📋 Copiar</button>
+          <button onclick="generarMinuta()" style="padding:5px 12px;border-radius:6px;border:1px solid var(--accent);background:var(--accent-light);color:var(--accent);cursor:pointer;font-size:11px">🔄 Regenerar</button>
+        </div>
+      </div>
+      <div style="font-size:11px;background:#e0a75215;border:1px solid #e0a75240;border-radius:6px;padding:8px 10px;margin-bottom:10px;color:#c47a1a">
+        💡 Minuta estructurada automáticamente. Para versión con IA completa, agrega tu API key de OpenAI en la consola del browser:<br>
+        <code style="font-size:10px">localStorage.setItem('hq_openai_key','sk-...')</code>
+      </div>
+      <div class="minuta-render">${note.minutaHtml}</div>`;
+    toast('📄','Minuta generada');
+  } catch(err) {
+    console.error('_generarMinutaLocal error:', err);
+    if(minutaDiv) minutaDiv.innerHTML=`<div style="color:#e05222;padding:12px;font-size:13px">⚠️ Error: ${err.message||'Intenta de nuevo'}</div>`;
   } finally {
     if(btn){ btn.disabled=false; btn.textContent='✨ Generar Minuta IA'; }
   }
@@ -8049,12 +8121,13 @@ function buildNotas() {
     <style>
       .minuta-render{font-size:13px;color:var(--c-text);line-height:1.7}
       .minuta-render li{margin-left:8px}
+      .notas-layout{display:flex;height:calc(100vh - 108px);overflow:hidden}
       @media(max-width:640px){
-        .notas-layout{flex-direction:column !important;}
-        .notas-layout>div:first-child{width:100%!important;min-width:unset!important;border-right:none!important;border-bottom:1px solid var(--c-border);max-height:200px;}
+        .notas-layout{flex-direction:column;height:auto;}
+        .notas-layout>div:first-child{width:100%!important;min-width:unset!important;border-right:none!important;border-bottom:1px solid var(--c-border);max-height:220px;overflow-y:auto;}
       }
     </style>
-    <div class="notas-layout" style="display:flex;height:100%;overflow:hidden">
+    <div class="notas-layout">
       ${leftPanel}
       ${rightPanel}
     </div>`;
