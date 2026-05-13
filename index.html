@@ -7813,7 +7813,7 @@ async function generarMinuta() {
 
 async function _generarMinutaOpenAI(note, apiKey, btn, minutaDiv) {
 
-  const prompt = `Redacta una minuta ejecutiva formal en español, lista para enviar por correo corporativo.
+  const prompt = `Eres un asistente experto en redacción corporativa. Tu tarea es mejorar y estructurar las notas de una reunión para convertirlas en una minuta ejecutiva profesional en español, lista para distribuirse por correo electrónico.
 
 DATOS DE LA REUNIÓN:
 - Asunto: ${note.title || 'Reunión de trabajo'}
@@ -7824,19 +7824,28 @@ DATOS DE LA REUNIÓN:
 NOTAS DE LA REUNIÓN:
 ${note.body}
 
-INSTRUCCIONES ESTRICTAS:
-- Usa SOLO estas secciones con estos encabezados exactos (sin emojis, sin #, sin *):
-  MINUTA DE REUNIÓN
-  RESUMEN EJECUTIVO
-  ACUERDOS
-  PRÓXIMOS PASOS
-  OBSERVACIONES
-- El texto debe ser completamente limpio: sin asteriscos, sin almohadillas (#), sin guiones como viñetas, sin emojis.
-- Los acuerdos y próximos pasos deben numerarse: 1. 2. 3.
-- Tono: formal, corporativo, directo. Como lo redactaría un director ejecutivo.
-- Si los próximos pasos mencionan responsables o fechas, inclúyelos en el mismo punto numerado entre paréntesis.
-- Máximo 350 palabras en total.
-- No incluyas saludos, despedidas ni frases como "A continuación" al inicio.`;
+INSTRUCCIONES DE REDACCIÓN:
+1. Mantén la esencia y todos los puntos del texto original. No omitas información relevante.
+2. Mejora la redacción donde sea necesario: corrige errores, unifica el tono y elimina repeticiones, pero sin cambiar el significado ni agregar información que no esté en las notas.
+3. Usa un tono formal, corporativo y directo. Redacta en tercera persona cuando describas lo que alguien dijo o solicitó (ej. "Roberto solicitó que...", "Héctor presentó...").
+4. Organiza el contenido en secciones con encabezados en MAYÚSCULAS y sin símbolos especiales (sin #, sin *, sin emojis).
+5. Dentro de cada sección, usa viñetas con guión ( - ) para listar puntos o acuerdos cuando haya más de uno. Si hay una lista de ejemplos o sugerencias dentro de un punto, indéntalos con dos espacios adicionales.
+6. Los compromisos o próximos pasos deben incluir al responsable y, si se mencionó, la fecha o plazo.
+7. Texto limpio: sin asteriscos, sin almohadillas (#), sin emojis en el cuerpo del texto.
+8. No incluyas saludos, despedidas, ni frases introductorias como "A continuación se presenta".
+
+ESTRUCTURA ESPERADA:
+MINUTA DE REUNIÓN
+(Fecha, participantes)
+
+TEMAS TRATADOS
+(Desarrollo de cada punto con buena redacción)
+
+ACUERDOS Y COMPROMISOS
+(Lista numerada o con viñetas, con responsable y plazo cuando aplique)
+
+OBSERVACIONES
+(Solo si hay puntos adicionales relevantes que no encajen en las secciones anteriores)`;
 
   try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -7847,9 +7856,9 @@ INSTRUCCIONES ESTRICTAS:
       },
       body: JSON.stringify({
         model:'gpt-4o-mini',
-        max_tokens:1500,
+        max_tokens:2500,
         messages:[
-          {role:'system', content:'Eres un asistente experto en redactar minutas ejecutivas profesionales en español. Responde siempre en español.'},
+          {role:'system', content:'Eres un asistente experto en redacción corporativa. Redactas minutas ejecutivas claras, completas y profesionales en español. Siempre respondes en español y nunca omites información relevante del texto original.'},
           {role:'user', content:prompt}
         ]
       })
