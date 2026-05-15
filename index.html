@@ -74,7 +74,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--c-bg);color:var(--c-text)
   #mobileSearchBar{display:block;}
   .topbar-title{font-size:13px;}
   .topbar{padding:0 8px;gap:4px;}
-  .topbar-quickbtns{display:none !important;}
   #mobileVersion{display:inline!important;}
 }
 .search-wrap input{border:none;background:transparent;color:var(--c-text);font-family:'DM Sans',sans-serif;font-size:13px;flex:1;outline:none;}
@@ -139,6 +138,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--c-bg);color:var(--c-text)
 .tact{width:24px;height:24px;border-radius:6px;border:none;background:var(--c-bg3);color:var(--c-text2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all .15s;}
 .tact:hover{background:var(--c-border2);}
 .tact.del:hover{background:rgba(224,82,82,.1);color:#e05252;}
+.tact.reviewed-btn{color:#22a566;}
+.tact.reviewed-btn:hover{background:rgba(34,165,102,.12);color:#22a566;}
+.task-item.reviewed-today{opacity:0.52;}
+.task-item.reviewed-today .task-title{text-decoration:none;}
+.reviewed-badge{font-size:9px;color:#22a566;background:rgba(34,165,102,.12);padding:1px 6px;border-radius:10px;font-weight:600;flex-shrink:0;}
+.reviewed-separator{text-align:center;font-size:10px;color:var(--c-text3);padding:6px 0 2px;letter-spacing:.05em;opacity:.7;}
+
 
 /* ── PROJECT BLOCKS ── */
 .project-block{background:var(--c-bg2);border:1px solid var(--c-border);border-radius:var(--radius);overflow:hidden;margin-bottom:13px;}
@@ -1212,10 +1218,8 @@ console.log("Firebase compat cargado OK");
       <div class="nav-item" data-view="kanban" onclick="gotoView('kanban',this)"><span class="nav-icon">🗂️</span><span>Kanban</span></div>
       <div class="nav-item" data-view="calendario" onclick="gotoView('calendario',this)"><span class="nav-icon">📅</span><span>Calendario</span></div>
       <div class="nav-item" data-view="alarmas" onclick="gotoView('alarmas',this)"><span class="nav-icon">🔔</span><span>Alarmas</span></div>
-      <div class="nav-item" data-view="notas" onclick="gotoView('notas',this)"><span class="nav-icon">📝</span><span>Notas & Minutas</span></div>
-      <div class="nav-item" data-view="configuracion" onclick="gotoView('configuracion',this)" style="margin-top:6px;border-top:1px solid var(--sb-border);padding-top:10px"><span class="nav-icon">⚙️</span><span>Configuración</span></div>
-
-      <div class="nav-item" data-view="completadas" onclick="gotoView('completadas',this)" style="margin-top:6px;border-top:1px solid var(--sb-border);padding-top:10px"><span class="nav-icon">🏆</span><span>Completadas</span></div>
+      
+      <div class="nav-item" data-view="completadas" onclick="gotoView('completadas',this)"><span class="nav-icon">🏆</span><span>Completadas</span></div>
       <div class="nav-item" data-view="archivadas" onclick="gotoView('archivadas',this)"><span class="nav-icon">📦</span><span>Archivadas</span></div>
       <div class="nav-item" data-view="eliminadas" onclick="gotoView('eliminadas',this)"><span class="nav-icon">🗑️</span><span>Eliminadas</span></div>
     </div>
@@ -1243,14 +1247,6 @@ console.log("Firebase compat cargado OK");
         <button class="btn-icon" title="Notificaciones push" onclick="openNotifConfig()" id="btnNotif">🔔</button>
         <button class="btn-icon" title="Recordatorios por correo" onclick="openEmailConfig()">📧</button>
         <button class="btn-icon" title="Recargar datos" onclick="reloadFromFirebase()" id="reloadBtn">🔄</button>
-        <button onclick="gotoView('notas',null);setTimeout(newNote,150)" title="Nueva nota de junta" class="topbar-quickbtns"
-          style="padding:7px 12px;border-radius:var(--radius-sm);border:1px solid var(--c-border);background:var(--c-bg3);color:var(--c-text2);cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap;flex-shrink:0">
-          📝 Nota
-        </button>
-        <button onclick="openEventModal(null,TODAY)" title="Nuevo evento" class="topbar-quickbtns"
-          style="padding:7px 12px;border-radius:var(--radius-sm);border:1px solid var(--c-border);background:var(--c-bg3);color:var(--c-text2);cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap;flex-shrink:0">
-          📅 Evento
-        </button>
         <button class="btn-primary" onclick="openTaskModal()">＋ Nueva tarea</button>
       </div>
     </div>
@@ -1333,25 +1329,30 @@ function sortTasks(list) {
     if(!a.date&&!b.date)return 0; if(!a.date)return dir; if(!b.date)return -dir;
     return a.date.localeCompare(b.date)*dir;
   };
+  const isReviewed = t => t.reviewedDate === TODAY;
+  const pushReviewed = (sorted) => {
+    const normal = sorted.filter(t=>!isReviewed(t));
+    const reviewed = sorted.filter(t=>isReviewed(t));
+    return [...normal, ...reviewed];
+  };
   switch(curSortOrder) {
-    case 'order':      return copy;
-    case 'date_asc':   return copy.sort((a,b)=>byDate(a,b,1));
-    case 'date_desc':  return copy.sort((a,b)=>byDate(a,b,-1));
-    case 'alpha_asc':  return copy.sort((a,b)=>(a.title||'').localeCompare(b.title||''));
-    case 'alpha_desc': return copy.sort((a,b)=>(b.title||'').localeCompare(a.title||''));
-    case 'proj_asc':   return copy.sort((a,b)=>(a.projId||'').localeCompare(b.projId||''));
-    case 'proj_desc':  return copy.sort((a,b)=>(b.projId||'').localeCompare(a.projId||''));
-    case 'reg_asc':    return copy.sort((a,b)=>Number(a.id)-Number(b.id));
-    case 'reg_desc':   return copy.sort((a,b)=>Number(b.id)-Number(a.id));
-    case 'prio_asc':   return copy.sort((a,b)=>(pOrd[a.priority]||3)-(pOrd[b.priority]||3));
-    case 'prio_desc':  return copy.sort((a,b)=>(pOrd[b.priority]||3)-(pOrd[a.priority]||3));
-    // Compatibilidad con valores anteriores
-    case 'date':     return copy.sort((a,b)=>byDate(a,b,1));
-    case 'alpha':    return copy.sort((a,b)=>(a.title||'').localeCompare(b.title||''));
-    case 'proj':     return copy.sort((a,b)=>(a.projId||'').localeCompare(b.projId||''));
-    case 'reg':      return copy.sort((a,b)=>Number(a.id)-Number(b.id));
-    case 'priority': return copy.sort((a,b)=>(pOrd[a.priority]||3)-(pOrd[b.priority]||3));
-    default:         return copy;
+    case 'order':      return pushReviewed(copy);
+    case 'date_asc':   return pushReviewed(copy.sort((a,b)=>byDate(a,b,1)));
+    case 'date_desc':  return pushReviewed(copy.sort((a,b)=>byDate(a,b,-1)));
+    case 'alpha_asc':  return pushReviewed(copy.sort((a,b)=>(a.title||'').localeCompare(b.title||'')));
+    case 'alpha_desc': return pushReviewed(copy.sort((a,b)=>(b.title||'').localeCompare(a.title||'')));
+    case 'proj_asc':   return pushReviewed(copy.sort((a,b)=>(a.projId||'').localeCompare(b.projId||'')));
+    case 'proj_desc':  return pushReviewed(copy.sort((a,b)=>(b.projId||'').localeCompare(a.projId||'')));
+    case 'reg_asc':    return pushReviewed(copy.sort((a,b)=>Number(a.id)-Number(b.id)));
+    case 'reg_desc':   return pushReviewed(copy.sort((a,b)=>Number(b.id)-Number(a.id)));
+    case 'prio_asc':   return pushReviewed(copy.sort((a,b)=>(pOrd[a.priority]||3)-(pOrd[b.priority]||3)));
+    case 'prio_desc':  return pushReviewed(copy.sort((a,b)=>(pOrd[b.priority]||3)-(pOrd[a.priority]||3)));
+    case 'date':     return pushReviewed(copy.sort((a,b)=>byDate(a,b,1)));
+    case 'alpha':    return pushReviewed(copy.sort((a,b)=>(a.title||'').localeCompare(b.title||'')));
+    case 'proj':     return pushReviewed(copy.sort((a,b)=>(a.projId||'').localeCompare(b.projId||'')));
+    case 'reg':      return pushReviewed(copy.sort((a,b)=>Number(a.id)-Number(b.id)));
+    case 'priority': return pushReviewed(copy.sort((a,b)=>(pOrd[a.priority]||3)-(pOrd[b.priority]||3)));
+    default:         return pushReviewed(copy);
   }
 }
 let curPrio='medium', _selCtxColorVal='#7c5cbf', _selCtxIconVal='👤';
@@ -1394,8 +1395,6 @@ document.addEventListener('DOMContentLoaded',()=>{
         {icon:'🗂️', label:'Kanban',       action:"mobileNav('kanban',null)"},
         {icon:'📅', label:'Calendario',    action:"mobileNav('calendario',null)"},
         {icon:'🔔', label:'Alarmas',       action:"mobileNav('alarmas',null)"},
-        {icon:'📝', label:'Notas & Minutas',action:"mobileNav('notas',null)"},
-        {icon:'⚙️', label:'Configuración', action:"mobileNav('configuracion',null)"},
         {icon:'🛎️', label:'Notificaciones', action:'openNotifConfig()'},
         {icon:'🏆', label:'Completadas',   action:"mobileNav('completadas',null)"},
         {icon:'📦', label:'Archivadas',    action:"mobileNav('archivadas',null)"},
@@ -1403,7 +1402,6 @@ document.addEventListener('DOMContentLoaded',()=>{
       ];
 
       const createItems = [
-        {icon:'📝', label:'Nueva nota',    action:"mobileNav('notas',null);setTimeout(newNote,200)"},
         {icon:'✅', label:'Nueva tarea',   action:'openTaskModal()'},
         {icon:'📅', label:'Nuevo evento',  action:'openEventModal(null,TODAY)'},
         {icon:'📁', label:'Nuevo proyecto',action:"document.getElementById('projModal').classList.add('open');buildProjSelects()"},
@@ -1759,10 +1757,9 @@ function gotoView(view,el){
   if(el)el.classList.add('active');
   const titles={dashboard:'📊 Dashboard',midia:'☀️ Mi Día',tareas:'✅ Tareas',
     proyectos:'📁 Proyectos',kanban:'🗂️ Kanban',calendario:'📅 Calendario',
-    alarmas:'🔔 Alarmas',instinto:'🌸 Instinto Fragancias',completadas:'🏆 Completadas',
-    notas:'📝 Notas & Minutas',configuracion:'⚙️ Configuración'};
+    alarmas:'🔔 Alarmas',instinto:'🌸 Instinto Fragancias',completadas:'🏆 Completadas'};
   document.getElementById('topTitle').textContent=titles[view]||view;
-  const hideTabs=['dashboard','kanban','calendario','alarmas','instinto','proyectos','completadas','notas','configuracion'];
+  const hideTabs=['dashboard','kanban','calendario','alarmas','instinto','proyectos','completadas'];
   document.getElementById('viewTabs').style.display=hideTabs.includes(view)?'none':'flex';
   if(view!=='proyectos')focusProjId=null;
   renderView();
@@ -1872,8 +1869,6 @@ function _doRenderView() {
       case 'kanban':      html = buildKanban();     break;
       case 'calendario':  html = buildCal();        break;
       case 'alarmas':     html = buildAlarms();     break;
-      case 'notas':       html = buildNotas();      break;
-      case 'configuracion': html = buildConfiguracion(); break;
       case 'completadas': html = buildCompleted();  break;
       case 'archivadas':  html = buildArchived();   break;
       case 'eliminadas':
@@ -2157,7 +2152,9 @@ function buildTaskCards(list){
     const pjl=pj?`<span style="font-size:9px;color:var(--c-text3);background:var(--c-bg3);padding:1px 5px;border-radius:3px">📁${pj.name.slice(0,14)}</span>`:'';
     const ctxC=contexts.find(c=>c.id===t.ctx);
     const ctxBadge=curCtxFilter==='all'&&ctxC?`<span style="font-size:9px;padding:1px 5px;border-radius:10px;background:${ctxC.color}22;color:${ctxC.color}">${ctxC.icon}</span>`:'';
-    return`<div class="task-item p-${t.priority}" id="tid-${t.id}"
+    const isReviewedToday = t.reviewedDate === TODAY;
+    const reviewedBadge = isReviewedToday ? `<span class="reviewed-badge">👁 revisada</span>` : '';
+    return`<div class="task-item p-${t.priority}${isReviewedToday?' reviewed-today':''}" id="tid-${t.id}"
       draggable="true"
       ondragstart="onTaskDragStart(event,${t.id})"
       ondragover="onTaskDragOver(event,${t.id})"
@@ -2169,7 +2166,7 @@ function buildTaskCards(list){
       <div class="task-check ${t.done?'checked':''}" onclick="event.stopPropagation();toggleDone(${t.id})">${t.done?'✓':''}</div>
       <div class="task-body">
         <div class="task-title">${t.title}</div>
-        <div class="task-meta">${tc}${pjl}${ctxBadge}<span class="task-due ${dc}">${dl}</span>${rl}${at}${sp}</div>
+        <div class="task-meta">${tc}${pjl}${ctxBadge}<span class="task-due ${dc}">${dl}</span>${rl}${at}${sp}${reviewedBadge}</div>
         ${t.subtasks&&t.subtasks.length?`
           <div id="subs-${t.id}" style="display:none;margin-top:6px">${renderSubtasks(t)}</div>` : ''}
       </div>
@@ -2177,6 +2174,7 @@ function buildTaskCards(list){
         ${t.subtasks&&t.subtasks.length?`<button class="tact" onclick="event.stopPropagation();toggleSubsPanel(${t.id})" title="Ver subtareas (${t.subtasks.length})">📋</button>`:''}
         <button class="tact" onclick="event.stopPropagation();openSubModal('sub',${t.id},null,null)" title="Nueva subtarea">➕</button>
         <button class="tact" onclick="openTaskModal(${t.id})" title="Editar tarea">✏️</button>
+        <button class="tact ${isReviewedToday?'reviewed-btn':''}" onclick="event.stopPropagation();markReviewed(${t.id})" title="${isReviewedToday?'Quitar revisada':'Marcar como revisada hoy'}">${isReviewedToday?'👁️':'👁'}</button>
         <button class="tact del" onclick="deleteTask(${t.id})" title="Eliminar tarea">🗑️</button>
       </div>
     </div>`;
@@ -2323,7 +2321,12 @@ function buildList(todayOnly){
   // Vista normal (Todas, Esta semana, Sin fecha)
   const list = getFiltered(false);
   if(!list.length) return toolbar + qa + `<div class="empty"><div class="empty-icon">✨</div><div class="empty-ttl">Sin pendientes</div><div class="empty-sub">Todo bajo control.</div></div>`;
-  return toolbar + qa + list.map(t => buildTreeTask(t)).join('');
+  const normalTasks   = list.filter(t => t.reviewedDate !== TODAY);
+  const reviewedTasks = list.filter(t => t.reviewedDate === TODAY);
+  const separator = reviewedTasks.length
+    ? `<div class="reviewed-separator">— ${reviewedTasks.length} revisada${reviewedTasks.length>1?'s':''} hoy —</div>`
+    : '';
+  return toolbar + qa + normalTasks.map(t => buildTreeTask(t)).join('') + separator + reviewedTasks.map(t => buildTreeTask(t)).join('');
 }
 
 // ── CONSTRUIR TAREA EN VISTA ÁRBOL ──
@@ -4436,6 +4439,20 @@ function toggleDone(id){
   toast(t.done?'✅':'↩️',t.done?'Tarea completada ☁️':'Tarea recuperada ☁️');
 }
 
+function markReviewed(id){
+  const t=tasks.find(x=>x.id===id);if(!t)return;
+  const alreadyReviewed = t.reviewedDate === TODAY;
+  if(alreadyReviewed){
+    t.reviewedDate = null;
+    toast('↩️','Marcada como no revisada');
+  } else {
+    t.reviewedDate = TODAY;
+    toast('👁️','Revisada hoy — bajando al fondo');
+  }
+  fbSaveTask(t);
+  renderView();
+}
+
 // FIX: restore funciona correctamente poniendo done=false y re-renderizando
 function restoreTask(id){
   const t=tasks.find(x=>x.id===id);
@@ -4788,7 +4805,7 @@ function exportToExcel() {
         return val;
       }).join(COMMA);
     }).join(CRLF);
-  const blob = new Blob([csvContent], {type:'text/csv;charset=utf-8;'});
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -7387,1144 +7404,7 @@ if('serviceWorker' in navigator) {
 setTimeout(() => {
   fbListenAll();
   fbListenEvents(); // Sincronizar eventos del calendario
-  fbListenNotes();  // Sincronizar notas & minutas
 }, 500);
-
-// ══════════════════════════════════════════════════════
-// NOTAS & MINUTAS — Firebase + IA
-// ══════════════════════════════════════════════════════
-
-let notes = []; // array local cargado desde Firebase
-let _notesLoaded = false;
-let _activeNoteId = null;    // nota actualmente abierta en el editor
-let _voiceRecognition = null;
-let _isRecording = false;
-let _notesSearchQ = '';
-
-// ── Firebase CRUD ──
-async function fbSaveNote(note) {
-  if(typeof firebase === 'undefined') return;
-  setSyncStatus('syncing', 'Guardando nota...');
-  try {
-    const data = Object.assign({}, note);
-    const fbId = data._fbId;
-    delete data._fbId;
-    if(fbId) {
-      await db.collection('notes').doc(fbId).set(data);
-    } else {
-      const ref = await db.collection('notes').add(data);
-      note._fbId = ref.id;
-    }
-    setSyncStatus('synced', '✓ Nota guardada');
-  } catch(e) {
-    setSyncStatus('error', '✗ Error al guardar nota');
-    console.error('fbSaveNote:', e);
-  }
-}
-
-async function fbDeleteNote(note) {
-  if(typeof firebase === 'undefined' || !note._fbId) return;
-  try { await db.collection('notes').doc(note._fbId).delete(); }
-  catch(e) { console.error('fbDeleteNote:', e); }
-}
-
-function fbListenNotes() {
-  if(typeof firebase === 'undefined') return;
-  db.collection('notes').orderBy('createdAt','desc').onSnapshot(snap => {
-    notes = [];
-    snap.forEach(d => notes.push(Object.assign({}, d.data(), {_fbId: d.id})));
-    _notesLoaded = true;
-    if(curView === 'notas') renderView();
-  }, err => {
-    // Si falla orderBy (índice), intentar sin ordenar
-    db.collection('notes').onSnapshot(snap => {
-      notes = [];
-      snap.forEach(d => notes.push(Object.assign({}, d.data(), {_fbId: d.id})));
-      notes.sort((a,b) => (b.createdAt||'').localeCompare(a.createdAt||''));
-      _notesLoaded = true;
-      if(curView === 'notas') renderView();
-    });
-  });
-}
-
-// ── Helpers ──
-function nowISOLocal() {
-  const d = new Date();
-  const pad = n => String(n).padStart(2,'0');
-  return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes());
-}
-function formatNoteDate(iso) {
-  if(!iso) return '';
-  const d = new Date(iso);
-  return d.toLocaleDateString('es-MX',{weekday:'short',day:'numeric',month:'short',year:'numeric'})+' '+
-         d.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
-}
-function noteTagColor(tag) {
-  let h=0; for(let c of tag){h=(h*31+c.charCodeAt(0))%360;}
-  return `hsl(${h},55%,48%)`;
-}
-
-// ── Crear nota nueva ──
-function newNote() {
-  const id = Date.now();
-  const now = nowISOLocal();
-  const note = {
-    id, title:'', body:'', createdAt: now, updatedAt: now,
-    participants:[], tags:[], status:'active',
-    minutaHtml:'', minutaText:'', minutaGeneratedAt:''
-  };
-  notes.unshift(note);
-  fbSaveNote(note);
-  _activeNoteId = id;
-  renderView();
-  setTimeout(()=>{ const el=document.getElementById('noteTitle'); if(el)el.focus(); },80);
-  toast('📝','Nueva nota creada');
-}
-
-// ── Guardar cambios de la nota activa (auto-save) ──
-let _noteUnsaved = false;
-
-function toggleNoteToolbar() {
-  const extra = document.getElementById('noteToolbarExtra');
-  const btn = document.querySelector('.nta-more');
-  if(!extra) return;
-  const isOpen = extra.classList.toggle('open');
-  if(btn) btn.textContent = isOpen ? '✕ Cerrar' : '··· Más';
-}
-
-function autoSaveNote() {
-  // Solo marcar como no guardado visualmente
-  _noteUnsaved = true;
-  const btn = document.getElementById('btnSaveNote');
-  if(btn) { btn.style.background='#e0a752'; btn.textContent='💾 Guardar*'; }
-}
-
-function saveNoteManual() {
-  flushSaveNote();
-  _noteUnsaved = false;
-  const btn = document.getElementById('btnSaveNote');
-  if(btn) {
-    btn.style.background='#22a566'; btn.textContent='✓ Guardado';
-    setTimeout(()=>{ if(btn){ btn.style.background='var(--accent)'; btn.textContent='💾 Guardar'; } }, 1800);
-  }
-  toast('💾','Nota guardada');
-}
-
-function flushSaveNote() {
-  const note = notes.find(n=>Number(n.id)===Number(_activeNoteId));
-  if(!note) return;
-  const titleEl = document.getElementById('noteTitle');
-  const bodyEl  = document.getElementById('noteBody');
-  if(titleEl) note.title = titleEl.value.trim();
-  if(bodyEl)  note.body  = bodyEl.value;
-  note.updatedAt = nowISOLocal();
-  fbSaveNote(note);
-}
-
-// ── Participantes ──
-function addParticipantFromInput(e) {
-  if(e.key !== 'Enter' && e.type !== 'click') return;
-  const inp = document.getElementById('notePartInput');
-  if(!inp) return;
-  const val = inp.value.trim();
-  if(!val) return;
-  const note = notes.find(n=>Number(n.id)===Number(_activeNoteId));
-  if(!note) return;
-  note.participants = note.participants || [];
-  if(!note.participants.includes(val)) {
-    note.participants.push(val);
-    fbSaveNote(note);
-    inp.value='';
-    renderNoteParticipants();
-    renderNotePills();
-  } else { inp.value=''; }
-}
-function removeParticipant(name) {
-  const note = notes.find(n=>Number(n.id)===Number(_activeNoteId));
-  if(!note) return;
-  note.participants = (note.participants||[]).filter(p=>p!==name);
-  fbSaveNote(note);
-  renderNoteParticipants();
-  renderNotePills();
-}
-function renderNoteParticipants() {
-  const el = document.getElementById('noteParticipants');
-  const note = notes.find(n=>Number(n.id)===Number(_activeNoteId));
-  if(!el||!note) return;
-  el.innerHTML = (note.participants||[]).map(p=>`
-    <span style="display:inline-flex;align-items:center;gap:4px;background:var(--accent-light);color:var(--accent);
-      border:1px solid var(--accent);border-radius:20px;padding:3px 10px;font-size:12px;font-weight:500">
-      👤 ${p}
-      <button onclick="removeParticipant('${p.replace(/'/g,"\\'")}')"
-        style="background:none;border:none;cursor:pointer;color:var(--accent);font-size:11px;padding:0;line-height:1">✕</button>
-    </span>`).join('');
-}
-function renderNotePills() {
-  const el = document.getElementById('notePillsBar');
-  const note = notes.find(n=>Number(n.id)===Number(_activeNoteId));
-  if(!el||!note) return;
-  const parts = (note.participants||[]).map(p=>`<span style="font-size:11px;color:var(--c-text3)">👤${p}</span>`).join('');
-  el.innerHTML = parts;
-}
-
-// ── Tags (etiquetas) de nota ──
-function addNoteTag(e) {
-  if(e.key !== 'Enter') return;
-  const inp = e.target;
-  const val = inp.value.trim().replace(/^#/,'');
-  if(!val) return;
-  const note = notes.find(n=>Number(n.id)===Number(_activeNoteId));
-  if(!note) return;
-  note.tags = note.tags||[];
-  if(!note.tags.includes(val)){ note.tags.push(val); fbSaveNote(note); }
-  inp.value='';
-  renderNoteTags();
-}
-function removeNoteTag(tag) {
-  const note = notes.find(n=>Number(n.id)===Number(_activeNoteId));
-  if(!note) return;
-  note.tags=(note.tags||[]).filter(t=>t!==tag);
-  fbSaveNote(note);
-  renderNoteTags();
-}
-function renderNoteTags() {
-  const el = document.getElementById('noteTagsArea');
-  const note = notes.find(n=>Number(n.id)===Number(_activeNoteId));
-  if(!el||!note) return;
-  el.innerHTML = (note.tags||[]).map(t=>`
-    <span style="display:inline-flex;align-items:center;gap:4px;background:${noteTagColor(t)}22;color:${noteTagColor(t)};
-      border:1px solid ${noteTagColor(t)}55;border-radius:20px;padding:2px 8px;font-size:11px">
-      #${t}
-      <button onclick="removeNoteTag('${t.replace(/'/g,"\\'")}')"
-        style="background:none;border:none;cursor:pointer;color:${noteTagColor(t)};font-size:10px;padding:0">✕</button>
-    </span>`).join('');
-}
-
-// ── Eliminar nota ──
-async function deleteNote(id) {
-  if(!confirm('¿Eliminar esta nota? No se puede recuperar.')) return;
-  const idx = notes.findIndex(n=>Number(n.id)===Number(id));
-  if(idx<0) return;
-  await fbDeleteNote(notes[idx]);
-  notes.splice(idx,1);
-  if(Number(_activeNoteId)===Number(id)) _activeNoteId = notes.length ? notes[0].id : null;
-  renderView();
-  toast('🗑️','Nota eliminada');
-}
-
-// ── Seleccionar nota activa ──
-function selectNote(id) {
-  flushSaveNote(); // guardar la actual antes de cambiar
-  _activeNoteId = id;
-  renderView();
-}
-
-// ── Acciones rápidas desde el editor ──
-function quickAddTaskFromNote() {
-  flushSaveNote();
-  const note = notes.find(n=>Number(n.id)===Number(_activeNoteId));
-  openTaskModal();
-  setTimeout(()=>{
-    const titleEl = document.getElementById('mTitle');
-    const notesEl = document.getElementById('mNotes');
-    if(titleEl && note && note.title) titleEl.value = note.title;
-    if(notesEl && note && note.body) {
-      const snippet = note.body.split('\n').slice(0,3).join('\n');
-      notesEl.value = snippet;
-    }
-    toast('✅','Rellena la tarea y guarda');
-  }, 150);
-}
-
-function quickAddEventFromNote() {
-  flushSaveNote();
-  const note = notes.find(n=>Number(n.id)===Number(_activeNoteId));
-  openEventModal(null, TODAY);
-  setTimeout(()=>{
-    const titleEl = document.getElementById('evTitle');
-    if(titleEl && note && note.title) titleEl.value = note.title;
-    toast('📅','Rellena el evento y guarda');
-  }, 150);
-}
-
-// ── Insertar línea de acuerdo (dictado-a-texto) en el body ──
-function insertAgreementLine() {
-  const bodyEl = document.getElementById('noteBody');
-  if(!bodyEl) return;
-  const pos = bodyEl.selectionStart;
-  const before = bodyEl.value.slice(0, pos);
-  const after  = bodyEl.value.slice(pos);
-  const line = '\n✅ ACUERDO: ';
-  bodyEl.value = before + line + after;
-  bodyEl.selectionStart = bodyEl.selectionEnd = pos + line.length;
-  bodyEl.focus();
-  autoSaveNote();
-}
-function insertActionLine() {
-  const bodyEl = document.getElementById('noteBody');
-  if(!bodyEl) return;
-  const pos = bodyEl.selectionStart;
-  const before = bodyEl.value.slice(0, pos);
-  const after  = bodyEl.value.slice(pos);
-  const line = '\n📌 PENDIENTE: ';
-  bodyEl.value = before + line + after;
-  bodyEl.selectionStart = bodyEl.selectionEnd = pos + line.length;
-  bodyEl.focus();
-  autoSaveNote();
-}
-
-// ── Dictado de voz (Web Speech API) ──
-function toggleVoice() {
-  if(!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-    toast('🎙️','Tu navegador no soporta dictado de voz. Usa Chrome o Safari.');
-    return;
-  }
-  if(_isRecording) {
-    _voiceRecognition && _voiceRecognition.stop();
-    _isRecording = false;
-    updateVoiceBtn(false);
-    toast('⏹️','Dictado detenido');
-    return;
-  }
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  _voiceRecognition = new SR();
-  _voiceRecognition.lang = 'es-MX';
-  _voiceRecognition.continuous = true;
-  _voiceRecognition.interimResults = true;
-  let interimSpan = document.getElementById('voiceInterim');
-
-  _voiceRecognition.onstart = () => {
-    _isRecording = true;
-    updateVoiceBtn(true);
-    toast('🎙️','Dictando... habla ahora');
-  };
-  _voiceRecognition.onresult = (event) => {
-    let interim = '', final = '';
-    for(let i = event.resultIndex; i < event.results.length; i++) {
-      if(event.results[i].isFinal) final += event.results[i][0].transcript;
-      else interim += event.results[i][0].transcript;
-    }
-    if(final) {
-      const bodyEl = document.getElementById('noteBody');
-      if(bodyEl){ bodyEl.value += (bodyEl.value?'\n':'')+final.trim(); autoSaveNote(); }
-    }
-    if(interimSpan) interimSpan.textContent = interim ? '🎙️ '+interim : '';
-  };
-  _voiceRecognition.onerror = (e) => {
-    _isRecording=false; updateVoiceBtn(false);
-    if(e.error==='not-allowed') toast('🔇','Permiso de micrófono denegado');
-    else toast('⚠️','Error de dictado: '+e.error);
-    if(interimSpan) interimSpan.textContent='';
-  };
-  _voiceRecognition.onend = () => {
-    _isRecording=false; updateVoiceBtn(false);
-    if(interimSpan) interimSpan.textContent='';
-  };
-  _voiceRecognition.start();
-}
-function updateVoiceBtn(active) {
-  const btn = document.getElementById('voiceBtn');
-  if(!btn) return;
-  if(active) {
-    btn.style.background='#e05222'; btn.style.color='#fff';
-    btn.innerHTML='⏹️ Detener';
-    btn.style.animation='pulse 1s infinite';
-  } else {
-    btn.style.background=''; btn.style.color='';
-    btn.innerHTML='🎙️ Voz';
-    btn.style.animation='';
-  }
-}
-
-// ── Copiar nota como texto plano ──
-function copyNoteAsText() {
-  flushSaveNote();
-  const note = notes.find(n=>Number(n.id)===Number(_activeNoteId));
-  if(!note) return;
-  const txt = [
-    '=== NOTA DE JUNTA ===',
-    'Evento: '+(note.title||'Sin título'),
-    'Fecha: '+formatNoteDate(note.createdAt),
-    note.participants&&note.participants.length ? 'Participantes: '+note.participants.join(', ') : '',
-    '',
-    note.body||'(sin contenido)',
-    note.minutaText ? '\n'+note.minutaText : ''
-  ].filter(l=>l!==undefined).join('\n');
-  navigator.clipboard.writeText(txt).then(()=>toast('📋','Nota copiada al portapapeles'))
-    .catch(()=>toast('⚠️','No se pudo copiar'));
-}
-
-function copyMinutaText() {
-  const note = notes.find(n=>Number(n.id)===Number(_activeNoteId));
-  if(!note||!note.minutaText) return;
-  // Generar texto limpio para correo (sin markdown, sin emojis)
-  const clean = note.minutaText
-    .replace(/^#{1,3}\s*/gm, '')
-    .replace(/\*\*(.+?)\*\*/g, '$1')
-    .replace(/\*(.+?)\*/g, '$1')
-    .replace(/^---+$/gm, '─'.repeat(50))
-    .replace(/^[-–•]\s+/gm, '  ')
-    .replace(/[\u{1F300}-\u{1FFFF}]/gu, '')  // emojis unicode
-    .replace(/[\uD800-\uDFFF]/g, '')           // surrogates
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-  // Encabezado corporativo
-  const header = [
-    'MINUTA DE REUNIÓN',
-    '─'.repeat(50),
-    'Asunto:        ' + (note.title || 'Reunión de trabajo'),
-    'Fecha:         ' + formatNoteDate(note.createdAt),
-    'Participantes: ' + ((note.participants||[]).join(', ') || 'No especificados'),
-    '─'.repeat(50),
-    ''
-  ].join('\n');
-  navigator.clipboard.writeText(header + clean)
-    .then(()=>toast('📋','Minuta copiada — lista para pegar en correo'))
-    .catch(()=>toast('⚠️','No se pudo copiar'));
-}
-
-// ── GENERAR MINUTA CON IA ──
-async function generarMinuta() {
-  flushSaveNote();
-  const note = notes.find(n=>Number(n.id)===Number(_activeNoteId));
-  if(!note) return;
-  if(!note.body || note.body.trim().length < 20) {
-    toast('⚠️','Escribe al menos algunas notas antes de generar la minuta');
-    return;
-  }
-  const btn = document.getElementById('btnGenerarMinuta');
-  if(btn){ btn.disabled=true; btn.textContent='⏳ Generando...'; }
-  const minutaDiv = document.getElementById('minutaOutput');
-  if(minutaDiv){ minutaDiv.innerHTML='<div style="text-align:center;padding:20px;color:var(--c-text3);font-size:13px">⏳ Procesando...</div>'; }
-
-  // Intentar con OpenAI si hay key guardada; si falla CORS, usar generación local
-  const savedKey = localStorage.getItem('hq_openai_key') || '';
-  if(savedKey) {
-    try {
-      await _generarMinutaOpenAI(note, savedKey, btn, minutaDiv);
-      return;
-    } catch(corsErr) {
-      console.warn('OpenAI CORS bloqueado, usando generación local:', corsErr.message);
-    }
-  }
-  // Generación local estructurada (sin API)
-  _generarMinutaLocal(note, btn, minutaDiv);
-}
-
-async function _generarMinutaOpenAI(note, apiKey, btn, minutaDiv) {
-
-  const prompt = `Eres un asistente experto en redacción corporativa. Tu tarea es mejorar y estructurar las notas de una reunión para convertirlas en una minuta ejecutiva profesional en español, lista para distribuirse por correo electrónico.
-
-DATOS DE LA REUNIÓN:
-- Asunto: ${note.title || 'Reunión de trabajo'}
-- Fecha: ${formatNoteDate(note.createdAt)}
-- Participantes: ${(note.participants||[]).join(', ') || 'No especificados'}
-- Temas: ${(note.tags||[]).join(', ') || ''}
-
-NOTAS DE LA REUNIÓN:
-${note.body}
-
-INSTRUCCIONES DE REDACCIÓN:
-1. Mantén la esencia y todos los puntos del texto original. No omitas información relevante.
-2. Mejora la redacción donde sea necesario: corrige errores, unifica el tono y elimina repeticiones, pero sin cambiar el significado ni agregar información que no esté en las notas.
-3. Usa un tono formal, corporativo y directo. Redacta en tercera persona cuando describas lo que alguien dijo o solicitó (ej. "Roberto solicitó que...", "Héctor presentó...").
-4. Organiza el contenido en secciones con encabezados en MAYÚSCULAS y sin símbolos especiales (sin #, sin *, sin emojis).
-5. Dentro de cada sección, usa viñetas con guión ( - ) para listar puntos o acuerdos cuando haya más de uno. Si hay una lista de ejemplos o sugerencias dentro de un punto, indéntalos con dos espacios adicionales.
-6. Los compromisos o próximos pasos deben incluir al responsable y, si se mencionó, la fecha o plazo.
-7. Texto limpio: sin asteriscos, sin almohadillas (#), sin emojis en el cuerpo del texto.
-8. No incluyas saludos, despedidas, ni frases introductorias como "A continuación se presenta".
-
-ESTRUCTURA ESPERADA:
-MINUTA DE REUNIÓN
-(Fecha, participantes)
-
-TEMAS TRATADOS
-(Desarrollo de cada punto con buena redacción)
-
-ACUERDOS Y COMPROMISOS
-(Lista numerada o con viñetas, con responsable y plazo cuando aplique)
-
-OBSERVACIONES
-(Solo si hay puntos adicionales relevantes que no encajen en las secciones anteriores)`;
-
-  try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        'Authorization': 'Bearer ' + apiKey.trim()
-      },
-      body: JSON.stringify({
-        model:'gpt-4o-mini',
-        max_tokens:2500,
-        messages:[
-          {role:'system', content:'Eres un asistente experto en redacción corporativa. Redactas minutas ejecutivas claras, completas y profesionales en español. Siempre respondes en español y nunca omites información relevante del texto original.'},
-          {role:'user', content:prompt}
-        ]
-      })
-    });
-    const data = await response.json();
-    if(data.error) throw new Error(data.error.message || 'Error de OpenAI');
-    const text = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
-    if(!text) throw new Error('Respuesta vacía de la IA');
-
-    note.minutaText = text;
-    note.minutaHtml = markdownToHtml(text);
-    note.minutaGeneratedAt = nowISOLocal();
-    await fbSaveNote(note);
-
-    if(minutaDiv) minutaDiv.innerHTML = `
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-        <span style="font-size:11px;color:var(--c-text3)">✨ Generada ${formatNoteDate(note.minutaGeneratedAt)}</span>
-        <div style="display:flex;gap:6px">
-          <button onclick="copyMinutaText()" style="padding:5px 12px;border-radius:6px;border:1px solid var(--c-border);background:var(--c-bg3);color:var(--c-text2);cursor:pointer;font-size:11px">📋 Copiar</button>
-          <button onclick="generarMinuta()" style="padding:5px 12px;border-radius:6px;border:1px solid var(--accent);background:var(--accent-light);color:var(--accent);cursor:pointer;font-size:11px">🔄 Regenerar</button>
-        </div>
-      </div>
-      <div class="minuta-render">${note.minutaHtml}</div>`;
-    toast('✨','¡Minuta generada!');
-  } catch(err) {
-    console.error('_generarMinutaOpenAI error:', err);
-    throw err; // re-lanzar para que generarMinuta use el fallback local
-  } finally {
-    if(btn){ btn.disabled=false; btn.textContent='✨ Generar Minuta IA'; }
-  }
-}
-
-// ── GENERACIÓN LOCAL DE MINUTA (sin API externa) ──
-function _generarMinutaLocal(note, btn, minutaDiv) {
-  try {
-    const lines = (note.body||'').split('\n').filter(l=>l.trim());
-    const acuerdos = lines.filter(l => l.includes('ACUERDO:') || l.includes('✅'));
-    const pendientes = lines.filter(l => l.includes('PENDIENTE:') || l.includes('📌'));
-    const otrasLineas = lines.filter(l => !l.includes('ACUERDO:') && !l.includes('PENDIENTE:') && !l.includes('✅') && !l.includes('📌'));
-    const partic = (note.participants||[]).join(', ') || 'No especificados';
-    const fecha = formatNoteDate(note.createdAt);
-    const titulo = note.title || 'Junta de trabajo';
-    const tags = (note.tags||[]).map(t=>'#'+t).join(', ');
-
-    const minutaMd = [
-      'MINUTA DE REUNIÓN',
-      '',
-      `Asunto:        ${titulo}`,
-      `Fecha:         ${fecha}`,
-      `Participantes: ${partic}`,
-      tags ? `Temas:         ${tags}` : '',
-      '',
-      'RESUMEN EJECUTIVO',
-      otrasLineas.length
-        ? otrasLineas.map(l => l.trim()).join(' ')
-        : `Reunión de trabajo sobre ${titulo} con la participación de ${partic}.`,
-      '',
-      'ACUERDOS',
-      acuerdos.length
-        ? acuerdos.map((a,i)=>`${i+1}. ${a.replace(/✅\s*ACUERDO:\s*/i,'').trim()}`).join('\n')
-        : '1. Sin acuerdos explícitos registrados.',
-      '',
-      'PRÓXIMOS PASOS',
-      pendientes.length
-        ? pendientes.map((p,i)=>`${i+1}. ${p.replace(/📌\s*PENDIENTE:\s*/i,'').trim()}`).join('\n')
-        : '1. Sin próximos pasos registrados.',
-      '',
-      'OBSERVACIONES',
-      `Minuta generada el ${fecha}.`,
-    ].filter(l=>l!==null && l!==undefined).join('\n');
-
-    note.minutaText = minutaMd;
-    note.minutaHtml = markdownToHtml(minutaMd);
-    note.minutaGeneratedAt = nowISOLocal();
-    fbSaveNote(note);
-
-    if(minutaDiv) minutaDiv.innerHTML = `
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-        <span style="font-size:11px;color:var(--c-text3)">📄 Generada localmente · ${formatNoteDate(note.minutaGeneratedAt)}</span>
-        <div style="display:flex;gap:6px">
-          <button onclick="copyMinutaText()" style="padding:5px 12px;border-radius:6px;border:1px solid var(--c-border);background:var(--c-bg3);color:var(--c-text2);cursor:pointer;font-size:11px">📋 Copiar</button>
-          <button onclick="generarMinuta()" style="padding:5px 12px;border-radius:6px;border:1px solid var(--accent);background:var(--accent-light);color:var(--accent);cursor:pointer;font-size:11px">🔄 Regenerar</button>
-        </div>
-      </div>
-      <div style="font-size:11px;background:#e0a75215;border:1px solid #e0a75240;border-radius:6px;padding:8px 10px;margin-bottom:10px;color:#c47a1a">
-        💡 Minuta estructurada automáticamente. Para versión con IA completa, agrega tu API key de OpenAI en la consola del browser:<br>
-        <code style="font-size:10px">localStorage.setItem('hq_openai_key','sk-...')</code>
-      </div>
-      <div class="minuta-render">${note.minutaHtml}</div>`;
-    toast('📄','Minuta generada');
-  } catch(err) {
-    console.error('_generarMinutaLocal error:', err);
-    if(minutaDiv) minutaDiv.innerHTML=`<div style="color:#e05222;padding:12px;font-size:13px">⚠️ Error: ${err.message||'Intenta de nuevo'}</div>`;
-  } finally {
-    if(btn){ btn.disabled=false; btn.textContent='✨ Generar Minuta IA'; }
-  }
-}
-
-// Mini markdown-to-html para mostrar la minuta
-function markdownToHtml(md) {
-  // Limpiar markdown residual que el modelo pudiera generar
-  let t = md
-    .replace(/^#{1,3}\s*/gm, '')          // quitar ## ### #
-    .replace(/\*\*(.+?)\*\*/g, '$1')    // quitar **bold**
-    .replace(/\*(.+?)\*/g, '$1')          // quitar *italic*
-    .replace(/^---+$/gm, '|||SEP|||')       // separadores → marcador
-    .replace(/^[-–•]\s+/gm, '')            // quitar viñetas con guión
-    .trim();
-
-  // Detectar secciones por encabezados conocidos
-  const SECS = [
-    'MINUTA DE REUNIÓN', 'MINUTA DE JUNTA',
-    'RESUMEN EJECUTIVO',
-    'ACUERDOS',
-    'PRÓXIMOS PASOS',
-    'OBSERVACIONES'
-  ];
-
-  // Envolver cada sección con HTML
-  SECS.forEach(sec => {
-    const re = new RegExp('(^|\n)(' + sec + ')\s*\n', 'i');
-    t = t.replace(re, (_, pre, title) =>
-      pre + '<div class="mn-section-hdr">' + title.toUpperCase() + '</div>\n'
-    );
-  });
-
-  // Listas numeradas → HTML limpio
-  t = t.replace(/^(\d+)\.\s+(.+)$/gm,
-    '<div class="mn-item"><span class="mn-num">$1.</span><span>$2</span></div>');
-
-  // Separadores
-  t = t.replace(/\|\|\|SEP\|\|\|/g,
-    '<div class="mn-sep"></div>');
-
-  // Párrafos
-  t = t.replace(/\n{2,}/g, '</p><p class="mn-p">');
-  t = '<p class="mn-p">' + t + '</p>';
-  t = t.replace(/<p class="mn-p">\s*<\/p>/g, '');
-  t = t.replace(/\n/g, ' ');
-
-  return `<style>
-    .mn-wrap{font-family:'Georgia',serif;color:#1a1a2e;max-width:600px}
-    .mn-section-hdr{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
-      color:#4a4a6a;border-bottom:2px solid #7c5cbf;padding-bottom:5px;margin:20px 0 10px}
-    .mn-section-hdr:first-child{margin-top:0}
-    .mn-item{display:flex;gap:10px;margin:5px 0;font-size:13px;line-height:1.6}
-    .mn-num{color:#7c5cbf;font-weight:700;min-width:18px;flex-shrink:0}
-    .mn-sep{border-top:1px solid #e4e6eb;margin:14px 0}
-    .mn-p{font-size:13px;line-height:1.7;margin:6px 0;color:#2a2a3e}
-  </style><div class="mn-wrap">${t}</div>`;
-}
-
-// ── VISTA PRINCIPAL DE NOTAS ──
-function buildNotas() {
-  if(!_notesLoaded) {
-    // Iniciar escucha la primera vez
-    if(typeof fbListenNotes === 'function' && notes.length === 0 && !_notesLoaded) {
-      fbListenNotes();
-    }
-    return `<div style="text-align:center;padding:40px;color:var(--c-text3)">
-      <div style="font-size:28px;margin-bottom:12px">📝</div>
-      <div>Cargando notas...</div></div>`;
-  }
-
-  // Si no hay nota activa, elegir la primera
-  if(!_activeNoteId && notes.length) _activeNoteId = notes[0].id;
-  const activeNote = notes.find(n=>Number(n.id)===Number(_activeNoteId));
-
-  const searchLower = _notesSearchQ.toLowerCase();
-  const filteredNotes = _notesSearchQ
-    ? notes.filter(n=>(n.title||'').toLowerCase().includes(searchLower)||(n.body||'').toLowerCase().includes(searchLower)||(n.participants||[]).some(p=>p.toLowerCase().includes(searchLower)))
-    : notes;
-
-  // Panel izquierdo — lista de notas
-  const leftPanel = `
-    <div class="notas-list-panel" style="width:260px;min-width:220px;border-right:1px solid var(--c-border);display:flex;flex-direction:column;background:var(--c-bg2);flex-shrink:0">
-      <div class="nota-new-btn" style="padding:10px 12px;border-bottom:1px solid var(--c-border)">
-        <button onclick="newNote()" style="width:100%;padding:8px;border-radius:var(--radius-sm);border:none;background:var(--accent);color:#fff;font-weight:600;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
-          ＋ Nueva nota de junta
-        </button>
-      </div>
-      <div style="padding:8px 10px;border-bottom:1px solid var(--c-border)">
-        <input placeholder="🔍 Buscar notas..." value="${_notesSearchQ}"
-          oninput="_notesSearchQ=this.value;renderView()"
-          style="width:100%;padding:6px 10px;border:1px solid var(--c-border);border-radius:20px;background:var(--c-bg3);color:var(--c-text);font-size:12px;box-sizing:border-box;outline:none"/>
-      </div>
-      <div style="flex:1;overflow-y:auto">
-        ${filteredNotes.length ? filteredNotes.map(n=>{
-          const isActive = Number(n.id)===Number(_activeNoteId);
-          const preview = (n.body||'').replace(/\n/g,' ').replace(/[✅📌🎙️]/g,'').slice(0,55);
-          const hasMinuta = !!n.minutaText;
-          return `<div onclick="selectNote(${n.id})" class="nota-card"
-            style="background:${isActive?'var(--accent-light)':'transparent'};
-              border-left:3px solid ${isActive?'var(--accent)':'transparent'}">
-            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px">
-              <div class="nota-card-title" style="font-weight:${isActive?'700':'500'}">${n.title||'<em style="color:var(--c-text3);font-weight:400">Sin título</em>'}</div>
-              ${hasMinuta?'<span title="Tiene minuta" style="font-size:11px;flex-shrink:0;opacity:.7">✨</span>':''}
-            </div>
-            <div class="nota-card-date">${formatNoteDate(n.createdAt)}</div>
-            ${preview?`<div class="nota-card-preview">${preview}</div>`:''}
-            ${(n.participants||[]).length?`<div class="nota-card-parts">👥 ${n.participants.slice(0,2).join(', ')}${n.participants.length>2?' +'+( n.participants.length-2):''}</div>`:''}
-          </div>`;
-        }).join('') : `<div style="text-align:center;padding:32px 16px;color:var(--c-text3)">
-          <div style="font-size:28px;margin-bottom:8px">📄</div>
-          <div style="font-size:12px">${_notesSearchQ?'Sin resultados':'Crea tu primera nota de junta'}</div>
-        </div>`}
-      </div>
-    </div>`;
-
-  // Panel derecho — editor
-  const rightPanel = activeNote ? `
-    <div style="flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--c-bg);overflow:hidden">
-
-      <!-- Barra superior del editor — desktop y móvil -->
-      <div class="note-toolbar">
-        <!-- Fila 1: fecha + botones primarios siempre visibles -->
-        <div class="note-toolbar-main">
-          <span class="note-ts">🕐 ${formatNoteDate(activeNote.updatedAt)}</span>
-          <div class="note-toolbar-actions">
-            <button onclick="saveNoteManual()" id="btnSaveNote" class="nta-save">💾 Guardar</button>
-            <button onclick="toggleNoteToolbar()" class="nta-more" title="Más acciones">··· Más</button>
-            <button onclick="deleteNote(${activeNote.id})" class="nta-del" title="Eliminar nota">🗑️</button>
-          </div>
-        </div>
-        <!-- Fila 2: acciones secundarias (colapsable en móvil) -->
-        <div class="note-toolbar-extra" id="noteToolbarExtra">
-          <button onclick="insertAgreementLine()" class="nta-chip nta-green">✅ Acuerdo</button>
-          <button onclick="insertActionLine()"    class="nta-chip nta-orange">📌 Pendiente</button>
-          <button onclick="toggleVoice()" id="voiceBtn" class="nta-chip">🎙️ Voz</button>
-          <button onclick="quickAddTaskFromNote()"  class="nta-chip">✅ Tarea</button>
-          <button onclick="quickAddEventFromNote()" class="nta-chip">📅 Evento</button>
-          <button onclick="copyNoteAsText()"        class="nta-chip">📋 Copiar nota</button>
-        </div>
-      </div>
-
-      <!-- Editor scrolleable -->
-      <div class="notas-editor-scroll" style="flex:1;overflow-y:auto;overflow-x:hidden;padding:16px 16px;display:flex;flex-direction:column;gap:12px;min-height:0">
-
-        <!-- Título del evento -->
-        <div>
-          <input id="noteTitle" placeholder="📌 Nombre del evento / junta..." value="${(activeNote.title||'').replace(/"/g,'&quot;')}"
-            oninput="autoSaveNote()"
-            style="width:100%;padding:10px 14px;border:1px solid var(--c-border);border-radius:var(--radius-sm);background:var(--c-bg2);color:var(--c-text);font-size:16px;font-weight:600;font-family:'Syne',sans-serif;box-sizing:border-box;outline:none"/>
-        </div>
-
-        <!-- Participantes -->
-        <div class="note-section">
-          <div class="note-section-lbl">👥 Participantes</div>
-          <div id="noteParticipants" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
-            ${(activeNote.participants||[]).map(p=>`
-              <span style="display:inline-flex;align-items:center;gap:4px;background:var(--accent-light);color:var(--accent);border:1px solid var(--accent);border-radius:20px;padding:3px 10px;font-size:12px;font-weight:500">
-                👤 ${p}
-                <button onclick="removeParticipant('${p.replace(/'/g,"\\'")}')"
-                  style="background:none;border:none;cursor:pointer;color:var(--accent);font-size:11px;padding:0;line-height:1">✕</button>
-              </span>`).join('')}
-          </div>
-          <div style="display:flex;gap:6px">
-            <input id="notePartInput" placeholder="Agrega un participante y presiona Enter"
-              onkeydown="addParticipantFromInput(event)"
-              class="note-field-inp"/>
-            <button onclick="addParticipantFromInput({type:'click'})"
-              style="padding:6px 12px;border-radius:6px;border:1px solid var(--accent);background:var(--accent-light);color:var(--accent);cursor:pointer;font-size:12px;font-weight:600">+ Agregar</button>
-          </div>
-        </div>
-
-        <!-- Etiquetas -->
-        <div class="note-section">
-          <div class="note-section-lbl">🏷️ Etiquetas</div>
-          <div id="noteTagsArea" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:7px">
-            ${(activeNote.tags||[]).map(t=>`
-              <span style="display:inline-flex;align-items:center;gap:4px;background:${noteTagColor(t)}22;color:${noteTagColor(t)};border:1px solid ${noteTagColor(t)}55;border-radius:20px;padding:2px 8px;font-size:11px">
-                #${t}
-                <button onclick="removeNoteTag('${t.replace(/'/g,"\\'")}')"
-                  style="background:none;border:none;cursor:pointer;color:${noteTagColor(t)};font-size:10px;padding:0">✕</button>
-              </span>`).join('')}
-          </div>
-          <input placeholder="#urgente → Enter para agregar" onkeydown="addNoteTag(event)" class="note-field-inp"/>
-        </div>
-
-        <!-- Texto de notas -->
-        <div>
-          <div style="font-size:11px;font-weight:600;color:var(--c-text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">
-            📄 Notas de la junta
-            <span id="voiceInterim" style="color:var(--accent);font-weight:400;font-style:italic;font-size:11px;margin-left:8px"></span>
-          </div>
-          <textarea id="noteBody" placeholder="Escribe o dicta las notas de la junta aquí...&#10;&#10;Tip: Usa los botones ✅ Acuerdo y 📌 Pendiente para estructurar,&#10;o activa 🎙️ Voz para dictar."
-            oninput="autoSaveNote()"
-            style="width:100%;min-height:220px;padding:12px 14px;border:1px solid var(--c-border);border-radius:var(--radius-sm);background:var(--c-bg2);color:var(--c-text);font-size:13px;font-family:'DM Sans',sans-serif;line-height:1.7;resize:vertical;box-sizing:border-box;outline:none">${(activeNote.body||'').replace(/</g,'&lt;')}</textarea>
-        </div>
-
-        <!-- Minuta IA -->
-        <div style="background:var(--c-bg2);border:1px solid var(--c-border);border-radius:var(--radius-sm);overflow:hidden;flex-shrink:0">
-          <div style="padding:12px 14px;border-bottom:1px solid var(--c-border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-            <div>
-              <div style="font-size:13px;font-weight:700;color:var(--c-text)">✨ Minuta Automática con IA</div>
-              <div style="font-size:11px;color:var(--c-text3);margin-top:2px">Resumen ejecutivo + acuerdos + próximos pasos</div>
-            </div>
-            <button id="btnGenerarMinuta" onclick="generarMinuta()"
-              style="padding:8px 16px;border-radius:var(--radius-sm);border:none;background:var(--accent);color:#fff;font-weight:600;font-size:12px;cursor:pointer">
-              ✨ Generar Minuta IA
-            </button>
-          </div>
-          <div id="minutaOutput" style="padding:${activeNote.minutaHtml?'16px':'20px'};${activeNote.minutaHtml?'':'text-align:center;color:var(--c-text3);font-size:12px'}">
-            ${activeNote.minutaHtml
-              ? `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-                  <span style="font-size:11px;color:var(--c-text3)">✨ Generada ${formatNoteDate(activeNote.minutaGeneratedAt)}</span>
-                  <div style="display:flex;gap:6px">
-                    <button onclick="copyMinutaText()" style="padding:5px 12px;border-radius:6px;border:1px solid var(--c-border);background:var(--c-bg3);color:var(--c-text2);cursor:pointer;font-size:11px">📋 Copiar</button>
-                    <button onclick="generarMinuta()" style="padding:5px 12px;border-radius:6px;border:1px solid var(--accent);background:var(--accent-light);color:var(--accent);cursor:pointer;font-size:11px">🔄 Regenerar</button>
-                  </div>
-                </div>
-                <div class="minuta-render">${activeNote.minutaHtml}</div>`
-              : '📄 Escribe las notas de la junta y presiona <strong>Generar Minuta IA</strong>'}
-          </div>
-        </div>
-
-      </div><!-- fin editor scrolleable -->
-    </div>` : `
-    <div style="flex:1;display:flex;align-items:center;justify-content:center;background:var(--c-bg);flex-direction:column;gap:16px;color:var(--c-text3)">
-      <div style="font-size:48px">📝</div>
-      <div style="font-size:15px;font-weight:600;color:var(--c-text2)">Notas de junta</div>
-      <div style="font-size:13px;max-width:280px;text-align:center;line-height:1.6">Crea notas durante tus juntas con participantes, acuerdos y generación automática de minuta con IA.</div>
-      <button onclick="newNote()" style="padding:10px 24px;border-radius:var(--radius-sm);border:none;background:var(--accent);color:#fff;font-weight:600;font-size:13px;cursor:pointer">
-        ＋ Nueva nota de junta
-      </button>
-    </div>`;
-
-  return `
-    <style>
-      /* ── Minuta render ── */
-      .minuta-render{font-size:13px;color:var(--c-text);line-height:1.7}
-      .minuta-render li{margin-left:8px}
-
-      /* ── Layout principal ── */
-      .notas-layout{display:flex;height:calc(100vh - 108px);overflow:hidden}
-
-      /* ── Toolbar del editor ── */
-      .note-toolbar{border-bottom:1px solid var(--c-border);background:var(--c-bg2);flex-shrink:0}
-      .note-toolbar-main{display:flex;align-items:center;gap:8px;padding:8px 14px}
-      .note-ts{font-size:11px;color:var(--c-text3);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-      .note-toolbar-actions{display:flex;gap:6px;align-items:center;flex-shrink:0}
-      .note-toolbar-extra{display:flex;gap:6px;flex-wrap:wrap;padding:6px 14px 10px;border-top:1px solid var(--c-border)}
-      .nta-save{padding:6px 14px;border-radius:6px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:12px;font-weight:600}
-      .nta-more{padding:6px 12px;border-radius:6px;border:1px solid var(--c-border);background:var(--c-bg3);color:var(--c-text2);cursor:pointer;font-size:12px;display:none}
-      .nta-del{padding:6px 10px;border-radius:6px;border:1px solid #e0522230;background:#e0522210;color:#e05222;cursor:pointer;font-size:13px}
-      .nta-chip{padding:6px 12px;border-radius:20px;border:1px solid var(--c-border);background:var(--c-bg3);color:var(--c-text2);cursor:pointer;font-size:12px;white-space:nowrap}
-      .nta-green{border-color:#22a56640;background:#22a56612;color:#22a566}
-      .nta-orange{border-color:#e0a75240;background:#e0a75212;color:#c47a1a}
-
-      /* ── Campos del editor más compactos en móvil ── */
-      .note-section{background:var(--c-bg2);border:1px solid var(--c-border);border-radius:var(--radius-sm);padding:12px}
-      .note-section-lbl{font-size:10px;font-weight:700;color:var(--c-text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px}
-      .note-field-inp{width:100%;padding:7px 10px;border:1px solid var(--c-border);border-radius:6px;background:var(--c-bg3);color:var(--c-text);font-size:12px;outline:none;box-sizing:border-box}
-
-      /* ── Panel izquierdo: lista de notas ── */
-      .nota-card{padding:12px 14px;cursor:pointer;border-bottom:1px solid var(--c-border);transition:background .12s}
-      .nota-card:active{background:var(--accent-light)}
-      .nota-card-title{font-size:13px;font-weight:600;color:var(--c-text);line-height:1.3}
-      .nota-card-date{font-size:11px;color:var(--c-text3);margin-top:2px}
-      .nota-card-preview{font-size:11px;color:var(--c-text3);margin-top:3px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-      .nota-card-parts{font-size:10px;color:var(--c-text3);margin-top:4px}
-
-      /* ── Responsive móvil ── */
-      @media(max-width:640px){
-        .notas-layout{flex-direction:column;height:calc(100vh - 54px)}
-        /* En móvil: lista arriba colapsada, editor abajo */
-        .notas-list-panel{width:100%!important;min-width:unset!important;border-right:none!important;
-          border-bottom:1px solid var(--c-border);max-height:200px;flex-shrink:0}
-        .notas-list-panel .nota-new-btn{display:block} /* siempre visible */
-        /* Toolbar móvil: colapsar acciones secundarias por defecto */
-        .note-toolbar-extra{display:none}
-        .note-toolbar-extra.open{display:flex}
-        .nta-more{display:flex!important}
-        /* Editor más compacto */
-        .notas-editor-scroll{padding:12px 12px!important}
-        /* Título más compacto */
-        #noteTitle{font-size:15px!important;padding:8px 12px!important}
-        /* Textarea más alto en móvil para escribir cómodo */
-        #noteBody{min-height:160px!important}
-        /* Secciones sin tanto padding */
-        .note-section{padding:10px}
-      }
-    </style>
-    <div class="notas-layout">
-      ${leftPanel}
-      ${rightPanel}
-    </div>`;
-}
-
-
-// ══════════════════════════════════════════════════════
-// CONFIGURACIÓN — Panel unificado de integraciones
-// ══════════════════════════════════════════════════════
-
-function getOpenAIConfig() {
-  return {
-    apiKey: localStorage.getItem('hq_openai_key') || '',
-  };
-}
-function saveOpenAIConfig(cfg) {
-  if(cfg.apiKey) localStorage.setItem('hq_openai_key', cfg.apiKey.trim());
-  else localStorage.removeItem('hq_openai_key');
-}
-
-function buildConfiguracion() {
-  const emailCfg = getEmailConfig();
-  const openaiCfg = getOpenAIConfig();
-  const notifOk = ('Notification' in window) && Notification.permission === 'granted';
-  const swOk = !!window._swReg;
-
-  return `
-  <div style="max-width:700px;margin:0 auto;padding:24px 20px;overflow-y:auto;height:100%">
-
-    <!-- Header -->
-    <div style="margin-bottom:24px">
-      <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:var(--c-text)">⚙️ Configuración</div>
-      <div style="font-size:13px;color:var(--c-text3);margin-top:4px">Gestiona todas las integraciones de HQ Centro de Control</div>
-    </div>
-
-    <!-- ── SECCIÓN: IA para Minutas ── -->
-    <div style="background:var(--c-bg2);border:1px solid var(--c-border);border-radius:var(--radius);margin-bottom:16px;overflow:hidden">
-      <div style="padding:14px 18px;border-bottom:1px solid var(--c-border);display:flex;align-items:center;gap:10px">
-        <div style="width:36px;height:36px;border-radius:10px;background:#10a37f22;display:flex;align-items:center;justify-content:center;font-size:18px">🤖</div>
-        <div>
-          <div style="font-weight:700;font-size:14px;color:var(--c-text)">IA para Minutas — OpenAI</div>
-          <div style="font-size:11px;color:var(--c-text3)">Genera minutas completas con GPT desde tus notas de junta</div>
-        </div>
-        <div style="margin-left:auto">
-          ${openaiCfg.apiKey
-            ? '<span style="background:#22a56620;color:#22a566;border:1px solid #22a56640;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600">✓ Conectado</span>'
-            : '<span style="background:#e0522220;color:#e05222;border:1px solid #e0522240;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600">Sin configurar</span>'}
-        </div>
-      </div>
-      <div style="padding:16px 18px;display:flex;flex-direction:column;gap:12px">
-        <div style="font-size:12px;color:var(--c-text3);background:var(--c-bg3);padding:10px 12px;border-radius:8px;line-height:1.6">
-          Obtén tu API key gratis en <a href="https://platform.openai.com/api-keys" target="_blank" style="color:var(--accent)">platform.openai.com → API Keys</a>.
-          Se guarda solo en este dispositivo. El modelo usado es <strong>gpt-4o-mini</strong> (~$0.001 por minuta).
-        </div>
-        <div>
-          <label style="font-size:11px;font-weight:600;color:var(--c-text3);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px">API Key de OpenAI</label>
-          <div style="display:flex;gap:8px">
-            <input id="cfg-openai-key" type="password"
-              placeholder="sk-proj-..." value="${openaiCfg.apiKey}"
-              style="flex:1;padding:9px 12px;border:1px solid var(--c-border);border-radius:var(--radius-sm);background:var(--c-bg3);color:var(--c-text);font-size:13px;font-family:monospace;outline:none"
-              oninput="document.getElementById('cfg-openai-key-show').checked=false">
-            <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--c-text3);cursor:pointer;flex-shrink:0">
-              <input type="checkbox" id="cfg-openai-key-show"
-                onchange="const i=document.getElementById('cfg-openai-key');i.type=this.checked?'text':'password'">
-              Ver
-            </label>
-            <button onclick="saveOpenAICfgFromForm()"
-              style="padding:9px 16px;border-radius:var(--radius-sm);border:none;background:var(--accent);color:#fff;font-weight:600;font-size:12px;cursor:pointer;flex-shrink:0">
-              💾 Guardar
-            </button>
-          </div>
-        </div>
-        ${openaiCfg.apiKey ? `
-        <div style="display:flex;gap:8px">
-          <button onclick="testOpenAIKey()"
-            style="padding:7px 14px;border-radius:var(--radius-sm);border:1px solid var(--accent);background:var(--accent-light);color:var(--accent);font-size:12px;cursor:pointer">
-            🧪 Probar conexión
-          </button>
-          <button onclick="if(confirm('¿Eliminar la API key guardada?')){localStorage.removeItem('hq_openai_key');renderView();toast('🗑️','API key eliminada')}"
-            style="padding:7px 14px;border-radius:var(--radius-sm);border:1px solid #e0522240;background:#e0522212;color:#e05222;font-size:12px;cursor:pointer">
-            🗑️ Eliminar key
-          </button>
-        </div>` : ''}
-      </div>
-    </div>
-
-    <!-- ── SECCIÓN: Correo EmailJS ── -->
-    <div style="background:var(--c-bg2);border:1px solid var(--c-border);border-radius:var(--radius);margin-bottom:16px;overflow:hidden">
-      <div style="padding:14px 18px;border-bottom:1px solid var(--c-border);display:flex;align-items:center;gap:10px">
-        <div style="width:36px;height:36px;border-radius:10px;background:#2d7dd222;display:flex;align-items:center;justify-content:center;font-size:18px">📧</div>
-        <div>
-          <div style="font-weight:700;font-size:14px;color:var(--c-text)">Recordatorios por Correo — EmailJS</div>
-          <div style="font-size:11px;color:var(--c-text3)">Resumen diario y recordatorios de tareas por email</div>
-        </div>
-        <div style="margin-left:auto">
-          ${emailCfg.publicKey && emailCfg.serviceId
-            ? '<span style="background:#22a56620;color:#22a566;border:1px solid #22a56640;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600">✓ Conectado</span>'
-            : '<span style="background:#e0522220;color:#e05222;border:1px solid #e0522240;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600">Sin configurar</span>'}
-        </div>
-      </div>
-      <div style="padding:16px 18px;display:flex;flex-direction:column;gap:10px">
-        <div style="font-size:12px;color:var(--c-text3);background:var(--c-bg3);padding:10px 12px;border-radius:8px;line-height:1.6">
-          Usa <strong>EmailJS</strong> — gratis hasta 200 correos/mes.
-          <a href="https://www.emailjs.com" target="_blank" style="color:var(--accent)">Regístrate aquí</a> y crea un servicio con tu Gmail.
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          <div>
-            <label style="font-size:11px;font-weight:600;color:var(--c-text3);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Tu correo</label>
-            <input id="cfg-email" class="form-inp" type="email" placeholder="tu@correo.com" value="${emailCfg.toEmail||''}">
-          </div>
-          <div>
-            <label style="font-size:11px;font-weight:600;color:var(--c-text3);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Tu nombre</label>
-            <input id="cfg-name" class="form-inp" placeholder="Héctor" value="${emailCfg.toName||''}">
-          </div>
-        </div>
-        <div>
-          <label style="font-size:11px;font-weight:600;color:var(--c-text3);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Public Key</label>
-          <input id="cfg-pk" class="form-inp" placeholder="user_XXXXXXXXXXXX" value="${emailCfg.publicKey||''}">
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          <div>
-            <label style="font-size:11px;font-weight:600;color:var(--c-text3);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Service ID</label>
-            <input id="cfg-svc" class="form-inp" placeholder="service_XXXXXXX" value="${emailCfg.serviceId||''}">
-          </div>
-          <div>
-            <label style="font-size:11px;font-weight:600;color:var(--c-text3);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Template ID</label>
-            <input id="cfg-tpl" class="form-inp" placeholder="template_XXXXXXX" value="${emailCfg.templateId||''}">
-          </div>
-        </div>
-        <div>
-          <label style="font-size:11px;font-weight:600;color:var(--c-text3);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Hora del resumen diario</label>
-          <select id="cfg-hr" class="form-inp" style="width:160px">
-            ${[6,7,8,9,10].map(h=>`<option value="${h}" ${(emailCfg.summaryHour||8)==h?'selected':''}>0${h}:00 AM</option>`).join('')}
-          </select>
-        </div>
-        <div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap">
-          <button onclick="saveEmailCfgFromSettings()"
-            style="padding:8px 16px;border-radius:var(--radius-sm);border:none;background:var(--accent);color:#fff;font-weight:600;font-size:12px;cursor:pointer">
-            💾 Guardar
-          </button>
-          <button onclick="testEmailCfg()"
-            style="padding:8px 14px;border-radius:var(--radius-sm);border:1px solid var(--c-border);background:var(--c-bg3);color:var(--c-text2);font-size:12px;cursor:pointer">
-            📤 Probar correo
-          </button>
-          <button onclick="scheduleEmailSummary()"
-            style="padding:8px 14px;border-radius:var(--radius-sm);border:1px solid var(--c-border);background:var(--c-bg3);color:var(--c-text2);font-size:12px;cursor:pointer">
-            📬 Activar resumen diario
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ── SECCIÓN: Notificaciones Push ── -->
-    <div style="background:var(--c-bg2);border:1px solid var(--c-border);border-radius:var(--radius);margin-bottom:16px;overflow:hidden">
-      <div style="padding:14px 18px;border-bottom:1px solid var(--c-border);display:flex;align-items:center;gap:10px">
-        <div style="width:36px;height:36px;border-radius:10px;background:#7c5cbf22;display:flex;align-items:center;justify-content:center;font-size:18px">🔔</div>
-        <div>
-          <div style="font-weight:700;font-size:14px;color:var(--c-text)">Notificaciones Push</div>
-          <div style="font-size:11px;color:var(--c-text3)">Alertas del navegador para tareas y eventos</div>
-        </div>
-        <div style="margin-left:auto">
-          ${notifOk
-            ? '<span style="background:#22a56620;color:#22a566;border:1px solid #22a56640;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600">✓ Activas</span>'
-            : '<span style="background:#e0a75220;color:#c47a1a;border:1px solid #e0a75240;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600">Sin activar</span>'}
-        </div>
-      </div>
-      <div style="padding:16px 18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
-        <div style="font-size:12px;color:var(--c-text3);max-width:400px;line-height:1.6">
-          ${notifOk
-            ? 'Las notificaciones están activas. Se programan recordatorios automáticos para eventos y tareas con hora.'
-            : 'Activa las notificaciones para recibir recordatorios de tareas y eventos directamente en el navegador.'}
-          <br>Service Worker: ${swOk ? '✓ registrado' : '✗ no disponible'}
-        </div>
-        <button onclick="requestNotifPermission();setTimeout(()=>renderView(),1000)"
-          style="padding:8px 16px;border-radius:var(--radius-sm);border:none;background:${notifOk?'var(--c-bg3)':'var(--accent)'};color:${notifOk?'var(--c-text2)':'#fff'};font-weight:600;font-size:12px;cursor:pointer">
-          ${notifOk ? '🔔 Reconfigurar' : '🔔 Activar notificaciones'}
-        </button>
-      </div>
-    </div>
-
-    <!-- ── SECCIÓN: Firebase ── -->
-    <div style="background:var(--c-bg2);border:1px solid var(--c-border);border-radius:var(--radius);margin-bottom:16px;overflow:hidden">
-      <div style="padding:14px 18px;border-bottom:1px solid var(--c-border);display:flex;align-items:center;gap:10px">
-        <div style="width:36px;height:36px;border-radius:10px;background:#f5a62322;display:flex;align-items:center;justify-content:center;font-size:18px">🔥</div>
-        <div>
-          <div style="font-weight:700;font-size:14px;color:var(--c-text)">Base de datos — Firebase</div>
-          <div style="font-size:11px;color:var(--c-text3)">Sincronización en tiempo real entre dispositivos</div>
-        </div>
-        <div style="margin-left:auto" id="cfg-fb-status">
-          <span style="background:#22a56620;color:#22a566;border:1px solid #22a56640;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600">✓ Conectado</span>
-        </div>
-      </div>
-      <div style="padding:14px 18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
-        <div style="font-size:12px;color:var(--c-text3);line-height:1.6">
-          Proyecto: <strong>hq-centro-control</strong> · Plan Spark (gratuito)<br>
-          Tareas cargadas: <strong>${typeof tasks !== 'undefined' ? tasks.length : 0}</strong> · 
-          Notas: <strong>${typeof notes !== 'undefined' ? notes.length : 0}</strong>
-        </div>
-        <button onclick="reloadFromFirebase()"
-          style="padding:8px 14px;border-radius:var(--radius-sm);border:1px solid var(--c-border);background:var(--c-bg3);color:var(--c-text2);font-size:12px;cursor:pointer">
-          🔄 Forzar sincronización
-        </button>
-      </div>
-    </div>
-
-    <!-- ── SECCIÓN: Datos & Exportar ── -->
-    <div style="background:var(--c-bg2);border:1px solid var(--c-border);border-radius:var(--radius);margin-bottom:24px;overflow:hidden">
-      <div style="padding:14px 18px;border-bottom:1px solid var(--c-border);display:flex;align-items:center;gap:10px">
-        <div style="width:36px;height:36px;border-radius:10px;background:#22a56622;display:flex;align-items:center;justify-content:center;font-size:18px">📊</div>
-        <div>
-          <div style="font-weight:700;font-size:14px;color:var(--c-text)">Datos & Exportación</div>
-          <div style="font-size:11px;color:var(--c-text3)">Exporta tus tareas a Excel o importa desde un archivo</div>
-        </div>
-      </div>
-      <div style="padding:14px 18px;display:flex;gap:10px;flex-wrap:wrap">
-        <button onclick="exportToExcel()"
-          style="padding:8px 16px;border-radius:var(--radius-sm);border:none;background:var(--accent);color:#fff;font-weight:600;font-size:12px;cursor:pointer">
-          📊 Exportar a Excel
-        </button>
-        <button onclick="document.getElementById('importFileInp').click()"
-          style="padding:8px 14px;border-radius:var(--radius-sm);border:1px solid var(--c-border);background:var(--c-bg3);color:var(--c-text2);font-size:12px;cursor:pointer">
-          📥 Importar CSV
-        </button>
-      </div>
-    </div>
-
-    <!-- Versión -->
-    <div style="text-align:center;font-size:11px;color:var(--c-text3);padding-bottom:20px">
-      HQ Centro de Control v8.4 · Firebase Spark · GitHub Pages
-    </div>
-
-  </div>`;
-}
-
-// ── Guardar OpenAI desde el panel de configuración ──
-function saveOpenAICfgFromForm() {
-  const key = (document.getElementById('cfg-openai-key')||{}).value || '';
-  if(!key.trim()) { toast('⚠️','Pega tu API key de OpenAI'); return; }
-  if(!key.trim().startsWith('sk-')) { toast('⚠️','La key debe empezar con sk-'); return; }
-  saveOpenAIConfig({apiKey: key.trim()});
-  toast('✅','API key de OpenAI guardada');
-  renderView();
-}
-
-async function testOpenAIKey() {
-  const key = localStorage.getItem('hq_openai_key') || '';
-  if(!key) { toast('⚠️','No hay API key guardada'); return; }
-  toast('🧪','Probando conexión con OpenAI...');
-  try {
-    const r = await fetch('https://api.openai.com/v1/models', {
-      headers:{'Authorization':'Bearer '+key}
-    });
-    const d = await r.json();
-    if(d.error) throw new Error(d.error.message);
-    toast('✅','¡Conexión con OpenAI exitosa!');
-  } catch(e) {
-    toast('❌','Error: '+(e.message||'revisa tu API key'));
-  }
-}
-
-// ── Guardar EmailJS desde el panel de configuración ──
-function saveEmailCfgFromSettings() {
-  const cfg = {
-    toEmail:    (document.getElementById('cfg-email')||{}).value||'',
-    toName:     (document.getElementById('cfg-name')||{}).value||'',
-    publicKey:  (document.getElementById('cfg-pk')||{}).value||'',
-    serviceId:  (document.getElementById('cfg-svc')||{}).value||'',
-    templateId: (document.getElementById('cfg-tpl')||{}).value||'',
-    summaryHour:(document.getElementById('cfg-hr')||{}).value||'8',
-  };
-  if(!cfg.toEmail){ toast('⚠️','Ingresa tu correo'); return; }
-  if(!cfg.publicKey || !cfg.serviceId || !cfg.templateId){
-    toast('⚠️','Completa los datos de EmailJS'); return;
-  }
-  saveEmailConfig(cfg);
-  initEmailJS();
-  toast('✅','Configuración de correo guardada');
-  renderView();
-}
-
-// ── Agregar Notas al menú móvil (ejecutar al cargar) ──
-// (el botón ya se agrega abajo en el HTML)
 
 // Verificar notificaciones push y programar correo DESPUÉS de que Firebase cargue
 // Se llama desde el listener de Firebase cuando llega el primer snapshot
@@ -8555,12 +7435,6 @@ function onFirstLoad() {
 <!-- ── MENÚ "MÁS" MÓVIL ── -->
 <div id="mobileMenuOverlay" style="display:none;position:fixed;inset:0;z-index:9980;background:rgba(0,0,0,.5)" onclick="toggleMobileMenu()">
   <div style="position:absolute;bottom:62px;left:0;right:0;background:var(--sb-bg);border-top:1px solid var(--sb-border);padding:12px;display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;max-height:80vh;overflow-y:auto" onclick="event.stopPropagation()">
-    <button class="mob-nav-btn" style="flex-direction:column;height:60px;border-radius:10px;border:1px solid var(--sb-border)" onclick="mobileNav('configuracion',null);toggleMobileMenu()">
-      <span class="mob-nav-icon">⚙️</span><span class="mob-nav-label">Config.</span>
-    </button>
-    <button class="mob-nav-btn" style="flex-direction:column;height:60px;border-radius:10px;border:1px solid var(--sb-border)" onclick="mobileNav('notas',null);toggleMobileMenu()">
-      <span class="mob-nav-icon">📝</span><span class="mob-nav-label">Notas</span>
-    </button>
     <button class="mob-nav-btn" style="flex-direction:column;height:60px;border-radius:10px;border:1px solid var(--sb-border)" onclick="mobileNav('midia',null);toggleMobileMenu()">
       <span class="mob-nav-icon">☀️</span><span class="mob-nav-label">Mi Día</span>
     </button>
