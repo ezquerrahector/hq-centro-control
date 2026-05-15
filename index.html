@@ -139,6 +139,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--c-bg);color:var(--c-text)
 .tact{width:24px;height:24px;border-radius:6px;border:none;background:var(--c-bg3);color:var(--c-text2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all .15s;}
 .tact:hover{background:var(--c-border2);}
 .tact.del:hover{background:rgba(224,82,82,.1);color:#e05252;}
+.tact.reviewed-btn{color:#22a566;}
+.tact.reviewed-btn:hover{background:rgba(34,165,102,.12);color:#22a566;}
+.task-item.reviewed-today{opacity:0.52;}
+.reviewed-badge{font-size:9px;color:#22a566;background:rgba(34,165,102,.12);padding:1px 6px;border-radius:10px;font-weight:600;flex-shrink:0;}
+.reviewed-separator{text-align:center;font-size:10px;color:var(--c-text3);padding:6px 0 2px;letter-spacing:.05em;opacity:.7;}
 
 /* ── PROJECT BLOCKS ── */
 .project-block{background:var(--c-bg2);border:1px solid var(--c-border);border-radius:var(--radius);overflow:hidden;margin-bottom:13px;}
@@ -408,6 +413,8 @@ textarea.form-inp{resize:vertical;min-height:65px;}
 .tree-task-hdr:hover .tree-task-actions{opacity:1;}
 .tree-act{width:24px;height:24px;border-radius:6px;border:none;background:var(--c-bg3);color:var(--c-text2);cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;transition:all .15s;}
 .tree-act:hover{background:var(--c-border2);}
+.tree-act.reviewed-btn{color:#22a566;}
+.tree-act.reviewed-btn:hover{background:rgba(34,165,102,.12);color:#22a566;}
 .tree-act.del:hover{background:rgba(224,82,82,.1);color:#e05252;}
 .tree-sub-count{font-size:10px;background:var(--c-bg3);color:var(--c-text3);padding:1px 7px;border-radius:20px;border:1px solid var(--c-border);}
 
@@ -1190,7 +1197,7 @@ console.log("Firebase compat cargado OK");
   <aside class="sidebar">
     <div class="sb-logo">
       <div class="logo-box" id="logoBox">HQ</div>
-      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v8.4</span></div></div>
+      <div><div class="logo-name">HQ Centro</div><div class="logo-sub">de Control <span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.3px">v8.5</span></div></div>
     </div>
 
     <div class="ctx-section">
@@ -1231,7 +1238,7 @@ console.log("Firebase compat cargado OK");
   <main class="main">
     <div class="topbar">
       <div class="topbar-title" id="topTitle">📊 Dashboard</div>
-      <span id="mobileVersion" style="font-size:9px;color:var(--c-text3);display:none">v8.4</span>
+      <span id="mobileVersion" style="font-size:9px;color:var(--c-text3);display:none">v8.5</span>
       <div class="search-wrap">
         <span style="color:var(--c-text3);font-size:14px">🔍</span>
         <input placeholder="Buscar tareas, etiquetas..." oninput="doSearch(this.value)"/>
@@ -1333,25 +1340,30 @@ function sortTasks(list) {
     if(!a.date&&!b.date)return 0; if(!a.date)return dir; if(!b.date)return -dir;
     return a.date.localeCompare(b.date)*dir;
   };
+  const isReviewed = t => t.reviewedDate === TODAY;
+  const pushReviewed = (sorted) => {
+    const normal   = sorted.filter(t => !isReviewed(t));
+    const reviewed = sorted.filter(t =>  isReviewed(t));
+    return [...normal, ...reviewed];
+  };
   switch(curSortOrder) {
-    case 'order':      return copy;
-    case 'date_asc':   return copy.sort((a,b)=>byDate(a,b,1));
-    case 'date_desc':  return copy.sort((a,b)=>byDate(a,b,-1));
-    case 'alpha_asc':  return copy.sort((a,b)=>(a.title||'').localeCompare(b.title||''));
-    case 'alpha_desc': return copy.sort((a,b)=>(b.title||'').localeCompare(a.title||''));
-    case 'proj_asc':   return copy.sort((a,b)=>(a.projId||'').localeCompare(b.projId||''));
-    case 'proj_desc':  return copy.sort((a,b)=>(b.projId||'').localeCompare(a.projId||''));
-    case 'reg_asc':    return copy.sort((a,b)=>Number(a.id)-Number(b.id));
-    case 'reg_desc':   return copy.sort((a,b)=>Number(b.id)-Number(a.id));
-    case 'prio_asc':   return copy.sort((a,b)=>(pOrd[a.priority]||3)-(pOrd[b.priority]||3));
-    case 'prio_desc':  return copy.sort((a,b)=>(pOrd[b.priority]||3)-(pOrd[a.priority]||3));
-    // Compatibilidad con valores anteriores
-    case 'date':     return copy.sort((a,b)=>byDate(a,b,1));
-    case 'alpha':    return copy.sort((a,b)=>(a.title||'').localeCompare(b.title||''));
-    case 'proj':     return copy.sort((a,b)=>(a.projId||'').localeCompare(b.projId||''));
-    case 'reg':      return copy.sort((a,b)=>Number(a.id)-Number(b.id));
-    case 'priority': return copy.sort((a,b)=>(pOrd[a.priority]||3)-(pOrd[b.priority]||3));
-    default:         return copy;
+    case 'order':      return pushReviewed(copy);
+    case 'date_asc':   return pushReviewed(copy.sort((a,b)=>byDate(a,b,1)));
+    case 'date_desc':  return pushReviewed(copy.sort((a,b)=>byDate(a,b,-1)));
+    case 'alpha_asc':  return pushReviewed(copy.sort((a,b)=>(a.title||'').localeCompare(b.title||'')));
+    case 'alpha_desc': return pushReviewed(copy.sort((a,b)=>(b.title||'').localeCompare(a.title||'')));
+    case 'proj_asc':   return pushReviewed(copy.sort((a,b)=>(a.projId||'').localeCompare(b.projId||'')));
+    case 'proj_desc':  return pushReviewed(copy.sort((a,b)=>(b.projId||'').localeCompare(a.projId||'')));
+    case 'reg_asc':    return pushReviewed(copy.sort((a,b)=>Number(a.id)-Number(b.id)));
+    case 'reg_desc':   return pushReviewed(copy.sort((a,b)=>Number(b.id)-Number(a.id)));
+    case 'prio_asc':   return pushReviewed(copy.sort((a,b)=>(pOrd[a.priority]||3)-(pOrd[b.priority]||3)));
+    case 'prio_desc':  return pushReviewed(copy.sort((a,b)=>(pOrd[b.priority]||3)-(pOrd[a.priority]||3)));
+    case 'date':     return pushReviewed(copy.sort((a,b)=>byDate(a,b,1)));
+    case 'alpha':    return pushReviewed(copy.sort((a,b)=>(a.title||'').localeCompare(b.title||'')));
+    case 'proj':     return pushReviewed(copy.sort((a,b)=>(a.projId||'').localeCompare(b.projId||'')));
+    case 'reg':      return pushReviewed(copy.sort((a,b)=>Number(a.id)-Number(b.id)));
+    case 'priority': return pushReviewed(copy.sort((a,b)=>(pOrd[a.priority]||3)-(pOrd[b.priority]||3)));
+    default:         return pushReviewed(copy);
   }
 }
 let curPrio='medium', _selCtxColorVal='#7c5cbf', _selCtxIconVal='👤';
@@ -2157,7 +2169,9 @@ function buildTaskCards(list){
     const pjl=pj?`<span style="font-size:9px;color:var(--c-text3);background:var(--c-bg3);padding:1px 5px;border-radius:3px">📁${pj.name.slice(0,14)}</span>`:'';
     const ctxC=contexts.find(c=>c.id===t.ctx);
     const ctxBadge=curCtxFilter==='all'&&ctxC?`<span style="font-size:9px;padding:1px 5px;border-radius:10px;background:${ctxC.color}22;color:${ctxC.color}">${ctxC.icon}</span>`:'';
-    return`<div class="task-item p-${t.priority}" id="tid-${t.id}"
+    const isReviewedToday = t.reviewedDate === TODAY;
+    const reviewedBadge = isReviewedToday ? `<span class="reviewed-badge">👁 revisada</span>` : '';
+    return`<div class="task-item p-${t.priority}${isReviewedToday?' reviewed-today':''}" id="tid-${t.id}"
       draggable="true"
       ondragstart="onTaskDragStart(event,${t.id})"
       ondragover="onTaskDragOver(event,${t.id})"
@@ -2169,7 +2183,7 @@ function buildTaskCards(list){
       <div class="task-check ${t.done?'checked':''}" onclick="event.stopPropagation();toggleDone(${t.id})">${t.done?'✓':''}</div>
       <div class="task-body">
         <div class="task-title">${t.title}</div>
-        <div class="task-meta">${tc}${pjl}${ctxBadge}<span class="task-due ${dc}">${dl}</span>${rl}${at}${sp}</div>
+        <div class="task-meta">${tc}${pjl}${ctxBadge}<span class="task-due ${dc}">${dl}</span>${rl}${at}${sp}${reviewedBadge}</div>
         ${t.subtasks&&t.subtasks.length?`
           <div id="subs-${t.id}" style="display:none;margin-top:6px">${renderSubtasks(t)}</div>` : ''}
       </div>
@@ -2177,6 +2191,7 @@ function buildTaskCards(list){
         ${t.subtasks&&t.subtasks.length?`<button class="tact" onclick="event.stopPropagation();toggleSubsPanel(${t.id})" title="Ver subtareas (${t.subtasks.length})">📋</button>`:''}
         <button class="tact" onclick="event.stopPropagation();openSubModal('sub',${t.id},null,null)" title="Nueva subtarea">➕</button>
         <button class="tact" onclick="openTaskModal(${t.id})" title="Editar tarea">✏️</button>
+        <button class="tact ${isReviewedToday?'reviewed-btn':''}" onclick="event.stopPropagation();markReviewed(${t.id})" title="${isReviewedToday?'Quitar revisada':'Marcar como revisada hoy'}">${isReviewedToday?'👁️':'👁'}</button>
         <button class="tact del" onclick="deleteTask(${t.id})" title="Eliminar tarea">🗑️</button>
       </div>
     </div>`;
@@ -2323,7 +2338,12 @@ function buildList(todayOnly){
   // Vista normal (Todas, Esta semana, Sin fecha)
   const list = getFiltered(false);
   if(!list.length) return toolbar + qa + `<div class="empty"><div class="empty-icon">✨</div><div class="empty-ttl">Sin pendientes</div><div class="empty-sub">Todo bajo control.</div></div>`;
-  return toolbar + qa + list.map(t => buildTreeTask(t)).join('');
+  const normalTasks   = list.filter(t => t.reviewedDate !== TODAY);
+  const reviewedTasks = list.filter(t => t.reviewedDate === TODAY);
+  const separator = reviewedTasks.length
+    ? `<div class="reviewed-separator">— ${reviewedTasks.length} revisada${reviewedTasks.length>1?'s':''} hoy —</div>`
+    : '';
+  return toolbar + qa + normalTasks.map(t => buildTreeTask(t)).join('') + separator + reviewedTasks.map(t => buildTreeTask(t)).join('');
 }
 
 // ── CONSTRUIR TAREA EN VISTA ÁRBOL ──
@@ -2345,6 +2365,8 @@ function buildTreeTask(t) {
   const pjl     = pj?`<span style="font-size:9px;color:var(--c-text3);background:var(--c-bg3);padding:1px 5px;border-radius:3px;cursor:pointer" title="Ver proyecto: ${pj.name}" onclick="event.stopPropagation();gotoProject('${pj.id}')">📁${pj.name.slice(0,16)}</span>`:'';
   const recurBadge = t.recurring&&t.recurring!=='none'?`<span style="font-size:10px;color:var(--c-text3)">🔁</span>`:'';
   const attBadge   = t.attachments&&t.attachments.length?`<span style="font-size:10px;color:var(--c-text3)">📎${t.attachments.length}</span>`:'';
+  const isReviewedToday = t.reviewedDate === TODAY;
+  const reviewedBadge   = isReviewedToday ? `<span class="reviewed-badge">👁 revisada</span>` : '';
 
   // Barra de progreso subtareas
   const pct    = subTot ? Math.round(subDone/subTot*100) : 0;
@@ -2373,7 +2395,7 @@ function buildTreeTask(t) {
     ondragleave="onTaskDragLeave(event)"
     ondrop="onTaskDrop(event,${t.id})"
     ondragend="onTaskDragEnd(event)">
-    <div class="tree-task-hdr p-${prio}" onclick="openDetail(${t.id})">
+    <div class="tree-task-hdr p-${prio}${isReviewedToday?' reviewed-today':''}" onclick="openDetail(${t.id})">
       <span class="drag-handle" onclick="event.stopPropagation()" title="Arrastra">⠿</span>
       <button id="treeexp-${t.id}" class="tree-expand ${isOpen&&hasSubs?'open':''}"
         onclick="event.stopPropagation();toggleTreeTask(${t.id})"
@@ -2384,12 +2406,13 @@ function buildTreeTask(t) {
         onclick="event.stopPropagation();toggleDone(${t.id})">${t.done?'✓':''}</div>
       <div class="tree-task-info">
         <div class="tree-task-title ${doneCls}">${t.title}</div>
-        <div class="tree-task-meta">${tagHTML}${pjl}${ctxBadge}${dl?`<span class="task-due ${dc}" ${dlClick}>${dl}</span>`:''}${recurBadge}${attBadge}${progBar}</div>
+        <div class="tree-task-meta">${tagHTML}${pjl}${ctxBadge}${dl?`<span class="task-due ${dc}" ${dlClick}>${dl}</span>`:''}${recurBadge}${attBadge}${progBar}${reviewedBadge}</div>
       </div>
       <div class="tree-task-actions" onclick="event.stopPropagation()">
         <button class="tree-act" onclick="openSubModal('sub',${t.id},null,null)" title="Nueva subtarea">➕</button>
         <button class="tree-act" onclick="duplicateTask(${t.id})" title="Duplicar tarea">⧉</button>
         <button class="tree-act" onclick="openTaskModal(${t.id})" title="Editar">✏️</button>
+        <button class="tree-act ${isReviewedToday?'reviewed-btn':''}" onclick="event.stopPropagation();markReviewed(${t.id})" title="${isReviewedToday?'Quitar revisada':'Marcar como revisada hoy'}">${isReviewedToday?'👁️':'👁'}</button>
         <button class="tree-act del" onclick="deleteTask(${t.id})" title="Eliminar">🗑️</button>
       </div>
     </div>
@@ -4434,6 +4457,20 @@ function toggleDone(id){
   const t=tasks.find(x=>x.id===id);if(!t)return;
   t.done=!t.done;fbSaveTask(t);updateBadges();renderView();
   toast(t.done?'✅':'↩️',t.done?'Tarea completada ☁️':'Tarea recuperada ☁️');
+}
+
+function markReviewed(id){
+  const t=tasks.find(x=>x.id===id);if(!t)return;
+  const alreadyReviewed = t.reviewedDate === TODAY;
+  if(alreadyReviewed){
+    t.reviewedDate = null;
+    toast('↩️','Marcada como no revisada');
+  } else {
+    t.reviewedDate = TODAY;
+    toast('👁️','Revisada hoy — bajando al fondo');
+  }
+  fbSaveTask(t);
+  renderView();
 }
 
 // FIX: restore funciona correctamente poniendo done=false y re-renderizando
@@ -8513,7 +8550,7 @@ function buildConfiguracion() {
 
     <!-- Versión -->
     <div style="text-align:center;font-size:11px;color:var(--c-text3);padding-bottom:20px">
-      HQ Centro de Control v8.4 · Firebase Spark · GitHub Pages
+      HQ Centro de Control v8.5 · Firebase Spark · GitHub Pages
     </div>
 
   </div>`;
